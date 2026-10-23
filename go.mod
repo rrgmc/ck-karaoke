@@ -1,6 +1,6 @@
 module github.com/rrgmc/ck-karaoke
 
-go 1.26.5
+go 1.27.3
 
 require (
 	github.com/sandertv/go-raknet v0.0.0-00010101000000-000000000000

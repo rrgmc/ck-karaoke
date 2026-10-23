@@ -1,6 +1,6 @@
 module github.com/rrgmc/ck-karaoke/ports/desktop
 
-go 1.26.5
+go 1.27.3
 
 require (
 	github.com/rrgmc/ck-karaoke v0.0.0
