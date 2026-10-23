@@ -54,15 +54,15 @@ jobs:
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "8.14.3"
       # Without the four ANDROID_* secrets the APK is signed with a throwaway
@@ -88,7 +88,7 @@ jobs:
           mkdir -p dist
           cp ports/android/app/build/outputs/apk/release/app-release.apk \
             "dist/ck-karaoke-$VERSION-android.apk"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android
           path: dist/*
@@ -105,8 +105,8 @@ jobs:
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: ports/desktop/go.mod
           cache-dependency-path: ports/desktop/go.sum
@@ -126,7 +126,7 @@ jobs:
           cp "build/bin/CK Karaoke-amd64-installer.exe" \
             "../../dist/ck-karaoke-$VERSION-windows-amd64-setup.exe"
           cp build/bin/ck-karaoke.exe "../../dist/ck-karaoke-$VERSION-windows-amd64.exe"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: dist/*
@@ -142,8 +142,8 @@ jobs:
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: ports/desktop/go.mod
           cache-dependency-path: ports/desktop/go.sum
@@ -161,7 +161,7 @@ jobs:
           mkdir -p ../../dist
           hdiutil create -volname "CK Karaoke" -srcfolder "build/bin/CK Karaoke.app" \
             -ov -format UDZO "../../dist/ck-karaoke-$VERSION-macos-universal.dmg"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos
           path: dist/*
@@ -174,8 +174,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true

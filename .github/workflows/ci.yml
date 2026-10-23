@@ -25,8 +25,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Check formatting
@@ -63,37 +63,46 @@ jobs:
             tags: desktop,production
           - os: macos-latest
             tags: desktop,production
+            # The Wails CLI adds this framework itself; a plain go build
+            # must name it or the link fails on UTType.
+            ldflags: -framework UniformTypeIdentifiers -mmacosx-version-min=10.13
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: ports/desktop
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: ports/desktop/go.mod
           cache-dependency-path: ports/desktop/go.sum
+      # Skipping recommended packages and man-db's index rebuild keeps this to
+      # about a minute.
       - name: Install WebKitGTK
         if: runner.os == 'Linux'
         run: |
+          sudo rm -f /var/lib/man-db/auto-update
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev libwebkit2gtk-4.1-dev
       - run: go vet -tags ${{ matrix.tags }} .
       - run: go build -tags ${{ matrix.tags }} -o ck-karaoke-ci .
+        env:
+          CGO_LDFLAGS: ${{ matrix.ldflags }}
 
   android:
     name: Android
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "8.14.3"
       - run: ./ports/android/build.sh
@@ -102,8 +111,8 @@ jobs:
     name: iOS
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - run: brew install xcodegen

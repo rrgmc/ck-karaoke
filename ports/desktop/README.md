@@ -40,10 +40,15 @@ The release builds are not code-signed. Windows SmartScreen may warn on first
 run ("More info", then "Run anyway"). On macOS, open the app once with
 right-click, Open, or run `xattr -dr com.apple.quarantine "/Applications/CK Karaoke.app"`.
 
-Without the CLI, plain Go works too, minus the embedded Windows icon:
+Without the CLI, plain Go works too, minus the icon and the app bundle:
 
 ```bash
+# Windows
 go build -tags desktop,production -ldflags "-H windowsgui" -o build/bin/ck-karaoke.exe .
+# macOS: name the framework the Wails CLI would add
+CGO_LDFLAGS="-framework UniformTypeIdentifiers -mmacosx-version-min=10.13"   go build -tags desktop,production -o build/bin/ck-karaoke .
+# Linux
+go build -tags desktop,production,webkit2_41 -o build/bin/ck-karaoke .
 ```
 
 The icon comes from `build/appicon.png`, which `internal/cmd/genicon` renders.
