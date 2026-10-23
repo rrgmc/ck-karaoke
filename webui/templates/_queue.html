@@ -20,6 +20,7 @@
             <button class="btn btn-outline-danger icon-btn"
                     title="Remove from queue" aria-label="Remove from queue"
                     hx-post="/song/{{.SongID}}/remove" hx-target="#qsong-{{.SongID}}"
+                    hx-confirm="Remove “{{.Title}}” from the queue?"
                     hx-swap="innerHTML">✕</button>
           </div>
         </div>

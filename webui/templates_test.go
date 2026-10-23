@@ -88,6 +88,23 @@ func TestSongRowsHideQueueSkippingActions(t *testing.T) {
 	}
 }
 
+// Removing a song from the queue drops someone else's turn, so a mistap must
+// not do it on its own.
+func TestQueueRemoveAsksFirst(t *testing.T) {
+	tmpl := templates(t)
+
+	data := queueData{
+		Entries: []queueEntry{{Position: 1, SongID: "2511", Title: "A DAY IN THE LIFE", Artist: "Beatles"}},
+		Total:   1,
+	}
+	var buf bytes.Buffer
+	require.NoError(t, tmpl.ExecuteTemplate(&buf, "_queue.html", data))
+
+	got := buf.String()
+	assert.Contains(t, got, `hx-post="/song/2511/remove"`)
+	assert.Contains(t, got, `hx-confirm="Remove “A DAY IN THE LIFE” from the queue?"`)
+}
+
 // The whole player is replaced every time the device reports, so any button
 // without hx-preserve is destroyed and rebuilt about thirty times a minute —
 // which is what made a tapped button flicker. Preserving needs a unique id on
