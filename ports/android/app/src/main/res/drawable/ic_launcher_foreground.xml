@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A microphone in its cradle, with sound waves on both sides. The same
+     geometry as assets/icon/icon.svg and internal/cmd/genicon; change all three
+     together. Everything sits inside the 72-unit safe zone of the 108 canvas. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Head -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M44,40 A10,10 0 0 1 64,40 V48 A10,10 0 0 1 44,48 Z" />
+
+    <!-- Cradle, stem and base -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M38,48 A16,16 0 0 0 70,48 M54,64 V76 M44,76 H64" />
+
+    <!-- Sound waves -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M73.92,27.29 A26,26 0 0 1 73.92,60.71 M79.28,22.79 A33,33 0 0 1 79.28,65.21 M34.08,27.29 A26,26 0 0 0 34.08,60.71 M28.72,22.79 A33,33 0 0 0 28.72,65.21" />
+</vector>
