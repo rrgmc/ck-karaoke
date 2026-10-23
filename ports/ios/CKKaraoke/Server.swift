@@ -127,7 +127,7 @@ enum Server {
     /// queue.
     ///
     /// There is no deadline while the server is still working. The first run
-    /// downloads the whole song catalogue, which can take twenty seconds, and a
+    /// downloads the whole song catalogue, which takes several seconds, and a
     /// fixed deadline would report failure on a server doing exactly what it is
     /// supposed to. The only failure
     /// signal that means anything is the server saying so.
@@ -146,7 +146,7 @@ enum Server {
                     return
                 }
                 // Only on a change: this loop runs at 10Hz and the download takes
-                // upwards of twenty seconds.
+                // several seconds.
                 let now = Self.startup
                 if lastReported != now {
                     lastReported = now

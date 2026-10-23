@@ -106,8 +106,9 @@ type Config struct {
 	// Progress reports how much of the song catalogue has been downloaded.
 	//
 	// Only a first run has anything to report — the catalogue is kept — but that
-	// run takes upwards of twenty seconds, which is long enough that a caller
-	// showing a bare spinner cannot be told apart from one that has hung.
+	// run takes several seconds, longer on a slow network, which is long enough
+	// that a caller showing a bare spinner cannot be told apart from one that
+	// has hung.
 	Progress func(have, total int)
 
 	// OnDevice hands over the session as soon as it exists, so a caller can

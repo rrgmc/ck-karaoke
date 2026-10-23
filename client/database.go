@@ -29,6 +29,11 @@ func (c *Client) send(msg protocol.Message) error {
 	return c.SendRaw(data)
 }
 
+// ErrDownloadComplete is returned by a DownloadDatabase sink to say that the
+// whole file has arrived. DownloadDatabase then ends the transfer at once and
+// reports success, instead of waiting for the stream to go quiet.
+var ErrDownloadComplete = errors.New("database download complete")
+
 // DownloadOptions tunes the database transfer.
 type DownloadOptions struct {
 	// Path and Name locate the database on the device. Both default to the
@@ -47,8 +52,10 @@ type DownloadOptions struct {
 // file — feed them to catalog.Reassembler, which works the boundaries out from
 // the SQLite header instead. catalog.Fetch does all of this for you.
 //
-// The device does not announce the transfer size or send a terminator, so the
-// transfer ends once chunks stop arriving for Idle.
+// The device does not announce the transfer size or send a terminator. The
+// transfer ends when sink returns ErrDownloadComplete, or once chunks stop
+// arriving for Idle. catalog.Fetch knows the size from the SQLite header in the
+// first chunk, so it ends the transfer as soon as the last chunk arrives.
 func (c *Client) DownloadDatabase(ctx context.Context, sink func(chunk []byte) error, opts DownloadOptions) (int, error) {
 	if opts.Path == "" {
 		opts.Path = protocol.DefaultDatabasePath
@@ -65,6 +72,8 @@ func (c *Client) DownloadDatabase(ctx context.Context, sink func(chunk []byte) e
 		chunks  int
 		sinkErr error
 		last    = time.Now()
+		// Closed when sink reports the file complete.
+		complete = make(chan struct{})
 	)
 
 	// Chunks arrive on the frame path, so intercept them for the duration.
@@ -79,10 +88,17 @@ func (c *Client) DownloadDatabase(ctx context.Context, sink func(chunk []byte) e
 		}
 		mu.Lock()
 		defer mu.Unlock()
+		if sinkErr != nil {
+			// Complete or failed: the rest is not the sink's business.
+			return
+		}
 		last = time.Now()
 		chunks++
-		if err := sink(chunk.Raw); err != nil && sinkErr == nil {
+		if err := sink(chunk.Raw); err != nil {
 			sinkErr = err
+			if errors.Is(err, ErrDownloadComplete) {
+				close(complete)
+			}
 		}
 	})
 	defer c.setFrameHandler(prev)
@@ -109,17 +125,25 @@ func (c *Client) DownloadDatabase(ctx context.Context, sink func(chunk []byte) e
 		}
 	}
 
-	// Wait for the stream to go quiet.
+	// Wait for the file to complete or the stream to go quiet.
 	tick := time.NewTicker(500 * time.Millisecond)
 	defer tick.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return chunks, ctx.Err()
+		case <-complete:
+			mu.Lock()
+			n := chunks
+			mu.Unlock()
+			return n, nil
 		case <-tick.C:
 			mu.Lock()
 			idle, n, err := time.Since(last), chunks, sinkErr
 			mu.Unlock()
+			if errors.Is(err, ErrDownloadComplete) {
+				return n, nil
+			}
 			if err != nil {
 				return n, err
 			}

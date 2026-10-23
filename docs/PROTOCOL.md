@@ -464,8 +464,11 @@ The device holds its catalogue as a SQLite file and sends it on request.
 
 3. The device streams the file as a few very large **chunk frames**, each
    starting with `4B`. A 2.2 MB catalogue typically arrives as two frames.
-4. The device sends no size and no terminator. Treat the transfer as finished
-   when no chunk has arrived for 15 seconds.
+4. The device sends no size and no terminator. The SQLite header at the start
+   of the first chunk's payload gives the file size (page size × page count),
+   and the transfer is finished once that many bytes have arrived. A client
+   that does not read the header can treat 15 seconds without a chunk as the
+   end.
 
 Bare step frames sit outside the control frame format: one id byte, optionally
 followed by payload. The device may also send `84` (ready) and `22` (info) step

@@ -40,9 +40,9 @@ final class RootViewController: UIViewController {
             failed: { [weak self] reason in self?.showFailure(reason) })
     }
 
-    /// Says what the wait is for. Downloading the catalogue takes upwards of
-    /// twenty seconds on a first run, and a spinner alone gives no way to tell
-    /// that from a hang — which is exactly what it looked like.
+    /// Says what the wait is for. Downloading the catalogue takes several
+    /// seconds on a first run, and a spinner alone gives no way to tell that
+    /// from a hang.
     private func showProgress(_ state: Server.Startup) {
         switch state {
         case .starting:

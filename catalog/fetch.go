@@ -35,9 +35,14 @@ func Fetch(ctx context.Context, dev Downloader, path string, progress Progress) 
 		if err := r.Add(chunk); err != nil {
 			return err
 		}
+		have, total := r.Size()
 		if progress != nil {
-			have, total := r.Size()
 			progress(have, total)
+		}
+		// The device sends no terminator, so without this the transfer would
+		// wait out client.DownloadOptions.Idle after the last chunk.
+		if total > 0 && have == total {
+			return client.ErrDownloadComplete
 		}
 		return nil
 	}, client.DownloadOptions{})

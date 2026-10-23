@@ -7,7 +7,7 @@
 //
 // Everything here is called from Swift, so the surface is deliberately tiny —
 // strings in, an int out, and no callbacks. Swift polls CKPort because the
-// first run downloads the song catalogue and takes about twenty seconds, and a
+// first run downloads the song catalogue and takes several seconds, and a
 // deadline long enough for that is indistinguishable from no deadline at all.
 package main
 
