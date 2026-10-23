@@ -1,7 +1,7 @@
 # Device protocol
 
 This document specifies the LAN protocol that CK Karaoke uses to control
-compatible karaoke units: the Videoke VSK family and other devices sold under
+compatible karaoke units: the **Videoke VSK** family and other devices sold under
 the CooKara and RafKara names. The reference implementation is the `protocol`
 package (wire format) and the `client` package (session and commands).
 

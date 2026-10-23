@@ -5,7 +5,7 @@
 **English** | [Português (Brasil)](README.pt-BR.md)
 
 CK Karaoke turns your phone or computer into a remote control for your karaoke
-unit. It works with the Videoke VSK family and with units sold under the
+unit. It works with the **Videoke VSK** family and with units sold under the
 CooKara and RafKara names.
 
 With it you can:
