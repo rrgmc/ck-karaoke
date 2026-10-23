@@ -17,6 +17,7 @@ favorites/             favorites folders (SQLite)
   qrshare/             one folder as a numeric QR code
   xmlbackup/           every folder as an XML backup file
 webui/                 the web UI: handlers, templates, static assets, event stream
+i18n/                  translations: language matching and the pt-BR catalogue
 server/                assembles the whole server from a Config
 cmd/ck-karaoke-server/ debug server for the command line (also the Android binary)
 ports/android/         Android app (Kotlin)

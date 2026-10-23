@@ -31,6 +31,33 @@ ports/android   ports/ios   ports/desktop   cmd/ck-karaoke-server
 - `webui` serves htmx pages and one server-sent event stream, and holds the
   long-lived device session in `webui.Device`.
 - `server` assembles everything from a `server.Config`.
+- `i18n` holds the translations that `webui` and `ports/desktop` use.
+
+## Translations
+
+The app is in English and Brazilian Portuguese. The web UI answers each request
+in the language that best matches its `Accept-Language` header, so it follows
+the system language of the phone or computer showing it, through its web view.
+
+- **The English text is the key.** Code and templates write the English message
+  (`lang.T("Added to %s", name)`, `{{t "Pause"}}`), and `i18n/pt_br.go` maps it
+  to Portuguese. A missing translation falls back to English.
+- **Templates are parsed once per language.** Each set binds its own `t`, `tn`
+  and `th` functions, so no data has to carry the language. `tn` picks a
+  singular or plural form; `th` is for a message with its own markup.
+- **Pushed updates are rendered per language.** The event stream fans out to
+  pages in different languages, so `hub.publish` takes a function and renders it
+  once for each language that has a page open.
+- **The library stays English.** Its errors are for logs and callers;
+  `webui.errorText` maps the ones a user meets to translated messages.
+- **Tests keep the catalogue complete.** `webui/i18n_test.go` extracts every
+  literal message from the templates and the Go code of `webui` and
+  `ports/desktop`, and fails on a missing or unused translation.
+  `i18n/i18n_test.go` checks that each translation keeps its format verbs.
+- **The native shells use their platform's own mechanism**: string resources on
+  Android, `Localizable.strings` on iOS. On iOS and macOS the bundle has to
+  declare `pt-BR` (`CFBundleLocalizations`), because WKWebView builds its
+  `Accept-Language` from the languages the bundle declares.
 
 ## The server is assembled by `server.Run`, not by `main`
 

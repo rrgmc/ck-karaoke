@@ -18,8 +18,9 @@ Com ele você pode:
 - guardar favoritos em pastas, e compartilhar uma pasta com outro celular por
   QR code.
 
-A interface do aplicativo está em inglês. Este guia mostra os nomes dos botões
-como aparecem na tela.
+O aplicativo aparece em português quando o celular ou computador está em
+português, e em inglês nos outros casos. Este guia usa os nomes dos botões em
+português.
 
 <p>
   <img src="docs/screenshots/search.png" width="190" alt="Pesquisa na lista de músicas">
@@ -65,44 +66,42 @@ conectado ao aparelho, e vermelho quando não está.
 
 ## Usando o aplicativo
 
-O aplicativo tem três abas na parte de baixo: **Songs** (músicas), **Now**
-(tocando agora) e **Queue** (fila).
+O aplicativo tem três abas na parte de baixo: **Músicas**, **Tocando** e
+**Fila**.
 
-### Songs
+### Músicas
 
-A aba **Songs** lista todas as músicas do aparelho.
+A aba **Músicas** lista todas as músicas do aparelho.
 
 - Digite um título ou o número de uma música na caixa de pesquisa.
 - Escolha o idioma das músicas na lista abaixo da caixa de pesquisa, e a ordem
   com **A–Z**.
-- Toque em **Artists** para listar os artistas. Toque em um artista para ver
+- Toque em **Artistas** para listar os artistas. Toque em um artista para ver
   as músicas dele.
 - Toque em **+** em uma música para adicioná-la ao fim da fila do aparelho.
 - Toque no botão de vídeo para procurar a música no YouTube.
-- Toque em **⋯** para mostrar também **Play next** (tocar a seguir) e
-  **Play now** (tocar agora) em cada música. Eles ficam ocultos por padrão,
+- Toque em **⋯** para mostrar também **Tocar em seguida** e **Tocar agora** em
+  cada música. Eles ficam ocultos por padrão,
   para que ninguém passe uma música na frente das outras por engano.
 
-### Now
+### Tocando
 
-A aba **Now** mostra a música que está tocando e controla o aparelho:
+A aba **Tocando** mostra a música que está tocando e controla o aparelho:
 
-- **Pause** (pausar), **Next** (próxima), **Skip** (pular), **Stop** (parar) e
-  **Repeat** (repetir);
-- **Key** (tom) e **Tempo** (andamento), com **reset** para voltar ao
-  original;
-- os volumes **Song** (música), **Mic** (microfone) e **Echo** (eco);
-- **Melody**, que liga ou desliga a melodia-guia.
+- **Pausar**, **Próxima**, **Pular**, **Parar** e **Repetir**;
+- **Tom** e **Andamento**, com **zerar** para voltar ao original;
+- os volumes **Música**, **Microfone** e **Eco**;
+- **Melodia**, que liga ou desliga a melodia-guia.
 
-### Queue
+### Fila
 
-A aba **Queue** mostra as músicas que aguardam para tocar. Toque em **✕** para
+A aba **Fila** mostra as músicas que aguardam para tocar. Toque em **✕** para
 remover uma música.
 
 ### Favoritos
 
 Toque em **☆** em uma música para colocá-la em uma pasta de favoritos. Toque em
-**★** no topo da aba **Songs** para ver suas pastas. Use **+ Folder** para
+**★** no topo da aba **Músicas** para ver suas pastas. Use **+ Pasta** para
 criar uma nova.
 
 Os favoritos ficam guardados em cada celular ou computador, não no aparelho.
@@ -114,10 +113,10 @@ Os favoritos ficam guardados em cada celular ou computador, não no aparelho.
 
 Para copiar uma pasta para outro celular:
 
-1. No celular que tem as músicas, abra a pasta, toque em **Sync** e escolha
-   **Send**. Ele mostra um QR code.
+1. No celular que tem as músicas, abra a pasta, toque em **Sincronizar** e
+   escolha **Enviar**. Ele mostra um QR code.
 2. No outro celular, abra a pasta que vai receber as músicas, ou crie uma
-   nova. Toque em **Sync**, escolha **Receive** e aponte a câmera para o
+   nova. Toque em **Sincronizar**, escolha **Receber** e aponte a câmera para o
    código.
 
 O celular que recebe adiciona as músicas que ainda não tem. Nenhum dos dois

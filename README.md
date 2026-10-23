@@ -15,6 +15,9 @@ With it you can:
 - control playback, key, tempo and the song, microphone and echo volumes;
 - keep favorites in folders, and share a folder with another phone by QR code.
 
+The app is in Brazilian Portuguese when your phone or computer is set to
+Portuguese, and in English otherwise.
+
 <p>
   <img src="docs/screenshots/search.png" width="190" alt="Searching the song list">
   <img src="docs/screenshots/artists.png" width="190" alt="The artist list">
