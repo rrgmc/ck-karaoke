@@ -133,3 +133,7 @@ deletes its favorites. Make a backup before you uninstall.
 - [docs/PROTOCOL.md](docs/PROTOCOL.md): the device protocol.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the server and the apps fit
   together.
+
+## Author
+
+Rangel Reale ([realerangel@gmail.com](mailto:realerangel@gmail.com))
