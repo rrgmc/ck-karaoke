@@ -158,8 +158,10 @@ jobs:
       - name: Build
         run: |
           wails build -clean -platform darwin/universal
+          app=$(find build/bin -maxdepth 1 -name '*.app' -print -quit)
+          if [ -z "$app" ]; then echo "no .app bundle in build/bin"; ls -la build/bin; exit 1; fi
           mkdir -p ../../dist
-          hdiutil create -volname "CK Karaoke" -srcfolder "build/bin/CK Karaoke.app" \
+          hdiutil create -volname "CK Karaoke" -srcfolder "$app" \
             -ov -format UDZO "../../dist/ck-karaoke-$VERSION-macos-universal.dmg"
       - uses: actions/upload-artifact@v7
         with:
