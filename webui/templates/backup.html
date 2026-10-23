@@ -1,0 +1,52 @@
+{{define "backup.html"}}
+{{template "head" .}}
+
+{{template "_backuphead" .}}
+
+{{with .Backup}}
+{{/* Saving and restoring are two intentions, and this never guesses which — the
+     same reason the sync page asks which side of the exchange you are on rather
+     than showing both halves at once. */}}
+
+{{if .Songs}}
+{{/* A plain link, not htmx: the response is a file, and an htmx swap would read
+     it as markup and put the XML in the page instead of saving it.
+
+     And no download attribute either. What makes this a file is the
+     Content-Disposition header, which is the one mechanism both wrappers watch
+     for — WebKit ignores the attribute on iOS entirely, and on Android it would
+     only be a second way to reach the same DownloadListener. The header already
+     carries the name. */}}
+<a class="sync-choice" href="/favorites/backup.xml">
+  <span class="sync-choice-icon" aria-hidden="true">⇩</span>
+  <span class="sync-choice-text">
+    <span class="sync-choice-name">Save a backup</span>
+    <span class="sync-choice-sub">
+      {{.Songs}} song{{if ne .Songs 1}}s{{end}} in
+      {{len .Folders}} folder{{if ne (len .Folders) 1}}s{{end}}, as one file
+    </span>
+  </span>
+  <span class="chevron">›</span>
+</a>
+{{else}}
+<p class="sync-intro">There are no favorites here yet, so there is nothing to save.</p>
+{{end}}
+
+<a class="sync-choice" href="/favorites/backup/import">
+  <span class="sync-choice-icon" aria-hidden="true">⇧</span>
+  <span class="sync-choice-text">
+    <span class="sync-choice-name">Restore from a file</span>
+    <span class="sync-choice-sub">Add everything in a saved backup to what is here</span>
+  </span>
+  <span class="chevron">›</span>
+</a>
+
+<p class="sync-intro">
+  Restoring only ever adds. Folders that are missing are created, songs that are
+  already here stay as they are, and nothing is removed — so restoring the same
+  file twice changes nothing the second time.
+</p>
+{{end}}
+
+{{template "foot" .}}
+{{end}}

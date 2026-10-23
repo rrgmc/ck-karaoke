@@ -1,0 +1,18 @@
+{{/* The header every backup screen wears.
+
+     A near-copy of _synchead, and deliberately not a shared one: threading a
+     head that reads .Sync through pages that have no Sync means giving every
+     screen a wrapper type it otherwise does not need, which is more machinery
+     than ten lines of markup. What matters is that the two behave the same —
+     backup runs several screens deep as well, and the way out to the favorites
+     list is on every one of them. */}}
+{{define "_backuphead"}}
+<div class="sync-bar-head">
+  {{if .Backup.Back}}
+  <a class="btn btn-sm btn-outline-secondary sync-back" href="{{.Backup.Back}}">‹ Back</a>
+  {{end}}
+  <h2 class="h5 m-0 sync-head-title">{{.Title}}</h2>
+  <a class="btn btn-sm btn-outline-secondary sync-exit" href="/?mode=favorites"
+     title="Back to favorites" aria-label="Back to favorites">✕</a>
+</div>
+{{end}}

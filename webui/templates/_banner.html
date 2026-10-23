@@ -1,0 +1,7 @@
+{{define "_banner.html"}}
+{{if not .Online}}
+<div class="offline-banner">
+  Device {{if .Reason}}{{.Reason}}{{else}}offline{{end}} — retrying {{.DeviceAddr}}
+</div>
+{{end}}
+{{end}}

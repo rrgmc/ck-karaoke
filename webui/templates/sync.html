@@ -1,0 +1,33 @@
+{{define "sync.html"}}
+{{template "head" .}}
+
+{{template "_synchead" .}}
+
+{{/* Which device you are is the first thing to settle. The folder is already settled — sync is reachable only
+     from inside one — so neither side has to ask which. */}}
+<a class="sync-choice" href="{{.Sync.Path}}/send">
+  <span class="sync-choice-icon" aria-hidden="true">↗</span>
+  <span class="sync-choice-text">
+    <span class="sync-choice-name">Send</span>
+    <span class="sync-choice-sub">Show a code for the other device to read</span>
+  </span>
+  <span class="chevron">›</span>
+</a>
+
+<a class="sync-choice" href="{{.Sync.Path}}/receive">
+  <span class="sync-choice-icon" aria-hidden="true">↙</span>
+  <span class="sync-choice-text">
+    <span class="sync-choice-name">Receive</span>
+    <span class="sync-choice-sub">Read a code and add its songs to {{.Sync.Folder.Name}}</span>
+  </span>
+  <span class="chevron">›</span>
+</a>
+
+<p class="sync-intro">
+  Songs are only ever added — nothing is removed on either device, and reading
+  the same code twice changes nothing. This carries {{.Sync.Folder.Name}} in one
+  direction, so do it both ways to have both devices match.
+</p>
+
+{{template "foot" .}}
+{{end}}

@@ -1,0 +1,11 @@
+{{/* The session indicator: green while the RakNet session to the unit is open,
+     red when it is not.
+
+     Its own stream event rather than part of the banner, for the same reason the
+     queue badge is separate from the queue list: this lives in the tab bar, on
+     every page, while the banner is a block at the top of the document and cannot
+     be swapped into two places at once.
+
+     An element is always emitted, never nothing — see _queuecount.html for why an
+     empty payload is not safe to rely on. */}}
+{{define "_conn.html"}}{{if .}}<span class="conn-dot conn-on" title="Connected to the karaoke device" aria-label="Connected"></span>{{else}}<span class="conn-dot conn-off" title="No connection to the karaoke device" aria-label="Disconnected"></span>{{end}}{{end}}

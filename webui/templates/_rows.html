@@ -1,0 +1,107 @@
+{{define "_rows.html"}}
+{{if .ShowingFolders}}
+  {{/* Folders are the same shape of row as artists: a name, a count and a
+       chevron through to the songs inside. */}}
+  {{range .Folders}}
+  <li class="queue-row">
+    <a class="artist-link" href="/?mode=favorites&folder={{.ID}}">
+      <span class="song-name">{{.Name}}</span>
+      <span class="song-sub">{{.Songs}} song{{if ne .Songs 1}}s{{end}}</span>
+    </a>
+    <span class="chevron">›</span>
+  </li>
+  {{end}}
+{{else if .ShowingArtists}}
+  {{range .Artists}}
+  <li class="queue-row">
+    <a class="artist-link" href="/?artist={{.ID}}">
+      <span class="song-name">{{.Name}}</span>
+      <span class="song-sub">{{.Songs}} song{{if ne .Songs 1}}s{{end}}</span>
+    </a>
+    <span class="chevron">›</span>
+  </li>
+  {{end}}
+{{else}}
+  {{range .Songs}}
+  <li class="song-row">
+    {{/* Title keeps a full line to itself; the artist shares the next one with
+         the buttons, which saves a whole line per song without squeezing the
+         name back into a third of the width. */}}
+    <div class="song-name">{{.Title}}</div>
+    <div class="song-line">
+      <div class="song-sub">{{.Artist}} <span class="song-id">#{{.ID}}</span></div>
+      {{/* Icons rather than words, so three actions fit beside the artist name.
+           Each keeps a title and an aria-label: the glyph alone is a guess for
+           a sighted reader and nothing at all for a screen reader. The text
+           variation selector on the triangle stops phones rendering it as a
+           colour emoji. */}}
+      {{/* Queueing is the ordinary action, so it carries the emphasis and is the
+           only one shown by default. The other two cut ahead of the reserved
+           list, which is not something to hand a stranger a one-tap target for
+           beside every search result — they appear only when the ⋯ toggle in
+           the search bar is on. */}}
+      {{/* This div is the persistent one, and holds what a song *is* rather than
+           what to do with it. The reply to /song/{id}/{action} replaces the
+           whole contents of #song-{{.ID}} with a badge, so anything put in that
+           other div is gone the moment the song is queued. The star has always
+           been here for that reason, and the YouTube link joins it — wanting to
+           hear the original does not stop mattering once you have queued it.
+
+           A plain https URL and an ordinary <a>, never a youtube:// scheme:
+           WKWebView cannot load a scheme it does not know, the navigation
+           fails, and a failed navigation is how the iOS app decides the local
+           server has died — it stops and restarts it. https costs nothing,
+           because both wrappers hand any host that is not loopback to the
+           system, which routes youtube.com to the app when it is installed.
+           target="_blank" is for the desktop browser; both wrappers intercept
+           before it can mean anything.
+
+           The mark is drawn inline rather than written as a glyph, because ▶︎
+           two buttons along already means "play now" here and an emoji font
+           would arrive a different size. The <svg> touches the tags either side
+           with no whitespace: the anchor is an inline-block .btn, and a newline
+           would collapse to a real space on each side and widen this one button
+           past the 2rem its neighbours sit at. _star.html is written on one
+           line for the same reason. */}}
+      <div class="song-actions">
+        {{template "_star" (star .ID ($.IsFavorite .ID) false)}}
+        <a class="btn btn-outline-secondary icon-btn"
+           href="{{ytSearch .Artist .Title}}" target="_blank" rel="noopener"
+           title="Find it on YouTube" aria-label="Find it on YouTube"
+           ><svg class="yt-icon" viewBox="0 0 24 17" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M3.4 0h17.2A3.4 3.4 0 0 1 24 3.4v10.2a3.4 3.4 0 0 1-3.4 3.4H3.4A3.4 3.4 0 0 1 0 13.6V3.4A3.4 3.4 0 0 1 3.4 0zm6.4 4.4v8.2l7.1-4.1z"/></svg></a>
+      </div>
+      <div class="song-actions" id="song-{{.ID}}">
+        <button class="btn btn-primary icon-btn" title="Add to queue" aria-label="Add to queue"
+                hx-post="/song/{{.ID}}/reserve" hx-target="#song-{{.ID}}" hx-swap="innerHTML">+</button>
+        {{if $.ShowExtraActions}}
+        <button class="btn btn-outline-primary icon-btn" title="Play next" aria-label="Play next"
+                hx-post="/song/{{.ID}}/reserve-top" hx-target="#song-{{.ID}}" hx-swap="innerHTML">↑</button>
+        <button class="btn btn-outline-primary icon-btn" title="Play now" aria-label="Play now"
+                hx-post="/song/{{.ID}}/play" hx-target="#song-{{.ID}}" hx-swap="innerHTML">▶︎</button>
+        {{/* Only inside a folder, where "remove" has somewhere to mean. Red, and
+             behind a confirmation, because it is the one action here that takes
+             something away — the others only add to the queue. */}}
+        {{if $.InFolder}}
+        <button class="btn btn-outline-danger icon-btn"
+                title="Remove from {{$.Folder.Name}}" aria-label="Remove from this folder"
+                hx-post="/favorites/folders/{{$.FolderID}}/remove/{{.ID}}?mode=favorites&folder={{$.FolderID}}&fragment=browse"
+                hx-confirm="Remove “{{.Title}}” from {{$.Folder.Name}}?"
+                hx-target="#browse" hx-swap="outerHTML" hx-push-url="false">✕</button>
+        {{end}}
+        {{end}}
+      </div>
+    </div>
+  </li>
+  {{end}}
+{{end}}
+
+{{if .HasMore}}
+{{/* The button lives inside the list and replaces itself with the next page,
+     so appending never duplicates the header or nests another list. */}}
+<li class="load-more">
+  <button class="btn btn-outline-primary w-100"
+          hx-get="/?{{.QueryString .NextOffset}}&amp;fragment=rows"
+          hx-target="closest li" hx-swap="outerHTML">Load more</button>
+</li>
+{{end}}
+{{end}}

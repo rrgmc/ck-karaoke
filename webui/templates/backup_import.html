@@ -1,0 +1,28 @@
+{{define "backup_import.html"}}
+{{template "head" .}}
+
+{{template "_backuphead" .}}
+
+{{if .Backup.Err}}
+<div class="alert alert-danger py-2">{{.Backup.Err}}</div>
+{{end}}
+
+{{/* Three accept values rather than one, because the two phones filter
+     differently and either alone hides the file on the other: Android's document
+     picker matches on MIME type, which Drive and Dropbox report themselves, while
+     iOS maps the list to UTTypes and knows the extension. */}}
+<form method="post" action="/favorites/backup/import" enctype="multipart/form-data"
+      class="sync-merge">
+  <input type="file" name="file" id="backup-file" class="form-control"
+         accept=".xml,text/xml,application/xml" required>
+  <button class="btn btn-primary btn-lg w-100" type="submit">Restore</button>
+</form>
+
+<p class="sync-intro">
+  Choose a file saved by Save a backup — on this device, or in Files, Dropbox or
+  Drive. Everything in it is added to what is already here; nothing is removed,
+  and folders that are missing are created.
+</p>
+
+{{template "foot" .}}
+{{end}}

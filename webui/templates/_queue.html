@@ -1,0 +1,34 @@
+{{define "_queue.html"}}
+{{if .Err}}
+  <div class="alert alert-warning py-2">{{.Err}}</div>
+{{else if .Pending}}
+  <p class="empty">Loading the queue…</p>
+{{else if .Entries}}
+  <ul class="song-list">
+    {{/* Laid out like the song list — title on a line of its own, artist sharing
+         the next with the action — so a long title is shown in full rather than
+         truncated to make room for a button. The position sits in a gutter to
+         the left of both lines. */}}
+    {{range .Entries}}
+    <li class="queue-item">
+      <div class="queue-pos">{{.Position}}</div>
+      <div class="queue-body">
+        <div class="song-name">{{.Title}}</div>
+        <div class="song-line">
+          <div class="song-sub">{{.Artist}} <span class="song-id">#{{.SongID}}</span>{{if .By}} <span class="queued-by">{{.By}}</span>{{end}}</div>
+          <div class="song-actions" id="qsong-{{.SongID}}">
+            <button class="btn btn-outline-danger icon-btn"
+                    title="Remove from queue" aria-label="Remove from queue"
+                    hx-post="/song/{{.SongID}}/remove" hx-target="#qsong-{{.SongID}}"
+                    hx-swap="innerHTML">✕</button>
+          </div>
+        </div>
+      </div>
+    </li>
+    {{end}}
+  </ul>
+  <p class="result-count">{{.Total}} reserved</p>
+{{else}}
+  <p class="empty">The queue is empty.</p>
+{{end}}
+{{end}}

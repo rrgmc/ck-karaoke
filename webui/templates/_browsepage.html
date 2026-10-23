@@ -1,0 +1,159 @@
+{{define "_browsepage.html"}}
+{{with .Browse}}
+{{/* The whole browse block is one swappable unit. Switching mode has to update
+     the toggle's active state and the search placeholder as well as the list,
+     and it must carry whatever is currently *typed* in the box — hx-include
+     reads the live input, where a server-rendered href would carry a stale
+     value from the last page render. */}}
+<div id="browse">
+  <div class="browse-bar">
+    <div class="mode-toggle" role="group">
+      {{range modes}}
+      <button type="button"
+              class="btn btn-sm {{if $.Browse.Is .Mode}}btn-primary{{else}}btn-outline-primary{{end}}"
+              hx-get="/?mode={{.Mode}}&from={{$.Browse.Mode}}&fragment=browse" hx-include="#q, #lan, #letter"
+              hx-target="#browse" hx-swap="outerHTML" hx-push-url="false">{{.Label}}</button>
+      {{end}}
+    </div>
+
+    {{/* show:window:top puts you back at the start of the results after each
+         refinement, rather than stranded halfway down the previous list.
+         Blurring on submit closes the phone keyboard, which htmx would
+         otherwise leave open by cancelling the form's real submit. */}}
+    <form hx-get="/" hx-target="#list" hx-vals='{"fragment":"list"}'
+          hx-trigger="submit, keyup changed delay:300ms from:#q, change from:#lan, change from:#letter"
+          hx-swap="innerHTML show:window:top"
+          hx-push-url="true"
+          onsubmit="this.querySelector('#q').blur()">
+      <input type="hidden" name="mode" value="{{.Mode}}">
+      {{if .ArtistID}}<input type="hidden" name="artist" value="{{.ArtistID}}">{{end}}
+      {{if .FolderID}}<input type="hidden" name="folder" value="{{.FolderID}}">{{end}}
+      <div class="input-group">
+        <input id="q" name="q" type="search" class="form-control"
+               placeholder="{{.Placeholder}}" value="{{.Query}}"
+               autocomplete="off" autocapitalize="off" enterkeyhint="search">
+        <button type="button" class="btn btn-outline-secondary btn-clear"
+                aria-label="Clear search"
+                hx-get="/?mode={{.Mode}}{{if .ArtistID}}&artist={{.ArtistID}}{{end}}{{if .FolderID}}&folder={{.FolderID}}{{end}}&fragment=browse"
+                hx-include="#lan, #letter"
+                hx-target="#browse" hx-swap="outerHTML" hx-push-url="false">✕</button>
+      </div>
+      <div class="filter-row">
+        {{if and .Languages .UsesLanguage}}
+        <select id="lan" name="lan" class="form-select form-select-sm">
+          <option value="0" {{if eq $.Browse.LanType 0}}selected{{end}}>All languages</option>
+          {{range .Languages}}
+          <option value="{{.LanType}}" {{if eq $.Browse.LanType .LanType}}selected{{end}}>{{.Name}} ({{.Songs}})</option>
+          {{end}}
+        </select>
+        {{end}}
+        {{/* The alphabet, for the two lists long enough to need one. Sits in
+             the form so it submits with the search box, which is what makes the
+             two compose: pick S, then type, and you are searching within S.
+
+             The "all" option reads A–Z rather than "All letters" because a
+             select is as wide as its widest option, and this row already
+             carries the language select, the count and two buttons. Four
+             characters, and it names the control while nothing is chosen. */}}
+        {{if .UsesLetter}}
+        <select id="letter" name="letter" class="form-select form-select-sm letter-select"
+                title="Filter by first letter" aria-label="Filter by first letter">
+          <option value="" {{if eq $.Browse.Letter ""}}selected{{end}}>A–Z</option>
+          {{range letters}}
+          <option value="{{.Value}}" {{if eq $.Browse.Letter .Value}}selected{{end}}>{{.Label}}</option>
+          {{end}}
+        </select>
+        {{end}}
+        <span id="count" class="result-count">{{.CountText}}</span>
+        {{/* Reveals the queue-skipping actions on every row. Remembered per
+             device, so turning it on here does not turn it on for the guest
+             whose phone is next to yours. */}}
+        <button type="button"
+                class="btn btn-sm actions-toggle {{if .ShowExtraActions}}btn-primary{{else}}btn-outline-secondary{{end}}"
+                title="{{if .ShowExtraActions}}Hide play-now controls{{else}}Show play-now controls{{end}}"
+                aria-label="{{if .ShowExtraActions}}Hide play-now controls{{else}}Show play-now controls{{end}}"
+                aria-pressed="{{if .ShowExtraActions}}true{{else}}false{{end}}"
+                hx-get="/?mode={{.Mode}}{{if .ArtistID}}&artist={{.ArtistID}}{{end}}{{if .FolderID}}&folder={{.FolderID}}{{end}}&actions={{if .ShowExtraActions}}0{{else}}1{{end}}&fragment=browse"
+                hx-include="#q, #lan, #letter"
+                hx-target="#browse" hx-swap="outerHTML" hx-push-url="false">⋯</button>
+
+        {{if .ShowingFolders}}
+        {{/* A checkbox and its label rather than a <details>, because the panel
+             it opens has to live outside this form — a form inside a form is not
+             a thing — and only :has() can reach across that. app.css already
+             depends on :has() for the busy indicator. No name attribute, so the
+             search form never submits it. */}}
+        <input type="checkbox" id="newfolder" class="reveal-input">
+        <label for="newfolder" class="btn btn-sm btn-outline-primary newfolder-btn"
+               title="New folder">+ Folder</label>
+
+        {{/* The exact mirror of ⇄ Sync below, which appears only inside a folder.
+             Backup is about the whole database, so it belongs where the folders
+             are and nowhere else — offering it inside one folder would invite the
+             reading that it backs up that folder. */}}
+        <a class="btn btn-sm btn-outline-primary backup-btn" href="/favorites/backup"
+           title="Save or restore all favorites"
+           aria-label="Save or restore all favorites">⇩ Backup</a>
+        {{end}}
+
+        {{/* Sync is a folder-scoped action and lives only here. Offering it on
+             the list meant asking which folder twice — once by tapping Sync and
+             again on a page listing the folders you were just looking at. */}}
+        {{if .InFolder}}
+        <a class="btn btn-sm btn-outline-primary sync-btn" href="/favorites/sync/{{.FolderID}}"
+           title="Sync {{.Folder.Name}} with another device"
+           aria-label="Sync this folder with another device">⇄ Sync</a>
+        {{end}}
+      </div>
+    </form>
+
+    {{/* Opened by the + Folder button in the row above. Hidden until then, so it
+         does not push the folder list down for something done rarely, and
+         posting with the browse query on the URL so the handler can re-render
+         this same block by the ordinary path rather than a special one. The
+         swap that follows a successful add rebuilds this markup, which resets
+         the checkbox and closes the panel by itself. */}}
+    {{if .ShowingFolders}}
+    <form class="newfolder-form input-group input-group-sm"
+          hx-post="/favorites/folders?mode=favorites&fragment=browse"
+          hx-target="#browse" hx-swap="outerHTML" hx-push-url="false">
+      <input name="name" class="form-control" placeholder="New folder name" maxlength="60"
+             autocomplete="off" autocapitalize="words" enterkeyhint="done">
+      <button class="btn btn-outline-primary" type="submit">Add</button>
+    </form>
+    {{end}}
+
+    {{if .ArtistID}}
+    <div class="artist-header">
+      <a class="btn btn-sm btn-outline-primary back-btn" href="/?mode=artists">‹ All artists</a>
+      <span class="artist-name">{{.Artist.Name}}</span>
+    </div>
+    {{end}}
+
+    {{if .FolderID}}
+    <div class="artist-header">
+      <a class="btn btn-sm btn-outline-primary back-btn" href="/?mode=favorites">‹ All folders</a>
+      <span class="artist-name">{{.Folder.Name}}</span>
+    </div>
+    {{/* Renaming lives inside the folder rather than on the list: it is the one
+         place the name is already the subject, and it keeps a rarely-used
+         control off every row. Folded away for the same reason. */}}
+    <details class="rename-folder">
+      <summary>Rename</summary>
+      <form class="input-group input-group-sm"
+            hx-post="/favorites/folders/{{.FolderID}}/rename?mode=favorites&folder={{.FolderID}}&fragment=browse"
+            hx-target="#browse" hx-swap="outerHTML" hx-push-url="false">
+        <input name="name" class="form-control" value="{{.Folder.Name}}" maxlength="60"
+               autocomplete="off" autocapitalize="words" enterkeyhint="done">
+        <button class="btn btn-outline-primary" type="submit">Save</button>
+      </form>
+    </details>
+    {{end}}
+  </div>
+
+  <div id="list">
+    {{template "_browse.html" .}}
+  </div>
+</div>
+{{end}}
+{{end}}

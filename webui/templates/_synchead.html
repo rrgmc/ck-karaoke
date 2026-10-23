@@ -1,0 +1,16 @@
+{{/* The header every sync screen wears.
+
+     Sync runs several screens deep — choose a side, choose a folder, show or
+     scan, confirm, done — and backing out a step at a time is tedious when what
+     you want is simply to be finished. So the way out to the favorites list is
+     on every one of them, next to the step-back that only some of them have. */}}
+{{define "_synchead"}}
+<div class="sync-bar-head">
+  {{if .Sync.Back}}
+  <a class="btn btn-sm btn-outline-secondary sync-back" href="{{.Sync.Back}}">‹ Back</a>
+  {{end}}
+  <h2 class="h5 m-0 sync-head-title">{{.Title}}</h2>
+  <a class="btn btn-sm btn-outline-secondary sync-exit" href="/?mode=favorites"
+     title="Back to favorites" aria-label="Back to favorites">✕</a>
+</div>
+{{end}}

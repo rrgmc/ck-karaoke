@@ -1,0 +1,16 @@
+{{define "queue.html"}}
+{{template "head" .}}
+
+<div class="d-flex align-items-center justify-content-between my-2">
+  <h2 class="h5 m-0">Reserved songs</h2>
+  <button class="btn btn-sm btn-outline-primary" hx-get="/fragment/queue" hx-target="#queue">Refresh</button>
+</div>
+
+{{/* The device pushes the reserved list unprompted, so the page updates itself
+     instead of blocking a load on the ~2s a query takes. */}}
+<div id="queue" sse-swap="queue">
+  {{template "_queue.html" .Queue}}
+</div>
+
+{{template "foot" .}}
+{{end}}

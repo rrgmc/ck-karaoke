@@ -1,0 +1,24 @@
+{{define "now.html"}}
+{{template "head" .}}
+
+{{/* The stream is opened on <body> in the layout, so this only declares which
+     event it wants. */}}
+<div id="player" sse-swap="player">
+  {{template "_player.html" .Player}}
+</div>
+
+{{/* Outside #player on purpose: that div is replaced every time the device
+     reports, and a control that is rebuilt thirty times a minute is the flicker
+     problem all over again.
+
+     A plain link, so the browser navigates properly rather than swapping — a
+     full load is what re-establishes the event stream and clears anything the
+     page has accumulated. */}}
+<div class="reset-row">
+  <a class="btn btn-sm btn-outline-secondary reset-btn" href="/reset"
+     title="Reload and return to the song list"
+     aria-label="Reload and return to the song list">↻ Reload</a>
+</div>
+
+{{template "foot" .}}
+{{end}}

@@ -1,0 +1,54 @@
+{{define "sync_receive.html"}}
+{{template "head" .}}
+
+{{template "_synchead" .}}
+
+{{if .Sync.Err}}
+<div class="alert alert-danger py-2">{{.Sync.Err}}</div>
+{{end}}
+
+{{/* Submitted by scan.js the moment a code is read. The code goes in a hidden
+     field: it is how this works, not something to read, and showing it was most
+     of what made this page look like a tool rather than a task. */}}
+<form method="post" action="{{.Sync.Path}}/receive" id="scan-form">
+  <input type="hidden" name="code" id="scan-code">
+
+  {{/* Hidden until the script has established there is a camera to use, so a
+       browser without one shows the typed fallback alone rather than a button
+       that cannot work. */}}
+  <div id="scan" class="scan" hidden>
+    <button type="button" class="btn btn-primary btn-lg" id="scan-start">Start the camera</button>
+    <div id="scan-view" hidden>
+      {{/* playsinline and muted, or iOS takes the video fullscreen the moment
+           it plays and the page underneath is gone. */}}
+      <video id="scan-video" class="scan-video" playsinline muted autoplay></video>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="scan-stop" hidden>Stop the camera</button>
+    </div>
+    <p class="sync-note" id="scan-status" role="status" aria-live="polite"></p>
+  </div>
+</form>
+
+<p class="sync-intro">
+  Point this at the code shown on the other device. Its songs go into
+  <strong>{{.Sync.Folder.Name}}</strong>.
+</p>
+
+<details class="sync-code">
+  <summary>Can't scan it?</summary>
+  <form method="post" action="{{.Sync.Path}}/receive" class="sync-merge">
+    <p class="sync-note">Paste the code shown under the other device's QR.</p>
+    <textarea name="code" class="form-control" rows="3" required
+              autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+    <button class="btn btn-primary" type="submit">Continue</button>
+  </form>
+</details>
+
+{{/* Loaded here rather than in the shared head: the decoder is a quarter of a
+     megabyte and only this page has any use for it. Both files come from the
+     server on this same device, so there is no network cost either way — but
+     there is no reason to parse it on every page. */}}
+<script src="{{asset "jsqr.js"}}"></script>
+<script src="{{asset "scan.js"}}"></script>
+
+{{template "foot" .}}
+{{end}}

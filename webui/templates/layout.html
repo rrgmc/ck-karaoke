@@ -1,0 +1,72 @@
+{{define "head"}}
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="/manifest.json">
+{{/* Safari ignores the manifest's icons and wants this one instead, so an
+     Add to Home Screen without it gets a screenshot of the page as its tile. */}}
+<link rel="apple-touch-icon" href="{{asset "icon-180.png"}}">
+<link rel="icon" href="{{asset "icon-192.png"}}" type="image/png">
+<title>{{.Title}} · CK Karaoke</title>
+<link rel="stylesheet" href="{{asset "bootstrap.min.css"}}">
+<link rel="stylesheet" href="{{asset "app.css"}}">
+<script src="{{asset "htmx.min.js"}}"></script>
+<script src="{{asset "htmx-sse.js"}}"></script>
+{{/* Must come after htmx-sse.js and before the body is processed: it wraps the
+     EventSource constructor that extension hoists onto htmx, so that the iOS
+     wrapper can rebuild the stream after a suspension instead of reloading the
+     page. Inert everywhere else — nothing calls it unless the app does. */}}
+<script src="{{asset "resume.js"}}"></script>
+</head>
+{{/* hx-sync keeps the app to one request at a time. Without it a run of clicks
+     at an unresponsive device leaves several hanging at once, and since the
+     browser allows only a handful of connections per host, the tab bar stops
+     responding too. "queue last" drops superseded requests rather than
+     aborting the one in flight, so a command already on its way to the device
+     is never cancelled halfway. */}}
+<body hx-ext="sse" sse-connect="/events" hx-sync="body:queue last">
+{{/* One event stream for the whole app: the Now page swaps the player from it,
+     and every page receives notifications. */}}
+<div id="toasts" class="toasts" sse-swap="toast" hx-swap="afterbegin"></div>
+{{/* Shown while any htmx request is in flight. htmx puts .htmx-request on the
+     element that triggered the request, so :has() picks up every one of them
+     without needing hx-indicator wired onto each control. */}}
+<div id="busy" class="busy" aria-hidden="true"><span class="spinner"></span></div>
+{{/* Swapped over the event stream, so it appears and clears as the connection
+     changes rather than only on a page reload. */}}
+{{/* The folder picker renders into here, at body level so it can overlay the
+     page rather than being trapped inside a scrolling list. */}}
+<div id="sheet"></div>
+<div id="banner" sse-swap="banner">
+  {{template "_banner.html" (banner .Online .DeviceAddr .OfflineReason)}}
+</div>
+<main class="container-fluid px-3 pb-5">
+{{end}}
+
+{{define "foot"}}
+</main>
+<nav class="tabbar">
+  {{/* Absolutely positioned so it does not become a fourth tab: the three links
+       are flex:1 each and share the bar evenly, and anything else in the flow
+       would take a quarter of it. */}}
+  <span id="conn" sse-swap="conn">{{template "_conn.html" .Online}}</span>
+  <a href="/" class="{{if eq .Nav "browse"}}active{{end}}">
+    <span class="tab-icon">⌕</span><span>Songs</span>
+  </a>
+  <a href="/now" class="{{if eq .Nav "now"}}active{{end}}">
+    <span class="tab-icon">♪</span><span>Now</span>
+  </a>
+  {{/* The badge is on every page, so it is its own stream event rather than
+       part of the queue list, which only the Queue page renders. */}}
+  <a href="/queue" class="{{if eq .Nav "queue"}}active{{end}}">
+    <span class="tab-icon">≡</span><span>Queue</span><span class="tab-count" sse-swap="queuecount">{{template "_queuecount.html" .QueueCount}}</span>
+  </a>
+</nav>
+</body>
+</html>
+{{end}}

@@ -1,0 +1,76 @@
+{{/* The folder picker.
+
+     A song usually goes in one folder, so a tap files it and the sheet gets out
+     of the way. Putting one song in several is real but rarer, and it has its
+     own way in rather than being what everyone pays for: "Add to more than
+     one…" keeps the sheet open and ticks folders as they are chosen.
+
+     Every action re-renders the sheet from the database rather than patching
+     what is on screen, so a phone that loses a race with another one still ends
+     up showing the truth. */}}
+{{define "_sheet.html"}}
+<div class="sheet-backdrop"
+     hx-get="/favorites/sheet/close" hx-target="#sheet" hx-swap="innerHTML"></div>
+
+<div class="sheet" role="dialog" aria-modal="true"
+     aria-label="{{if .Multi}}Choose folders{{else}}Choose a folder{{end}}">
+  <div class="sheet-head">
+    <div class="sheet-title">{{.Title}}</div>
+    {{if .Artist}}<div class="sheet-sub">{{.Artist}}</div>{{end}}
+  </div>
+
+  {{if .Err}}<div class="alert alert-warning py-2 my-2">{{.Err}}</div>{{end}}
+
+  <ul class="sheet-list">
+    {{range .Folders}}
+    <li class="sheet-row">
+      {{/* The mode rides on the request rather than being held anywhere, so the
+           handler knows whether to re-render this sheet or clear it. */}}
+      <button class="sheet-folder {{if index $.In .ID}}on{{end}}"
+              aria-pressed="{{if index $.In .ID}}true{{else}}false{{end}}"
+              hx-post="/favorites/toggle/{{.ID}}/{{$.SongID}}"
+              hx-vals='{"multi":"{{if $.Multi}}1{{else}}0{{end}}"}'
+              hx-target="#sheet" hx-swap="innerHTML">
+        <span class="sheet-mark">{{if index $.In .ID}}★{{else}}☆{{end}}</span>
+        <span class="sheet-name">{{.Name}}</span>
+        <span class="sheet-count">{{.Songs}}</span>
+      </button>
+      {{/* Only offered when the server was started with it enabled. The handler
+           refuses regardless, so this is presentation rather than the control. */}}
+      {{if $.AllowDelete}}
+      <button class="btn btn-outline-danger icon-btn sheet-delete"
+              title="Delete {{.Name}}" aria-label="Delete folder {{.Name}}"
+              hx-post="/favorites/folders/{{.ID}}/delete"
+              hx-vals='{"song":"{{$.SongID}}","multi":"{{if $.Multi}}1{{else}}0{{end}}"}'
+              hx-confirm="Delete the folder “{{.Name}}” and everything filed in it?"
+              hx-target="#sheet" hx-swap="innerHTML">✕</button>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+
+  {{/* Making a folder keeps the sheet open whichever mode it is in: you have
+       just made somewhere to put the song and have not put it there yet. */}}
+  <form class="sheet-new" hx-post="/favorites/folders" hx-target="#sheet" hx-swap="innerHTML">
+    <input type="hidden" name="song" value="{{.SongID}}">
+    <input type="hidden" name="multi" value="{{if .Multi}}1{{else}}0{{end}}">
+    <div class="input-group">
+      <input name="name" class="form-control" placeholder="New folder…"
+             autocomplete="off" autocapitalize="words" maxlength="60">
+      <button class="btn btn-outline-primary" type="submit">Add</button>
+    </div>
+  </form>
+
+  {{if .Multi}}
+  <button class="btn btn-primary w-100 mt-2"
+          hx-get="/favorites/sheet/close" hx-target="#sheet" hx-swap="innerHTML">Done</button>
+  {{else}}
+  {{/* Quiet, because it is the second way and not the one to reach for. */}}
+  <button class="btn btn-link w-100 mt-1 sheet-multi"
+          hx-get="/favorites/sheet/{{.SongID}}?multi=1"
+          hx-target="#sheet" hx-swap="innerHTML">Add to more than one…</button>
+  <button class="btn btn-outline-secondary w-100"
+          hx-get="/favorites/sheet/close" hx-target="#sheet" hx-swap="innerHTML">Close</button>
+  {{end}}
+</div>
+{{end}}

@@ -1,0 +1,10 @@
+{{/* The badge on the Queue tab. Empty rather than "0" when nothing is
+     reserved: a zero badge is visual noise that says the same as no badge.
+
+     The empty case emits an element rather than nothing, so the payload is
+     never a zero-length string. Whether a browser dispatches an SSE event whose
+     data is empty turns on the order of two steps in the spec, and this is the
+     event that has to clear the badge — the one case where sending nothing must
+     not mean doing nothing. An HTML comment will not do the job: html/template
+     strips comments, so it arrives as the empty string it was meant to avoid. */}}
+{{define "_queuecount.html"}}{{if gt . 0}}<span class="tab-badge">{{.}}</span>{{else}}<span class="tab-badge-none"></span>{{end}}{{end}}

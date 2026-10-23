@@ -1,0 +1,33 @@
+{{define "sync_done.html"}}
+{{template "head" .}}
+{{template "_synchead" .}}
+
+{{with .Sync.Result}}
+<div class="sync-received">
+  <div class="sync-tick" aria-hidden="true">✓</div>
+  <div class="sync-received-what">
+    <span class="sync-received-name">{{.Folder}}</span>
+    <span class="song-sub">{{.Added}} added{{if .Already}}, {{.Already}} already here{{end}}</span>
+  </div>
+</div>
+
+{{if .Unknown}}
+{{/* Not stored rather than stored and hidden: folder counts come from the
+     favorites database while the listing is filtered through the catalogue, so
+     an id nothing can show would make the folder claim more than it lists. */}}
+<p class="sync-note">{{.Unknown}} song{{if ne .Unknown 1}}s are{{else}} is{{end}} not in this device's song list, so {{if ne .Unknown 1}}they were{{else}}it was{{end}} left out.</p>
+{{end}}
+
+<a class="btn btn-primary btn-lg w-100" href="/?mode=favorites&folder={{.FolderID}}">Open {{.Folder}}</a>
+{{end}}
+
+{{/* A merge goes one way. Saying so here is cheaper than letting someone find
+     out by discovering half their songs missing on the other device. */}}
+<p class="sync-intro">
+  This device now has them. To have both match, show this folder's code from
+  here and receive it on the other one.
+</p>
+<a class="btn btn-outline-primary w-100" href="{{.Sync.Path}}/send">Show this folder's code</a>
+
+{{template "foot" .}}
+{{end}}

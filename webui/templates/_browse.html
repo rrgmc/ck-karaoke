@@ -1,0 +1,10 @@
+{{define "_browse.html"}}
+{{/* Which sentence an empty list gets is decided in Go — there are three kinds
+     of list and four reasons each can come up empty, and the nested {{if}}s
+     would be unreadable with the letter filter and the search box. See browseData.EmptyText. */}}
+{{if .IsEmpty}}<p class="empty">{{.EmptyText}}</p>{{end}}
+
+<ul class="song-list">
+  {{template "_rows.html" .}}
+</ul>
+{{end}}

@@ -1,0 +1,858 @@
+/* Mobile-first styling on top of Bootstrap. Touch targets are deliberately
+   large: this gets used one-handed, in the dark, mid-song. */
+
+:root {
+  --tabbar-height: 3.1rem;
+  --page-bg: #ffffff;
+  --surface-bg: #f8f9fa;
+  --line: #dee2e6;
+  --muted: #6c757d;
+  /* One step lighter than --muted, for text that is there when you look for it
+     but should not compete with the song name. */
+  --muted-light: #868e96;
+  --accent: #0d6efd;
+
+  /* How much to keep clear at the bottom for the phone's gesture bar.
+     env() is the right answer in a browser, but a plain Android WebView does
+     not report safe areas, so the app overrides this with a real measurement.
+     Everything below reads the variable rather than env() so both work. */
+  --safe-bottom: env(safe-area-inset-bottom);
+}
+
+body {
+  background: var(--page-bg);
+  padding-bottom: calc(var(--tabbar-height) + var(--safe-bottom));
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Bottom tab bar ------------------------------------------------------- */
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--surface-bg);
+  border-top: 1px solid var(--line);
+  padding-bottom: var(--safe-bottom);
+  z-index: 1030;
+}
+
+/* Icon and label side by side rather than stacked: the bar is then one line tall
+   instead of two, which is a screen row given back to the song list. */
+.tabbar a {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: var(--tabbar-height);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+}
+
+.tabbar a.active { color: var(--accent); font-weight: 500; }
+
+/* The session indicator: whether there is a live RakNet session to the unit.
+   Out of the flow so the three tabs keep sharing the bar evenly, and tucked into
+   the top-right corner where nothing else is drawn. Small on purpose — this is a
+   glance, and the banner and toasts already handle actually telling you. */
+#conn {
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  line-height: 0;
+  pointer-events: none;
+}
+
+.conn-dot {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.conn-on { background: #198754; }
+
+/* Ringed rather than just red: red-green is the commonest form of colour
+   blindness, so the two states differ in shape as well as hue. */
+.conn-off {
+  background: #DC3545;
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.28);
+}
+
+/* The badge sits inline after the label rather than floating over the icon: the
+   bar is only one line tall now, so there is no room above the glyph. */
+.tab-count { display: inline-flex; }
+
+.tab-badge {
+  display: inline-block;
+  min-width: 1.15rem;
+  padding: 0 0.3rem;
+  margin-left: 0.3rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.15rem;
+  text-align: center;
+}
+.tabbar .tab-icon { font-size: 1rem; line-height: 1; }
+
+/* Offline banner ------------------------------------------------------- */
+
+.offline-banner {
+  background: #f8d7da;
+  color: #842029;
+  text-align: center;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* Now playing ---------------------------------------------------------- */
+
+/* Everything here is sized so the whole remote fits one phone screen without
+   scrolling: song, transport, and all six controls. */
+
+.now-card {
+  padding: 0.5rem 0 0.35rem;
+  text-align: center;
+}
+
+.song-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.25;
+  /* Long karaoke titles must not push the layout sideways. */
+  overflow-wrap: anywhere;
+}
+
+.song-meta { color: var(--muted); margin: 0.1rem 0 0; font-size: 0.9rem; }
+/* The catalogue number is a lookup aid, not something to read, so it recedes.
+   Sized in em rather than rem so it stays proportional in all three places it
+   appears: the 0.8rem list subtitle, the queue row, and the 0.9rem line under
+   the title on the Now page. */
+.song-id {
+  color: var(--muted-light);
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+
+.position {
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+  margin: 0.15rem 0 0;
+  line-height: 1.2;
+}
+
+.lyrics {
+  margin-top: 0.35rem;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+/* Transport: five equal buttons on one row rather than a wide group plus a
+   separate repeat button, which cost an extra line for nothing. */
+.transport {
+  display: flex;
+  gap: 0.3rem;
+  margin: 0.5rem 0 0.6rem;
+}
+
+.transport .btn {
+  flex: 1;
+  padding: 0.5rem 0.15rem;
+  font-size: 0.9rem;
+}
+
+/* Control rows --------------------------------------------------------- */
+
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.control-label { color: var(--muted); font-size: 0.95rem; }
+.control-actions { display: flex; align-items: center; gap: 0.35rem; }
+
+.btn-step {
+  min-width: 2.75rem;
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 0.35rem 0.5rem;
+}
+
+.btn-wide { min-width: 3.25rem; font-size: 0.9rem; }
+
+.btn-reset {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.control-value {
+  min-width: 2.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A way out of wherever you have ended up. Deliberately quiet: it is for the
+   moment something feels stuck, not part of the normal round. */
+.reset-row {
+  display: flex;
+  justify-content: center;
+  margin: 0.6rem 0 0.2rem;
+}
+
+.reset-btn {
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+/* Browse: search, mode toggle, lists ------------------------------------ */
+
+/* The whole control block sticks, so switching mode or refining a search never
+   needs a scroll back to the top of eleven thousand songs. */
+.browse-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--page-bg);
+  padding: 0.6rem 0 0.5rem;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.mode-toggle .btn { flex: 1; }
+
+/* Leaving an artist or a folder was a plain text link, which read as part of
+   the heading rather than as the way out. It is a bordered button now, and the
+   row is centred rather than baseline-aligned so the button and the name sit
+   together properly. */
+.artist-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.back-btn {
+  flex: none;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.artist-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Artist rows are whole-row links, so the tap target is the row not the text. */
+.artist-link {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.artist-link .song-name,
+.artist-link .song-sub { display: block; }
+
+.chevron { color: var(--muted); font-size: 1.25rem; flex: none; }
+
+.load-more { padding: 0.75rem 0; list-style: none; }
+
+.song-list { list-style: none; padding: 0; margin: 0; }
+
+/* Two lines per song, not three: the title owns the first, and the artist shares
+   the second with the buttons. Giving the title a full line is what stopped long
+   Portuguese names truncating; giving the buttons one of their own was costing a
+   third of every row for no benefit. */
+.song-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.song-name {
+  font-weight: 500;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.song-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.song-sub {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.song-actions { display: flex; gap: 0.3rem; flex: none; }
+
+.song-actions .btn {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+/* Square targets for the icon actions. A glyph is narrower than a word, so the
+   min-width is what keeps them thumb-sized rather than the padding. */
+.icon-btn {
+  min-width: 2rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 1rem;
+  line-height: 1.3;
+  /* Keep the glyphs on the text font rather than letting a phone substitute an
+     emoji one, which arrives a different size and knocks the row heights out. */
+  font-family: inherit;
+  font-variant-emoji: text;
+}
+
+/* The YouTube mark on a song row. Drawn inline rather than as an emoji or an
+   <img>: the rule above is already fighting phones that substitute an emoji
+   font and knock the row heights out, and an image would be a request per row.
+   The play triangle is a hole in the badge rather than a white shape, so it
+   follows the button through hover and active instead of disappearing when
+   Bootstrap fills the outline.
+
+   Sized in em, so it tracks whatever font-size the row ends up with — which is
+   0.78rem, not the 1rem above: `.song-actions .btn` is two class selectors and
+   outranks `.icon-btn`. That lands the button at the same width as the ★ and +
+   beside it, and the inline box shorter than the line box, so no row changes
+   height. */
+.yt-icon {
+  width: 1.1em;
+  height: 0.78em;
+  vertical-align: -0.1em;
+}
+
+/* Queue rows follow the song list: two lines, with the position in a gutter
+   down the left of both. Kept separate from .queue-row, which the artist lists
+   use for a genuinely single-line row. */
+.queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.queue-item .queue-pos { line-height: 1.25; text-align: left; }
+
+.queue-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* Favorites ------------------------------------------------------------ */
+
+.star-btn { font-size: 1.05rem; }
+
+/* The picker is a sheet over the page, anchored to the bottom where a thumb
+   already is. Fixed rather than in flow: it is rendered into a container at the
+   top of the body, so without this it lands above the search box instead of
+   over it. */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1040;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1050;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--page-bg);
+  border-top-left-radius: 1rem;
+  border-top-right-radius: 1rem;
+  padding: 0.85rem 1rem calc(1rem + var(--safe-bottom));
+  box-shadow: 0 -0.5rem 1.5rem rgba(0, 0, 0, 0.25);
+}
+
+.sheet-head { margin-bottom: 0.5rem; }
+.sheet-title { font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.sheet-sub { color: var(--muted); font-size: 0.85rem; }
+
+.sheet-list { list-style: none; padding: 0; margin: 0; }
+
+.sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--line);
+}
+
+/* The folder name is the tap target, full width, so ticking one is easy in the
+   dark; delete stays a separate small target beside it. */
+.sheet-folder {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.2rem;
+  background: none;
+  border: 0;
+  text-align: left;
+  color: inherit;
+  font-size: 1rem;
+}
+
+.sheet-folder.on { font-weight: 600; }
+.sheet-mark { width: 1.2rem; flex: none; color: var(--muted); font-size: 1.1rem; }
+.sheet-folder.on .sheet-mark { color: #f0ad00; }
+
+.sheet-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-count { color: var(--muted-light); font-size: 0.85em; flex: none; }
+
+/* Who reserved a song, from the device's own record of it. */
+.queued-by {
+  color: var(--accent);
+  font-size: 0.85em;
+}
+.sheet-delete { flex: none; }
+.sheet-new { margin-top: 0.85rem; }
+
+/* Artist rows are a single line, so they keep the compact inline layout. */
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.queue-row .song-info { flex: 1; min-width: 0; }
+
+.queue-row .song-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-pos {
+  width: 2rem;
+  flex: none;
+  text-align: center;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Wraps, because this row grew a fifth control and a phone is 360 CSS pixels
+   wide before anyone raises their system font size. Crushing was the old
+   failure mode and it is the worse one: flex happily shrank the language
+   select until "English (2536)" read "Engl", which names nothing. A second
+   short line only when one is needed is the graceful version. */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+/* Still takes the room going, but stops before it stops being a word. */
+.filter-row .form-select { flex: 1; min-width: 8.5rem; }
+
+/* The language select takes whatever room is going; the letter select needs
+   only the four characters of its widest option, so it opts out of the share.
+   Overrides the rule above, which it also matches.
+
+   The tighter padding is worth the two lines: Bootstrap reserves 2.25rem to the
+   right of every select for its caret, which is generous for "Portuguese
+   (7913)" and absurd for "A–Z". Left at the default, this row's fifth control
+   pushed the language select narrow enough to clip that name mid-word. */
+.filter-row .letter-select {
+  flex: none;
+  width: auto;
+  /* Not the 8.5rem floor above: that is there to keep a language name
+     readable, and this control's longest word is "A–Z". */
+  min-width: 0;
+  padding-right: 1.6rem;
+  background-position: right 0.4rem center;
+}
+
+.result-count {
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  flex: none;
+}
+
+/* The count is the first thing to go when the row runs out of room. It is the
+   one item here that only reports — the rest are controls, and a control you
+   cannot read is worse than a number you cannot see. Losing it keeps the
+   language select wide enough to say "Portuguese (7913)" rather than "Portu".
+   Only on the rows that carry the letter select: the folder list has room and
+   keeps its count at every width.
+
+   Hidden rather than removed, because the list swaps a fresh count into #count
+   out of band on every search — the element has to still be there to receive
+   it, and it reappears the moment the screen is wide enough. */
+@media (max-width: 27rem) {
+  .filter-row:has(.letter-select) .result-count { display: none; }
+}
+
+/* Sits at the end of the filter row, so revealing the extra actions costs no
+   vertical space of its own. */
+.actions-toggle {
+  flex: none;
+  min-width: 2rem;
+  padding: 0.1rem 0.35rem;
+  line-height: 1.3;
+}
+
+.artist-preview { border-bottom: 2px solid var(--line); margin-bottom: 0.4rem; }
+.empty { color: var(--muted); padding: 2rem 0; text-align: center; }
+
+.see-all { margin-left: 0.5rem; text-decoration: none; }
+
+/* The native search-field × clears the box but fires no event, so the list would
+   go stale. This one clears and refreshes together. */
+.btn-clear { flex: none; font-size: 0.9rem; }
+
+/* Notifications ---------------------------------------------------------- */
+
+.toasts {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 1040;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem 0;
+  /* The strip must not swallow taps on whatever is underneath it. */
+  pointer-events: none;
+}
+
+.toast-item {
+  max-width: 30rem;
+  width: 100%;
+  padding: 0.5rem 0.85rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  color: #fff;
+  background: #495057;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
+  /* Fade in, hold, fade out. The element removes itself on animationend. */
+  animation: toast 3.5s ease forwards;
+}
+
+.toast-good { background: #198754; }
+.toast-warn { background: #b8860b; }
+.toast-bad  { background: #dc3545; }
+
+@keyframes toast {
+  0%   { opacity: 0; transform: translateY(-0.5rem); }
+  8%   { opacity: 1; transform: translateY(0); }
+  85%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-0.5rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-item { animation-duration: 3.5s; animation-timing-function: step-end; }
+}
+
+/* Busy indicator --------------------------------------------------------- */
+
+/* A phone has no cursor, so the visible spinner is the real signal; the cursor
+   change is for when this is open on a desktop. */
+.busy {
+  display: none;
+  position: fixed;
+  top: 0.5rem;
+  right: 0.75rem;
+  z-index: 1050;
+  pointer-events: none;
+}
+
+body:has(.htmx-request) .busy { display: block; }
+body:has(.htmx-request) { cursor: progress; }
+
+.spinner {
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 2px solid var(--accent);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* The control that was tapped dims and stops accepting further taps, so a slow
+   device cannot collect a queue of impatient double-presses. */
+.btn.htmx-request {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: progress;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2s; }
+}
+
+/* Sync ------------------------------------------------------------------- */
+
+/* Sits in the filter row beside the other controls. flex:none so it keeps its
+   label rather than being squeezed by the count next to it. */
+.sync-btn { flex: none; white-space: nowrap; }
+
+/* Backup sits on the folder list where Sync sits inside a folder — the two are
+   never on screen together, so they can look alike without being confusable.
+   It follows + Folder, whose margin-left:auto already pushed the pair right. */
+.backup-btn { flex: none; white-space: nowrap; }
+
+/* + Folder is a label for a hidden checkbox rather than a <details>, because
+   the panel it opens has to live outside the search form — a form inside a form
+   is not a thing — and only :has() reaches across that. margin-left:auto puts it
+   at the far right of the row, past Sync. */
+.reveal-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.newfolder-btn {
+  flex: none;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Filled while the panel is open, so the button says which state it is in. A
+   touch leaves :hover stuck on the label and this happens to look the same, but
+   that is a browser quirk rather than a design, and it would not survive the
+   next tap elsewhere. */
+.reveal-input:checked + .newfolder-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* The checkbox carries no visible box, so its focus ring has to be drawn on the
+   label instead or keyboard users lose track of where they are. */
+.reveal-input:focus-visible + .newfolder-btn {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.newfolder-form { display: none; margin-top: 0.4rem; }
+.browse-bar:has(.reveal-input:checked) .newfolder-form { display: flex; }
+
+/* Renaming, folded away inside the folder it belongs to. */
+.rename-folder { margin-top: 0.5rem; }
+.rename-folder summary {
+  color: var(--accent);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.15rem 0;
+}
+.rename-folder form { margin-top: 0.4rem; }
+
+.sync-intro,
+.sync-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0.6rem 0;
+}
+
+/* Which device you are, as two things to tap rather than two headings to read
+   past. Sized like a list row because that is what it behaves as. */
+.sync-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 0.75rem;
+  margin-bottom: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sync-choice-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--accent);
+  flex: none;
+}
+
+.sync-choice-text { flex: 1; min-width: 0; }
+.sync-choice-name { display: block; font-weight: 600; }
+.sync-choice-sub { display: block; color: var(--muted); font-size: 0.85rem; }
+
+/* Square, on white whatever the page is doing, and left to the browser's own
+   smoothing. Nearest-neighbour scaling looks sharper on a screenshot but drops
+   whole modules when the image lands on a non-integer number of pixels, which
+   is exactly the failure that stops a camera reading it. The image is generated
+   at about 900 pixels for the same reason — see favoritesQR. */
+.sync-qr {
+  display: block;
+  width: 100%;
+  max-width: 22rem;
+  aspect-ratio: 1;
+  height: auto;
+  margin: 0 auto;
+  background: #fff;
+}
+
+.sync-code { margin-top: 0.75rem; }
+.sync-code summary { color: var(--muted); font-size: 0.85rem; cursor: pointer; }
+.sync-code textarea {
+  margin-top: 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+.sync-err { color: #b02a37; font-size: 0.9rem; margin: 0.5rem 0 0; }
+
+/* What arrived, said plainly. The code that carried it is deliberately absent:
+   it is how this works, not something to read. */
+.sync-received {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.sync-tick {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: #198754;
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 2.5rem;
+  text-align: center;
+}
+
+.sync-received-what { min-width: 0; }
+.sync-received-name {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.sync-received-what .song-sub { display: block; }
+
+.sync-other { margin-top: 0.75rem; }
+.sync-other summary { color: var(--muted); font-size: 0.9rem; cursor: pointer; }
+
+/* A button per folder: a submit button carries its own name and value, so
+   choosing and confirming are one tap rather than two. */
+.sync-folders {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.sync-folder-btn {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.sync-folder-name { font-weight: 500; }
+
+.sync-merge { display: flex; flex-direction: column; gap: 0.5rem; }
+.sync-merge textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+}
+
+/* The camera scanner. Bootstrap's [hidden]{display:none!important} is what
+   lets these stay flex containers while the script shows and hides them. */
+.scan,
+#scan-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.scan-video {
+  display: block;
+  width: 100%;
+  max-width: 22rem;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  border-radius: 0.5rem;
+  object-fit: cover;
+}
+
+/* No empty paragraph taking up a line before there is anything to report. */
+#scan-status:empty { display: none; }
+
+/* The header every sync screen wears. The step-back is optional; the way out to
+   the favorites list is not, because this runs several screens deep. */
+.sync-bar-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.sync-back,
+.sync-exit { flex: none; }
+
+.sync-head-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

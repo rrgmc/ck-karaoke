@@ -1,0 +1,83 @@
+{{define "_player.html"}}
+<section class="now-card">
+  {{if .HasSong}}
+    <h1 class="song-title">{{.Title}}</h1>
+    <p class="song-meta">
+      {{if .Artist}}{{.Artist}}{{else}}&nbsp;{{end}}
+      {{if .SongID}}<span class="song-id">#{{.SongID}}</span>{{end}}
+    </p>
+    <p class="position">{{.Position}}</p>
+  {{else}}
+    <h1 class="song-title text-secondary">Nothing playing</h1>
+    <p class="song-meta">{{if .Next}}Up next: {{.Next}}{{else}}Queue a song to start{{end}}</p>
+  {{end}}
+
+  {{if .Lyrics}}
+    <div class="lyrics">
+      {{range .Lyrics}}<div>{{.}}</div>{{end}}
+    </div>
+  {{end}}
+</section>
+
+{{/* Every control below carries hx-preserve, which keeps the existing element
+     instead of building a new one on each swap.
+
+     The device pushes state about every two seconds and the whole player is
+     replaced each time, so without this the buttons are destroyed and rebuilt
+     roughly thirty times a minute — including the one under a finger. A tap
+     leaves a button focused, the next swap throws that node away, and the
+     pressed look drops off and comes back: on a tablet it reads as flickering.
+     A song change makes it worse, since the device bursts several updates in
+     quick succession.
+
+     Preserving them is safe precisely because the markup is static: what
+     changes is the values, and those are not inside a preserved element. */}}
+<div class="transport" role="group">
+  <button id="tp-pause"  class="btn btn-outline-primary" hx-preserve="true" hx-post="/control/pause"  hx-target="#player">Pause</button>
+  <button id="tp-next"   class="btn btn-outline-primary" hx-preserve="true" hx-post="/control/next"   hx-target="#player">Next</button>
+  <button id="tp-skip"   class="btn btn-outline-primary" hx-preserve="true" hx-post="/control/skip"   hx-target="#player">Skip</button>
+  <button id="tp-stop"   class="btn btn-outline-primary" hx-preserve="true" hx-post="/control/stop"   hx-target="#player">Stop</button>
+  <button id="tp-repeat" class="btn btn-outline-primary" hx-preserve="true" hx-post="/control/repeat" hx-target="#player">Repeat</button>
+</div>
+
+{{template "_stepper" (stepper "Key"   "key"    .Key    -6 6  "reset-key")}}
+{{template "_stepper" (stepper "Tempo" "tempo"  .Tempo  -6 6  "reset-tempo")}}
+{{template "_slider"  (slider  "Song"  "volume" .Volume "")}}
+{{template "_slider"  (slider  "Mic"   "mic"    .Mic    "1")}}
+{{template "_slider"  (slider  "Echo"  "reverb" .Echo   "")}}
+
+<div class="control-row">
+  <span class="control-label">Melody</span>
+  <div class="control-actions">
+    {{/* The device has no melody field in its status and the melody command
+         takes no argument, so this is a toggle rather than on/off. */}}
+    <button id="melody-toggle" class="btn btn-outline-primary btn-step btn-wide"
+            hx-preserve="true" hx-post="/control/melody" hx-target="#player">Toggle</button>
+  </div>
+</div>
+{{end}}
+
+{{define "_stepper"}}
+<div class="control-row">
+  <span class="control-label">{{.Label}}</span>
+  <div class="control-actions">
+    {{if .Reset}}<button id="{{.Reset}}-btn" class="btn btn-link btn-reset" hx-preserve="true" hx-post="/control/{{.Reset}}" hx-target="#player">reset</button>{{end}}
+    <button id="{{.Action}}-down" class="btn btn-outline-primary btn-step" hx-preserve="true" hx-post="/control/{{.Action}}" hx-vals='{"v":"{{.Down}}"}' hx-target="#player">−</button>
+    <span class="control-value">{{signed .Value}}</span>
+    <button id="{{.Action}}-up" class="btn btn-outline-primary btn-step" hx-preserve="true" hx-post="/control/{{.Action}}" hx-vals='{"v":"{{.Up}}"}' hx-target="#player">+</button>
+  </div>
+</div>
+{{end}}
+
+{{define "_slider"}}
+<div class="control-row">
+  <span class="control-label">{{.Label}}</span>
+  <div class="control-actions">
+    <button id="{{.Action}}-down" class="btn btn-outline-primary btn-step" hx-preserve="true"
+            hx-post="/control/{{.Action}}" hx-vals='{"v":"{{.Down}}"{{if .Mic}},"mic":"{{.Mic}}"{{end}}}' hx-target="#player">−</button>
+    <span class="control-value">{{if lt .Value 0}}—{{else}}{{.Value}}{{end}}</span>
+    <button id="{{.Action}}-up" class="btn btn-outline-primary btn-step" hx-preserve="true"
+            hx-post="/control/{{.Action}}" hx-vals='{"v":"{{.Up}}"{{if .Mic}},"mic":"{{.Mic}}"{{end}}}' hx-target="#player">+</button>
+  </div>
+</div>
+{{end}}

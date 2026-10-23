@@ -1,0 +1,39 @@
+{{define "sync_confirm.html"}}
+{{template "head" .}}
+{{template "_synchead" .}}
+
+{{/* What was received, named — never the code itself, which is carried on in a
+     hidden field below. The name is here so scanning the wrong folder's code is
+     obvious before anything is written; it does not decide where the songs go,
+     because being inside a folder already did. */}}
+<div class="sync-received">
+  <div class="sync-tick" aria-hidden="true">✓</div>
+  <div class="sync-received-what">
+    {{if .Sync.Scanned.Name}}<span class="sync-received-name">{{.Sync.Scanned.Name}}</span>{{end}}
+    <span class="song-sub">{{len .Sync.Scanned.IDs}} song{{if ne (len .Sync.Scanned.IDs) 1}}s{{end}}</span>
+  </div>
+</div>
+
+{{if .Sync.Err}}
+<div class="alert alert-danger py-2">{{.Sync.Err}}</div>
+{{end}}
+
+{{if and .Sync.Scanned.Name (ne .Sync.Scanned.Name .Sync.Folder.Name)}}
+{{/* Not an error — merging one folder into another is a fair thing to want —
+     but worth saying out loud, because names not matching is also what a
+     mis-scan looks like. */}}
+<p class="sync-note">
+  This code came from <strong>{{.Sync.Scanned.Name}}</strong>, and you are adding
+  it to <strong>{{.Sync.Folder.Name}}</strong>.
+</p>
+{{end}}
+
+<form method="post" action="{{.Sync.Path}}/merge">
+  <input type="hidden" name="code" value="{{.Sync.Raw}}">
+  <button class="btn btn-primary btn-lg w-100" type="submit">Add to {{.Sync.Folder.Name}}</button>
+</form>
+
+<p class="sync-note"><a href="{{.Sync.Path}}/receive">‹ Scan something else</a></p>
+
+{{template "foot" .}}
+{{end}}
