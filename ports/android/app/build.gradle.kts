@@ -13,9 +13,11 @@ android {
         targetSdk = 36
         // versionName is what a person reads; versionCode is what Android
         // compares, and it has to keep going up or an upgrade is refused as a
-        // downgrade. They are not the same number and are not meant to be.
-        versionCode = 1
-        versionName = "1.0"
+        // downgrade. Release builds pass both from the version tag
+        // (-PversionName=1.2.3 -PversionCode=10203); these are the defaults for
+        // local builds.
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
+        versionName = (findProperty("versionName") as String?) ?: "1.0"
 
         // The server binary is built only for arm64: of the Android targets,
         // that is the one Go links without cgo, and it covers current phones.
@@ -30,16 +32,34 @@ android {
         }
     }
 
+    // The release key, when the environment provides one. CI decodes it from
+    // repository secrets; see .github/workflows/release.yml.
+    val releaseKeystore = System.getenv("CK_KEYSTORE_FILE")
+    if (releaseKeystore != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("CK_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("CK_KEY_ALIAS")
+                keyPassword = System.getenv("CK_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
 
-            // Signed with the debug key, so a release build installs and
-            // upgrades like a debug one when sideloaded. Android refuses to
-            // upgrade across a change of signing key, and the only way through
-            // is an uninstall, which deletes the favorites database. Configure
-            // a release key before publishing to a store, and keep it.
-            signingConfig = signingConfigs.getByName("debug")
+            // Signed with the release key when one is configured, otherwise
+            // with the debug key. Android refuses to upgrade across a change of
+            // signing key, and the only way through is an uninstall, which
+            // deletes the favorites database, so published builds must always
+            // use the same release key.
+            signingConfig = if (releaseKeystore != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 

@@ -1,0 +1,191 @@
+# Builds the release binaries and publishes a GitHub release. Runs only when a
+# version tag is pushed:
+#
+#   git tag v1.2.3 && git push origin v1.2.3
+#
+# A tag with a suffix (v1.2.3-rc1) is published as a pre-release.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  WAILS_VERSION: v2.16.0
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      code: ${{ steps.v.outputs.code }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+    steps:
+      - id: v
+        name: Parse the tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH[-SUFFIX]"; exit 1
+          fi
+          major=${BASH_REMATCH[1]} minor=${BASH_REMATCH[2]} patch=${BASH_REMATCH[3]}
+          if (( minor > 99 || patch > 99 )); then
+            echo "minor and patch must be below 100 to fit the Android version code"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "code=$(( major * 10000 + minor * 100 + patch ))" >> "$GITHUB_OUTPUT"
+          if [ -n "${BASH_REMATCH[4]}" ]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  android:
+    name: Android APK
+    needs: [ci, version]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.14.3"
+      # Without the four ANDROID_* secrets the APK is signed with a throwaway
+      # debug key, and later releases will not install over it.
+      - name: Decode the release key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "CK_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; signing with a debug key"
+          fi
+      - name: Build
+        env:
+          CK_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          CK_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          CK_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          ./ports/android/build.sh release \
+            -PversionName="$VERSION" -PversionCode="${{ needs.version.outputs.code }}"
+          mkdir -p dist
+          cp ports/android/app/build/outputs/apk/release/app-release.apk \
+            "dist/ck-karaoke-$VERSION-android.apk"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android
+          path: dist/*
+          if-no-files-found: error
+
+  windows:
+    name: Windows installer
+    needs: [ci, version]
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ports/desktop
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ports/desktop/go.mod
+          cache-dependency-path: ports/desktop/go.sum
+      - name: Install Wails and NSIS
+        run: |
+          go install "github.com/wailsapp/wails/v2/cmd/wails@$WAILS_VERSION"
+          choco install nsis -y --no-progress
+          echo "C:/Program Files (x86)/NSIS" >> "$GITHUB_PATH"
+      - name: Set the version
+        run: |
+          jq --arg v "$VERSION" '.info.productVersion = $v' wails.json > wails.json.tmp
+          mv wails.json.tmp wails.json
+      - name: Build
+        run: |
+          wails build -clean -nsis -platform windows/amd64
+          mkdir -p ../../dist
+          cp "build/bin/CK Karaoke-amd64-installer.exe" \
+            "../../dist/ck-karaoke-$VERSION-windows-amd64-setup.exe"
+          cp build/bin/ck-karaoke.exe "../../dist/ck-karaoke-$VERSION-windows-amd64.exe"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows
+          path: dist/*
+          if-no-files-found: error
+
+  macos:
+    name: macOS disk image
+    needs: [ci, version]
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ports/desktop
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ports/desktop/go.mod
+          cache-dependency-path: ports/desktop/go.sum
+      - name: Install Wails
+        run: go install "github.com/wailsapp/wails/v2/cmd/wails@$WAILS_VERSION"
+      - name: Set the version
+        run: |
+          jq --arg v "$VERSION" '.info.productVersion = $v' wails.json > wails.json.tmp
+          mv wails.json.tmp wails.json
+      # Unsigned: without a Developer ID, macOS asks the user to confirm the
+      # first launch. See ports/desktop/README.md.
+      - name: Build
+        run: |
+          wails build -clean -platform darwin/universal
+          mkdir -p ../../dist
+          hdiutil create -volname "CK Karaoke" -srcfolder "build/bin/CK Karaoke.app" \
+            -ov -format UDZO "../../dist/ck-karaoke-$VERSION-macos-universal.dmg"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    needs: [version, android, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=(--title "CK Karaoke ${{ needs.version.outputs.version }}" --generate-notes --verify-tag)
+          if [ "${{ needs.version.outputs.prerelease }}" = "true" ]; then
+            flags+=(--prerelease)
+          fi
+          (cd dist && sha256sum -- * > SHA256SUMS.txt)
+          gh release create "$GITHUB_REF_NAME" "${flags[@]}" dist/*

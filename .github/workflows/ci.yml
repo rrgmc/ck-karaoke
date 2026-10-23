@@ -1,0 +1,127 @@
+# Tests the library and checks that every port builds. Runs on pushes to
+# master and on pull requests, and is called by the release workflow before it
+# builds anything.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_call' }}
+
+jobs:
+  go:
+    name: Go (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Check formatting
+        if: runner.os == 'Linux'
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"; echo "$unformatted"; exit 1
+          fi
+      - run: go vet ./...
+      - name: Test
+        if: runner.os == 'Linux'
+        run: go test -race ./...
+      - name: Test
+        if: runner.os != 'Linux'
+        run: go test ./...
+      - name: Cross-compile the Android server
+        if: runner.os == 'Linux'
+        env:
+          GOOS: android
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+        run: go build -o /dev/null ./cmd/ck-karaoke-server
+
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            tags: desktop,production,webkit2_41
+          - os: windows-latest
+            tags: desktop,production
+          - os: macos-latest
+            tags: desktop,production
+            # The Wails CLI adds this framework itself; a plain go build
+            # must name it or the link fails on UTType.
+            ldflags: -framework UniformTypeIdentifiers -mmacosx-version-min=10.13
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ports/desktop
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ports/desktop/go.mod
+          cache-dependency-path: ports/desktop/go.sum
+      # Skipping recommended packages and man-db's index rebuild keeps this to
+      # about a minute.
+      - name: Install WebKitGTK
+        if: runner.os == 'Linux'
+        run: |
+          sudo rm -f /var/lib/man-db/auto-update
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev libwebkit2gtk-4.1-dev
+      - run: go vet -tags ${{ matrix.tags }} .
+      - run: go build -tags ${{ matrix.tags }} -o ck-karaoke-ci .
+        env:
+          CGO_LDFLAGS: ${{ matrix.ldflags }}
+
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.14.3"
+      - run: ./ports/android/build.sh
+
+  ios:
+    name: iOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: brew install xcodegen
+      - name: Build the Go server and generate the project
+        run: XCODE="$(xcode-select -p | sed 's#/Contents/Developer##')" ./ports/ios/build.sh
+      # arm64 only: the Go archive has no x86_64 simulator slice.
+      - name: Build the app for the simulator
+        run: |
+          xcodebuild -project ports/ios/CKKaraoke.xcodeproj -scheme CKKaraoke \
+            -sdk iphonesimulator -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build

@@ -1,5 +1,7 @@
 # CK Karaoke
 
+[![CI](https://github.com/rrgmc/ck-karaoke/actions/workflows/ci.yml/badge.svg)](https://github.com/rrgmc/ck-karaoke/actions/workflows/ci.yml)
+
 CK Karaoke is a remote control for karaoke units on your local network. It works
 with the Videoke VSK family and other units sold under the CooKara and RafKara
 names. Browse and search the unit's song list, queue songs, control playback,
@@ -106,6 +108,40 @@ To regenerate the icon rasters after changing the design:
 ```bash
 go run ./internal/cmd/genicon
 ```
+
+## Continuous integration and releases
+
+[CI](.github/workflows/ci.yml) runs on every push to `master` and every pull
+request. It tests the library on Linux, Windows and macOS, vets and builds the
+desktop app on all three, builds the Android APK, and builds the iOS app for
+the simulator. It produces no downloads.
+
+Binaries are built only for a release. Pushing a version tag starts the
+[release workflow](.github/workflows/release.yml), which runs CI, then
+publishes a GitHub release with the Android APK, the Windows installer and
+executable, the macOS disk image and a `SHA256SUMS.txt`:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+The tag must be `vMAJOR.MINOR.PATCH`, with minor and patch below 100; a suffix
+such as `v1.2.3-rc1` publishes a pre-release. The tag sets the version of every
+app, and the Android version code is `MAJOR×10000 + MINOR×100 + PATCH`.
+
+The APK is signed with the release key from these repository secrets:
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | the keystore file, base64-encoded |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
+| `ANDROID_KEY_ALIAS` | the key alias |
+| `ANDROID_KEY_PASSWORD` | the key password |
+
+Without them the APK is signed with a throwaway debug key, and the next
+release will not install over it. The Windows and macOS builds are not
+code-signed.
 
 ## Documentation
 
