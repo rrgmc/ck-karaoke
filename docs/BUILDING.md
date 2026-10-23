@@ -105,7 +105,8 @@ Android, iOS and desktop builds take their version from it. The Android version
 code and the iOS build number are `MAJOR×10000 + MINOR×100 + PATCH`.
 
 Binaries are built only for a release. To make one, set the new version in
-`version/VERSION`, commit and push it, then push the matching tag. The tag
+`version/VERSION`, merge it into `master` through a pull request (`master`
+refuses direct pushes), then tag the merged commit and push the tag. The tag
 starts the [release workflow](../.github/workflows/release.yml), which checks
 that it matches `version/VERSION`, runs CI, then publishes a GitHub release with
 the Android APK and App Bundle, the Windows installer, the macOS disk image, the Linux `.deb`
