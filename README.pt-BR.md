@@ -39,13 +39,14 @@ Baixe a versão mais recente na
 | Windows 10 ou 11 | `ck-karaoke-<versão>-windows-amd64-setup.exe` | Se o SmartScreen avisar, escolha **Mais informações** e depois **Executar assim mesmo**. |
 | macOS 10.13 ou superior | `ck-karaoke-<versão>-macos-universal.dmg` | Arraste o aplicativo para Aplicativos. Na primeira vez, abra com o botão direito, **Abrir**. |
 | iPhone e iPad, iOS 15 ou superior | `ck-karaoke-<versão>-ios-unsigned.ipa` | É preciso assinar o arquivo antes que o iOS o instale; veja [Installing the release IPA](ports/ios/README.md#installing-the-release-ipa) (em inglês). |
+| Linux: Ubuntu 22.04, Debian 12 ou superior | `ck-karaoke-<versão>-linux-amd64.deb` | Instale com `sudo apt install ./ck-karaoke-<versão>-linux-amd64.deb`, que também instala as bibliotecas necessárias. |
 
 O aplicativo para macOS é assinado e autenticado pela Apple. O aplicativo para
 Windows não é assinado pela Microsoft, por isso o Windows mostra um aviso na
 primeira vez que você o abre. O arquivo `SHA256SUMS.txt` na página de versões
 permite conferir se um download está íntegro.
 
-Ainda não há download para Linux. É possível compilar a partir do código-fonte;
+Em outras distribuições Linux, compile o aplicativo a partir do código-fonte;
 veja [docs/BUILDING.md](docs/BUILDING.md) (em inglês).
 
 ## Primeiros passos
