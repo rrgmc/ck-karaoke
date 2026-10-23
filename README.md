@@ -17,7 +17,7 @@ With it you can:
   <img src="docs/screenshots/search.png" width="190" alt="Searching the song list">
   <img src="docs/screenshots/artists.png" width="190" alt="The artist list">
   <img src="docs/screenshots/now.png" width="190" alt="Playback controls">
-  <img src="docs/screenshots/folder.png" width="190" alt="A favorites folder">
+  <img src="docs/screenshots/queue.png" width="190" alt="The queue">
 </p>
 
 ## Download
@@ -92,6 +92,7 @@ Tap **☆** on a song to put it in a favorites folder. Tap **★** at the top of
 Favorites are kept on each phone or computer, not on the unit.
 
 <p>
+  <img src="docs/screenshots/folder.png" width="190" alt="A favorites folder">
   <img src="docs/screenshots/share.png" width="190" alt="The QR code for a folder">
 </p>
 
