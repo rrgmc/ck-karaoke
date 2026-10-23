@@ -35,6 +35,7 @@ type Server struct {
 	// allowFolderDelete gates folder deletion, which is the one irreversible
 	// action in the UI and is off unless the operator asked for it.
 	allowFolderDelete bool
+	saveFile          func(name string, data []byte) (string, error)
 	tmpl              *template.Template
 	hub               *hub
 	// defaultLan is the language a first-time visitor sees. Resolved from the
@@ -61,6 +62,15 @@ type Options struct {
 	// AllowFolderDelete enables deleting favorites folders. Off by default:
 	// every client is unauthenticated by design, and deletion cannot be undone.
 	AllowFolderDelete bool
+
+	// SaveFile, if set, saves a file through the host's own dialog instead of
+	// sending it to the browser as a download. It returns where the file went,
+	// or "" if the user cancelled.
+	//
+	// For hosts whose web view has no download handling of its own, such as the
+	// desktop port's. The phone ports handle the download header natively and
+	// leave this nil.
+	SaveFile func(name string, data []byte) (string, error)
 }
 
 // New builds a Server. The Device must be run separately.
@@ -73,6 +83,7 @@ func New(dev *Device, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger
 		dev: dev, songs: songs, favs: favs, logger: logger,
 		tmpl: tmpl, hub: newHub(), stopping: make(chan struct{}),
 		allowFolderDelete: opts.AllowFolderDelete,
+		saveFile:          opts.SaveFile,
 	}
 	if songs != nil {
 		srv.defaultLan = songs.LanTypeNamed(context.Background(), DefaultLanguage)

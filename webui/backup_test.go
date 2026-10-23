@@ -386,3 +386,38 @@ func TestBackupPagesAreOrdinaryNavigations(t *testing.T) {
 		})
 	}
 }
+
+// A host with its own save dialog gets the file handed to it, and the page that
+// asked stays put: 204 leaves the document alone, and the outcome is a toast.
+func TestExportThroughTheHostsSaveDialog(t *testing.T) {
+	s := backupServer(t)
+	s.hub = newHub()
+	fill(t, s, "Rock", 101)
+
+	var gotName string
+	var gotData []byte
+	s.saveFile = func(name string, data []byte) (string, error) {
+		gotName, gotData = name, data
+		return `C:\Backups\` + name, nil
+	}
+
+	w := export(t, s)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+	assert.Empty(t, w.Header().Get("Content-Disposition"), "nothing should reach the browser as a download")
+	assert.Regexp(t, `^ck-karaoke-favorites-\d{4}-\d{2}-\d{2}\.xml$`, gotName)
+	read, err := xmlbackup.Parse(bytes.NewReader(gotData))
+	require.NoError(t, err)
+	require.Len(t, read.Folders, 1)
+	assert.Equal(t, "Rock", read.Folders[0].Name)
+}
+
+// Cancelling the dialog is not an error and must not look like one.
+func TestExportCancelledInTheHostsSaveDialog(t *testing.T) {
+	s := backupServer(t)
+	s.hub = newHub()
+	fill(t, s, "Rock", 101)
+	s.saveFile = func(string, []byte) (string, error) { return "", nil }
+
+	assert.Equal(t, http.StatusNoContent, export(t, s).Code)
+}

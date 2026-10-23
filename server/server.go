@@ -48,6 +48,9 @@ type Config struct {
 	// AllowFolderDelete permits deleting favorites folders, which cannot be
 	// undone.
 	AllowFolderDelete bool
+	// SaveFile saves a file through the host's own dialog; see
+	// webui.Options.SaveFile. Nil sends files to the browser as downloads.
+	SaveFile func(name string, data []byte) (string, error)
 	// Name is what the device shows beside songs queued here. Empty means the
 	// hostname.
 	Name string
@@ -201,7 +204,10 @@ func Run(ctx context.Context, cfg Config) error {
 			srv.PublishStatus(st)
 		}
 	})
-	srv, err = webui.New(dev, songs, favs, logger, webui.Options{AllowFolderDelete: cfg.AllowFolderDelete})
+	srv, err = webui.New(dev, songs, favs, logger, webui.Options{
+		AllowFolderDelete: cfg.AllowFolderDelete,
+		SaveFile:          cfg.SaveFile,
+	})
 	if err != nil {
 		return err
 	}

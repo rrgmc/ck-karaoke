@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net/http"
@@ -154,6 +155,10 @@ func (s *Server) backupExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := backupFilename(time.Now())
+	if s.saveFile != nil {
+		s.saveNatively(w, name, out)
+		return
+	}
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
 	// The favorites change as songs are filed, and the URL does not.
@@ -167,6 +172,32 @@ func (s *Server) backupExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.logger.Info("wrote a favorites backup", "folders", len(out.Folders), "songs", out.Songs())
+}
+
+// saveNatively hands the backup to the host's save dialog.
+//
+// The answer is 204 No Content, which leaves the page that asked exactly where
+// it was; the outcome arrives as a toast on the event stream that page is still
+// listening to.
+func (s *Server) saveNatively(w http.ResponseWriter, name string, out xmlbackup.Favorites) {
+	var buf bytes.Buffer
+	if err := xmlbackup.Marshal(&buf, out); err != nil {
+		s.fail(w, err)
+		return
+	}
+	path, err := s.saveFile(name, buf.Bytes())
+	switch {
+	case err != nil:
+		s.logger.Error("saving a favorites backup", "error", err)
+		s.notify(toastBad, "The backup could not be saved: "+err.Error())
+	case path == "":
+		// Cancelled; nothing to say.
+	default:
+		s.logger.Info("saved a favorites backup", "path", path,
+			"folders", len(out.Folders), "songs", out.Songs())
+		s.notify(toastGood, "Backup saved to "+path)
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // backupImport shows the file picker.
