@@ -34,6 +34,34 @@ with `stretchr/testify` (`require` for preconditions, `assert` for checks).
 Older tests in `protocol`, `catalog` and `favorites` use the standard library;
 leave them as they are.
 
+## Branching while the ports are being finalised
+
+Until every platform is finalised, merge feature branches straight into
+`master` without a pull request and without asking first. Still create a
+branch for each change, keep CI green, and ask before pushing or tagging.
+Remove this section once all ports have shipped.
+
+## Port status
+
+| Port | Built | Run |
+|---|---|---|
+| Windows desktop | CI and locally | against a real unit |
+| Android | CI and locally | on a Galaxy S23 against a real unit |
+| macOS desktop | CI | **not yet** |
+| iOS | CI (simulator, unsigned) | **not yet** |
+| Linux desktop | CI | not yet |
+
+The next step is on a Mac:
+
+- iOS: `./ports/ios/build.sh`, then run on a real iPhone or iPad from Xcode.
+  The project's `DEVELOPMENT_TEAM` comes from `ports/ios/project.yml`. Check
+  discovery by sweep, the catalogue download, the QR scanner and backup save
+  through the share sheet.
+- macOS desktop: `cd ports/desktop && wails build`, then run
+  `build/bin/CK Karaoke.app` (or the disk image from a release). Check that
+  macOS asks for local network access, that discovery finds the unit, and that
+  the backup Save dialog works.
+
 ## Rules
 
 - **The RakNet fork is mandatory.** The device speaks protocol version 6;
