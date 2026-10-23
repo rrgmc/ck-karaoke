@@ -19,6 +19,9 @@
     <string name="save_no_output">nothing would open %1$s for writing</string>
     <string name="save_unwritable">it could not be written</string>
 
+    <!-- Backup restore -->
+    <string name="restore_unreadable">Could not read that file. Try choosing it again.</string>
+
     <!-- Notification -->
     <string name="notification_title">Karaoke remote</string>
     <string name="notification_text">Connected to the karaoke device</string>

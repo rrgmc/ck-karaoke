@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.OpenableColumns
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -31,6 +32,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
+import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -109,11 +111,63 @@ class MainActivity : Activity() {
                 // onShowFileChooser. onReceiveValue(null) is how a WebView is
                 // told the user chose nothing, and it is what leaves the input
                 // able to ask again.
-                callback?.onReceiveValue(
-                    if (resultCode == RESULT_OK) data?.data?.let { arrayOf(it) } else null
-                )
+                val picked = data?.data
+                if (callback == null) return
+                if (resultCode != RESULT_OK || picked == null) {
+                    callback.onReceiveValue(null)
+                    return
+                }
+                copyForUpload(picked, callback)
             }
         }
+    }
+
+    /**
+     * Hands the page a private copy of the picked document, not the document.
+     *
+     * The WebView records a file's size and modification time when it is picked
+     * and checks them again when the form is sent. A document provider can
+     * report different values the second time, which Drive and other apps'
+     * shared files do, and the WebView then fails the whole navigation with
+     * ERR_UPLOAD_FILE_CHANGED. A file in this app's cache does not change
+     * between the two checks.
+     *
+     * The copy keeps the document's display name, because the server logs it.
+     * Each pick replaces the one before, so the cache holds one file at most.
+     */
+    private fun copyForUpload(source: Uri, callback: ValueCallback<Array<Uri>>) {
+        Thread({
+            val copy = try {
+                val dir = File(cacheDir, "restore")
+                dir.deleteRecursively()
+                if (!dir.mkdirs()) throw IOException("cannot create $dir")
+                val target = File(dir, displayName(source))
+                val input = contentResolver.openInputStream(source)
+                    ?: throw IOException("nothing would open $source for reading")
+                input.use { src -> target.outputStream().use { src.copyTo(it) } }
+                Uri.fromFile(target)
+            } catch (e: Exception) {
+                Log.w(Server.TAG, "copying $source for upload", e)
+                null
+            }
+
+            main.post {
+                if (copy == null) toast(getString(R.string.restore_unreadable))
+                callback.onReceiveValue(copy?.let { arrayOf(it) })
+            }
+        }, "ckkaraoke-pick").apply { isDaemon = true }.start()
+    }
+
+    /** The document's own name, reduced to something safe as a file name. */
+    private fun displayName(uri: Uri): String {
+        val name = try {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { if (it.moveToFirst()) it.getString(0) else null }
+        } catch (e: Exception) {
+            null
+        }
+        val clean = name?.substringAfterLast('/')?.trim()
+        return if (clean.isNullOrEmpty() || clean == "." || clean == "..") "favorites.xml" else clean
     }
 
     /**
