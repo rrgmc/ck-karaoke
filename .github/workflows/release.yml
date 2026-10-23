@@ -189,6 +189,45 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  linux:
+    name: Linux package
+    needs: [ci, version]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ports/desktop
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ports/desktop/go.mod
+          cache-dependency-path: ports/desktop/go.sum
+      # The packages CI downloaded and cached; see the desktop job in ci.yml.
+      - name: Restore WebKitGTK packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/apt-archives
+          key: apt-webkitgtk-${{ runner.os }}-${{ runner.arch }}-v1
+      - name: Install WebKitGTK and Wails
+        run: |
+          mkdir -p ~/apt-archives/partial
+          sudo rm -f /var/lib/man-db/auto-update
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            -o Dir::Cache::Archives="$HOME/apt-archives" \
+            libgtk-3-dev libwebkit2gtk-4.1-dev
+          go install "github.com/wailsapp/wails/v2/cmd/wails@$WAILS_VERSION"
+      - name: Package
+        run: ./package.sh ../../dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux
+          path: dist/*
+          if-no-files-found: error
+
   ios:
     name: iOS IPA (unsigned)
     needs: [ci, version]
@@ -215,7 +254,7 @@ jobs:
 
   publish:
     name: Publish
-    needs: [version, android, windows, macos, ios]
+    needs: [version, android, windows, macos, linux, ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write

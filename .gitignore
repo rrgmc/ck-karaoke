@@ -35,6 +35,7 @@ CLAUDE.local.md
 
 # Desktop build output.
 /ports/desktop/build/bin/
+/ports/desktop/build/deb/
 /ports/desktop/frontend/wailsjs/
 
 # IDE

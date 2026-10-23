@@ -107,8 +107,8 @@ Binaries are built only for a release. To make one, set the new version in
 `version/VERSION`, commit and push it, then push the matching tag. The tag
 starts the [release workflow](../.github/workflows/release.yml), which checks
 that it matches `version/VERSION`, runs CI, then publishes a GitHub release with
-the Android APK, the Windows installer, the macOS disk image, an unsigned iOS
-IPA and a `SHA256SUMS.txt`:
+the Android APK, the Windows installer, the macOS disk image, the Linux `.deb`
+package, an unsigned iOS IPA and a `SHA256SUMS.txt`:
 
 ```bash
 git tag v1.2.3

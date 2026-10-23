@@ -10,7 +10,7 @@
 # Output:
 #   Windows  ck-karaoke-<version>-windows-amd64-setup.exe  (NSIS installer)
 #   macOS    ck-karaoke-<version>-macos-universal.dmg
-#   Linux    ck-karaoke-<version>-linux-amd64.tar.gz       (CI check only)
+#   Linux    ck-karaoke-<version>-linux-amd64.deb
 #
 # Needs the Wails CLI on PATH, NSIS on Windows, and WebKitGTK on Linux; see
 # ports/desktop/README.md.
@@ -111,7 +111,58 @@ case "$(uname -s)" in
 
     Linux)
         wails build -clean -tags webkit2_41 -platform linux/amd64
-        tar -czf "$out/ck-karaoke-$version-linux-amd64.tar.gz" -C build/bin ck-karaoke
+        exe=build/bin/ck-karaoke
+        [ -f "$exe" ] || fail "no binary at $exe"
+
+        # Debian sorts "~" before anything, so 1.2.3~rc1 comes before 1.2.3.
+        # A "-" would mark a Debian revision instead.
+        debversion=${version/-/\~}
+
+        # The libraries are named without the t64 suffix that Ubuntu 24.04
+        # added; the renamed packages provide the old names, so one package
+        # installs on both. The glibc floor is the newest symbol version the
+        # binary links against.
+        glibc=$(objdump -T "$exe" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -V | tail -n 1)
+        [ -n "$glibc" ] || fail "no glibc symbol versions in $exe"
+
+        root=build/deb
+        rm -rf "$root"
+        install -Dm755 "$exe" "$root/usr/bin/ck-karaoke"
+        install -Dm644 ../../webui/static/icon-512.png \
+            "$root/usr/share/icons/hicolor/512x512/apps/ck-karaoke.png"
+        install -d "$root/usr/share/applications" "$root/DEBIAN"
+        cat > "$root/usr/share/applications/ck-karaoke.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=CK Karaoke
+Comment=Remote control for compatible karaoke units
+Exec=ck-karaoke
+Icon=ck-karaoke
+Terminal=false
+Categories=AudioVideo;Audio;
+EOF
+        cat > "$root/DEBIAN/control" <<EOF
+Package: ck-karaoke
+Version: $debversion
+Architecture: amd64
+Maintainer: Rangel Reale <realerangel@gmail.com>
+Installed-Size: $(du -sk --exclude=DEBIAN "$root" | cut -f1)
+Depends: libc6 (>= $glibc), libgtk-3-0, libwebkit2gtk-4.1-0
+Section: sound
+Priority: optional
+Homepage: https://github.com/rrgmc/ck-karaoke
+Description: Remote control for compatible karaoke units
+ Browse the song list, manage the queue and control playback on Videoke VSK,
+ CooKara and RafKara karaoke units over the local network.
+EOF
+        chmod 644 "$root/usr/share/applications/ck-karaoke.desktop" "$root/DEBIAN/control"
+
+        deb="$out/ck-karaoke-$version-linux-amd64.deb"
+        dpkg-deb --root-owner-group -Zxz --build "$root" "$deb"
+        dpkg-deb --info "$deb"
+        dpkg-deb --contents "$deb"
+        got=$(dpkg-deb --field "$deb" Version)
+        [ "$got" = "$debversion" ] || fail "package version is $got, want $debversion"
         ;;
 
     *)

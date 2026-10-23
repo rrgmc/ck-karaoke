@@ -37,7 +37,8 @@ network one, macOS drops the discovery broadcast).
 `./package.sh <dir> [version]` builds and packages for the host platform
 exactly as a release does: the installer on Windows,
 a verified universal disk image on macOS (it also checks the bundle's version,
-identifier and privacy strings), and a tarball on Linux. CI runs it on every
+identifier and privacy strings), and a `.deb` package on Linux (it needs
+`dpkg-deb` and `objdump`). CI runs it on every
 push; the release workflow runs it on a version tag (see
 [docs/BUILDING.md](../../docs/BUILDING.md#continuous-integration-and-releases)).
 
