@@ -151,6 +151,10 @@ throws `SecurityException` and the app dies on launch.
 `CHANGE_WIFI_MULTICAST_STATE` is declared because finding the unit means
 broadcasting on the local network.
 
+`POST_NOTIFICATIONS` is a runtime permission from Android 13, asked for at
+launch. Without it the service still runs, but its notification and the Stop
+button on it never reach the shade.
+
 The camera is optional. It is requested only when the QR scanner opens, and the
 sync page also accepts a typed code.
 

@@ -71,6 +71,12 @@ class MainActivity : Activity() {
         requestCode: Int, permissions: Array<out String>, results: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, results)
+        if (requestCode == REQ_NOTIFICATIONS) {
+            if (results.isNotEmpty() && results[0] == PackageManager.PERMISSION_GRANTED) {
+                ServerService.notificationsAllowed()
+            }
+            return
+        }
         if (requestCode != REQ_CAMERA) return
 
         val request = pendingCamera ?: return
@@ -238,6 +244,23 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         showStarting()
+        // Not again when the Activity is only being recreated, by a rotation
+        // for example: the user answered moments ago.
+        if (savedInstanceState == null) askForNotifications()
+    }
+
+    /**
+     * Asks for the notification permission, a runtime one from Android 13.
+     *
+     * Without it the foreground service still runs, but its notification never
+     * reaches the shade, and with it the Stop button. Android stops showing the
+     * dialog by itself once the user has refused it twice.
+     */
+    private fun askForNotifications() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val permission = Manifest.permission.POST_NOTIFICATIONS
+        if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) return
+        requestPermissions(arrayOf(permission), REQ_NOTIFICATIONS)
     }
 
     /**
@@ -818,6 +841,9 @@ class MainActivity : Activity() {
         /** Where to put a favorites backup, and which one to restore. */
         const val REQ_SAVE = 2
         const val REQ_OPEN = 3
+
+        /** Identifies the notification prompt raised at launch. */
+        const val REQ_NOTIFICATIONS = 4
 
         /** filename= out of a Content-Disposition header, quoted or not. */
         val FILENAME = Regex("""filename\*?=(?:UTF-8'')?("[^"]*"|[^;]*)""", RegexOption.IGNORE_CASE)

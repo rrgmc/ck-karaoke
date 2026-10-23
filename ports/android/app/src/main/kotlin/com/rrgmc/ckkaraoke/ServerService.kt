@@ -205,6 +205,20 @@ class ServerService : Service() {
             }, GRACE_MS)
         }
 
+        /**
+         * Posts the notification again, now that Android will show it.
+         *
+         * The service went foreground before the user answered the prompt, and
+         * a notification posted without the permission stays hidden. If the
+         * service is not up yet, startForeground posts it with the permission
+         * already held.
+         */
+        fun notificationsAllowed() {
+            val service = instance ?: return
+            val manager = service.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(NOTIFICATION_ID, service.notification())
+        }
+
         /** Cancels the countdown, the app being back on screen. */
         fun appForegrounded() {
             grace.removeCallbacksAndMessages(null)
