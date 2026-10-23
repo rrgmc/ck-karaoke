@@ -58,13 +58,14 @@ var portuguese = map[string]string{
 	"Reload and return to the song list": "Recarregar e voltar à lista de músicas",
 
 	// Queue.
-	"Reserved songs":      "Músicas na fila",
-	"Refresh":             "Atualizar",
-	"Loading the queue…":  "Carregando a fila…",
-	"Song %s":             "Música %s",
-	"Remove from queue":   "Tirar da fila",
-	"%d reserved":         "%d na fila",
-	"The queue is empty.": "A fila está vazia.",
+	"Reserved songs":              "Músicas na fila",
+	"Refresh":                     "Atualizar",
+	"Loading the queue…":          "Carregando a fila…",
+	"Song %s":                     "Música %s",
+	"Remove from queue":           "Tirar da fila",
+	"Remove “%s” from the queue?": "Tirar “%s” da fila?",
+	"%d reserved":                 "%d na fila",
+	"The queue is empty.":         "A fila está vazia.",
 
 	// Browsing.
 	"Clear search":                         "Limpar a pesquisa",
