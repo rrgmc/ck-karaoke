@@ -89,6 +89,20 @@ type Config struct {
 	// address usually comes from discovery. This is how the caller learns both.
 	Ready func(listen net.Addr, device string)
 
+	// WaitForDevice keeps searching when a search fails and there is no
+	// remembered address to fall back on, instead of returning an error. Run
+	// then returns only when a device answers or ctx is cancelled.
+	//
+	// The apps set it. On a first launch nothing is remembered, and macOS and iOS
+	// block the app's local network traffic until the user answers the permission
+	// prompt. A search then either hears nothing or fails to send, and it ends
+	// before the user has read the prompt.
+	WaitForDevice bool
+
+	// Searching is called each time a search finds nothing and WaitForDevice
+	// starts another one, so a caller can say what the wait is for.
+	Searching func()
+
 	// Progress reports how much of the song catalogue has been downloaded.
 	//
 	// Only a first run has anything to report — the catalogue is kept — but that
@@ -147,7 +161,7 @@ func Run(ctx context.Context, cfg Config) error {
 			return client.Resolve(ctx, cfg.Addr, cfg.DiscoverTimeout)
 		}
 	}
-	device, found, err := resolve(ctx)
+	device, found, err := findDevice(ctx, cfg, resolve, logger)
 	if err != nil {
 		// Nothing answered. If we have been here before and still hold a
 		// catalogue, serve it: the unit being off is no reason to withhold the
@@ -277,6 +291,32 @@ func Run(ctx context.Context, cfg Config) error {
 			logger.Warn("device session did not close in time")
 		}
 		return err
+	}
+}
+
+// searchPause is the wait between searches while WaitForDevice keeps looking.
+var searchPause = 2 * time.Second
+
+// findDevice runs resolve, and with cfg.WaitForDevice runs it again for as long
+// as it fails and there is no remembered address to fall back on.
+func findDevice(ctx context.Context, cfg Config,
+	resolve func(context.Context) (string, []client.Device, error),
+	logger *slog.Logger) (string, []client.Device, error) {
+	for {
+		device, found, err := resolve(ctx)
+		if err == nil || !cfg.WaitForDevice || ctx.Err() != nil ||
+			fallbackAddr(err, cfg.LastAddrFile, cfg.SongDB) != "" {
+			return device, found, err
+		}
+		logger.Info("no device found; still looking", "error", err)
+		if cfg.Searching != nil {
+			cfg.Searching()
+		}
+		select {
+		case <-ctx.Done():
+			return "", nil, ctx.Err()
+		case <-time.After(searchPause):
+		}
 	}
 }
 

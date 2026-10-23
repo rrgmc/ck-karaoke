@@ -60,6 +60,12 @@ catalogue already exists, the server starts offline on that address and
 `webui.Device` connects by itself when the unit comes back. With no catalogue
 the device is required, because it is the only source of one.
 
+With no catalogue, `Config.WaitForDevice` keeps searching instead of failing,
+and `Config.Searching` tells the caller each time a search comes back empty. The
+desktop and iOS apps set it. On their first launch the system blocks local
+network traffic until the user answers the permission prompt, and a single
+search ends long before that.
+
 `webui.Device` dials with a timeout (`webui.DialTimeout`). A stale address does
 not fail fast: nothing answers, and RakNet's MTU discovery would otherwise wait
 forever. The timeout turns that into an ordinary error and the reconnect backoff.

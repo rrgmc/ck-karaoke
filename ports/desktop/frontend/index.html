@@ -25,15 +25,21 @@
   }
   h1 { font-size: 1.6rem; margin: 0; font-weight: 600; }
   p { margin: 0; opacity: 0.85; }
+  #hint { display: none; max-width: 28rem; font-size: 0.9rem; }
+  .searching #hint { display: block; }
   #error { display: none; max-width: 28rem; }
   .failed #status { display: none; }
   .failed #error { display: block; }
+  .failed #hint { display: none; }
 </style>
 </head>
 <body>
 <main>
   <h1>CK Karaoke</h1>
   <p id="status">Looking for your karaoke device…</p>
+  <p id="hint">No device has answered yet. Check that it is switched on and on the
+    same network as this computer. On a Mac, also check that CK Karaoke is
+    allowed in System Settings, Privacy &amp; Security, Local Network.</p>
   <p id="error"></p>
 </main>
 <script>
@@ -51,7 +57,11 @@
 
     window.runtime.EventsOn("server:ready", go);
     window.runtime.EventsOn("server:failed", failed);
+    window.runtime.EventsOn("server:searching", function () {
+      document.body.className = "searching";
+    });
     window.runtime.EventsOn("server:progress", function (percent) {
+      document.body.className = "";
       status.textContent = "Downloading the song list… " + percent + "%";
     });
 

@@ -66,8 +66,9 @@ The icon comes from `build/appicon.png`, which `internal/cmd/genicon` renders.
   `~/.config/CK Karaoke` on Linux. It holds `song.db`, `favorites.db` and
   `device.addr`.
 - **Discovery** uses broadcast. The first run needs the unit switched on, to
-  download the song list; later runs start offline on the last known address and
-  connect when the unit comes back.
+  download the song list. Until a unit answers, the startup page keeps searching
+  and says what to check, including macOS's Local Network permission. Later runs
+  start offline on the last known address and connect when the unit comes back.
 - **The device name** is the computer's host name.
 - **Backups** are saved through the system's Save dialog (`server.Config.SaveFile`),
   because not every desktop web view handles downloads. The page stays where it

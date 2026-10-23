@@ -102,6 +102,21 @@ enum Server {
         return p < 0 ? nil : p
     }
 
+    /// Whether no device has answered yet and the server is still looking.
+    static var searching: Bool { CKSearching() != 0 }
+
+    /// What the startup screen says while the server is coming up.
+    enum Startup: Equatable {
+        case starting
+        case searching
+        case downloading(Int)
+    }
+
+    static var startup: Startup {
+        if let progress { return .downloading(progress) }
+        return searching ? .searching : .starting
+    }
+
     static func suspend() { CKSuspend() }
     static func resume() { CKResume() }
 
@@ -116,11 +131,11 @@ enum Server {
     /// fixed deadline would report failure on a server doing exactly what it is
     /// supposed to. The only failure
     /// signal that means anything is the server saying so.
-    static func waitUntilReady(progress: @escaping (Int?) -> Void,
+    static func waitUntilReady(progress: @escaping (Startup) -> Void,
                                ready: @escaping (URL) -> Void,
                                failed: @escaping (String) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            var lastReported: Int??
+            var lastReported: Startup?
             while true {
                 if let url {
                     DispatchQueue.main.async { ready(url) }
@@ -132,9 +147,9 @@ enum Server {
                 }
                 // Only on a change: this loop runs at 10Hz and the download takes
                 // upwards of twenty seconds.
-                let now = Self.progress
-                if lastReported == nil || lastReported! != now {
-                    lastReported = .some(now)
+                let now = Self.startup
+                if lastReported != now {
+                    lastReported = now
                     DispatchQueue.main.async { progress(now) }
                 }
                 Thread.sleep(forTimeInterval: 0.1)

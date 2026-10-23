@@ -19,9 +19,10 @@ import (
 
 // Events the startup page listens for.
 const (
-	eventReady    = "server:ready"    // the URL to navigate to
-	eventProgress = "server:progress" // catalogue download percent
-	eventFailed   = "server:failed"   // why the server stopped
+	eventReady     = "server:ready"     // the URL to navigate to
+	eventProgress  = "server:progress"  // catalogue download percent
+	eventSearching = "server:searching" // a search found nothing; still looking
+	eventFailed    = "server:failed"    // why the server stopped
 )
 
 // stopWait bounds how long closing the window waits for the device session to
@@ -78,6 +79,11 @@ func (a *App) startup(ctx context.Context) {
 		Name:         protocol.HostName(),
 		Logger:       logger,
 		SaveFile:     a.saveFile,
+		// A first launch waits for the user to answer the local network prompt.
+		WaitForDevice: true,
+		Searching: func() {
+			runtime.EventsEmit(ctx, eventSearching)
+		},
 		Ready: func(listen net.Addr, device string) {
 			url := "http://" + listen.String() + "/"
 			a.mu.Lock()

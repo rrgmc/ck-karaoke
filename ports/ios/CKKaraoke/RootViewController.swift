@@ -35,7 +35,7 @@ final class RootViewController: UIViewController {
 
     private func waitForServer() {
         Server.waitUntilReady(
-            progress: { [weak self] percent in self?.showProgress(percent) },
+            progress: { [weak self] state in self?.showProgress(state) },
             ready: { [weak self] url in self?.showWeb(url) },
             failed: { [weak self] reason in self?.showFailure(reason) })
     }
@@ -43,12 +43,19 @@ final class RootViewController: UIViewController {
     /// Says what the wait is for. Downloading the catalogue takes upwards of
     /// twenty seconds on a first run, and a spinner alone gives no way to tell
     /// that from a hang — which is exactly what it looked like.
-    private func showProgress(_ percent: Int?) {
-        guard let percent else {
+    private func showProgress(_ state: Server.Startup) {
+        switch state {
+        case .starting:
             startingLabel?.text = "Starting the karaoke server…"
-            return
+        case .searching:
+            // A first launch waits here until the user answers the local network
+            // prompt, and on any launch while the unit is off.
+            startingLabel?.text = "No device has answered yet. Check that it is switched on "
+                + "and on the same WiFi as this device, and that CK Karaoke has Local "
+                + "Network access in Settings."
+        case .downloading(let percent):
+            startingLabel?.text = "Downloading the song list… \(percent)%"
         }
-        startingLabel?.text = "Downloading the song list… \(percent)%"
     }
 
     // MARK: - Startup

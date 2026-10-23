@@ -43,6 +43,8 @@ var (
 	device  *webui.Device
 	// percent is catalogue download progress, or -1 when nothing is downloading.
 	percent = -1
+	// searching is whether a search found no device and another one is running.
+	searching bool
 	// generation counts starts, so a run that is abandoned rather than stopped
 	// cannot clear the state of the one that replaced it. Without it a stuck run
 	// finishing late would zero the new run's port, and the app would sit looking
@@ -116,6 +118,13 @@ func CKStart(dataDir, name, addr *C.char) C.int {
 		Resolve: func(ctx context.Context) (string, []client.Device, error) {
 			return client.ResolveSweep(ctx, goAddr, client.DefaultSweepTimeout)
 		},
+		// A first launch waits for the user to answer the local network prompt.
+		WaitForDevice: true,
+		Searching: func() {
+			mu.Lock()
+			defer mu.Unlock()
+			searching = true
+		},
 		Ready: func(listen net.Addr, device string) {
 			mu.Lock()
 			if tcp, ok := listen.(*net.TCPAddr); ok {
@@ -135,6 +144,7 @@ func CKStart(dataDir, name, addr *C.char) C.int {
 				return
 			}
 			percent = have * 100 / total
+			searching = false
 		},
 		OnDevice: func(d *webui.Device) {
 			mu.Lock()
@@ -146,7 +156,7 @@ func CKStart(dataDir, name, addr *C.char) C.int {
 	ctx, stop := context.WithCancel(context.Background())
 	generation++
 	gen := generation
-	cancel, running, port, percent = stop, true, 0, -1
+	cancel, running, port, percent, searching = stop, true, 0, -1, false
 	mu.Unlock()
 
 	go func() {
@@ -159,7 +169,7 @@ func CKStart(dataDir, name, addr *C.char) C.int {
 			// whoever replaced us.
 			return
 		}
-		running, port, device = false, 0, nil
+		running, port, device, searching = false, 0, nil, false
 		if err != nil && ctx.Err() == nil {
 			failure = C.CString(err.Error())
 		}
@@ -187,6 +197,19 @@ func CKProgress() C.int {
 	mu.Lock()
 	defer mu.Unlock()
 	return C.int(percent)
+}
+
+// CKSearching is 1 while no device has answered and the server is still looking
+// for one, otherwise 0.
+//
+//export CKSearching
+func CKSearching() C.int {
+	mu.Lock()
+	defer mu.Unlock()
+	if searching {
+		return 1
+	}
+	return 0
 }
 
 // CKError is why the server stopped, or NULL if it has not.
