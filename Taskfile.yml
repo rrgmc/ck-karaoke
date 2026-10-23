@@ -85,6 +85,11 @@ tasks:
     cmds:
       - ./ports/android/build.sh release
 
+  android:bundle:
+    desc: Build the Android App Bundle for Google Play (signed with the release key if CK_KEYSTORE_FILE is set)
+    cmds:
+      - ./ports/android/build.sh bundle
+
   android:install:
     desc: Build the debug APK and install it on the connected device
     deps: [android]

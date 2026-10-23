@@ -55,7 +55,7 @@ jobs:
           fi
 
   android:
-    name: Android APK
+    name: Android APK and bundle
     needs: [ci, version]
     runs-on: ubuntu-latest
     env:
@@ -91,9 +91,12 @@ jobs:
           CK_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           ./ports/android/build.sh release
+          ./ports/android/build.sh bundle
           mkdir -p dist
           cp ports/android/app/build/outputs/apk/release/app-release.apk \
             "dist/ck-karaoke-$VERSION-android.apk"
+          cp ports/android/app/build/outputs/bundle/release/app-release.aab \
+            "dist/ck-karaoke-$VERSION-android.aab"
       - uses: actions/upload-artifact@v7
         with:
           name: android

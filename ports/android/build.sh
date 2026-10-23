@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the Android app: the Go server first, then the APK around it.
+# Builds the Android app: the Go server first, then the APK or bundle around it.
 #
 # The server is packaged as a native library because that is the one directory
 # an app may still execute a file from; see Server.kt. Only arm64 is built —
@@ -14,17 +14,25 @@ echo "building the server for android/arm64"
 GOOS=android GOARCH=arm64 CGO_ENABLED=0 \
     go build -trimpath -ldflags="-s -w" -o "$JNI/libckkaraoke.so" ./cmd/ck-karaoke-server
 
-# assembleDebug by default; "release" builds the shareable APK instead. Both are
-# signed with the same (debug) key — see app/build.gradle.kts for why.
+# assembleDebug by default. "release" builds the shareable APK and "bundle" the
+# App Bundle that Google Play takes. Both are signed with the release key when
+# CK_KEYSTORE_FILE is set; see app/build.gradle.kts.
 task=assembleDebug
-out=debug/app-debug.apk
-if [ "${1:-}" = "release" ]; then
+out=apk/debug/app-debug.apk
+case "${1:-}" in
+release)
     task=assembleRelease
-    out=release/app-release.apk
+    out=apk/release/app-release.apk
     shift
-fi
+    ;;
+bundle)
+    task=bundleRelease
+    out=bundle/release/app-release.aab
+    shift
+    ;;
+esac
 
-echo "building the APK ($task)"
+echo "building the app ($task)"
 cd ports/android
 : "${JAVA_HOME:?set JAVA_HOME to a JDK 17-21 — see ports/android/README.md}"
 
@@ -39,4 +47,4 @@ fi
 "$GRADLE" "$task" "$@"
 
 echo
-echo "APK: ports/android/app/build/outputs/apk/$out"
+echo "output: ports/android/app/build/outputs/$out"
