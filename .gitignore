@@ -40,3 +40,4 @@ CLAUDE.local.md
 # IDE
 /.idea/
 /.vscode/
+/ports/desktop/build/windows/installer/tmp/

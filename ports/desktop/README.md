@@ -28,7 +28,17 @@ Then, from this directory:
 | Linux | `wails build -tags webkit2_41` | `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, a C compiler |
 
 The output is in `build/bin/`. Wails builds for the host platform; build each
-platform on that platform.
+platform on that platform. Add `-nsis` on Windows to also build the installer,
+`CK Karaoke-amd64-installer.exe`; it needs [NSIS](https://nsis.sourceforge.io)
+on `PATH`. The installer scripts are in `build/windows/installer/`, and
+`build/darwin/Info.plist` adds the macOS privacy strings (without the local
+network one, macOS drops the discovery broadcast).
+
+Releases are built by CI from a version tag; see the repository README.
+
+The release builds are not code-signed. Windows SmartScreen may warn on first
+run ("More info", then "Run anyway"). On macOS, open the app once with
+right-click, Open, or run `xattr -dr com.apple.quarantine "/Applications/CK Karaoke.app"`.
 
 Without the CLI, plain Go works too, minus the embedded Windows icon:
 

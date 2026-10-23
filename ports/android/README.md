@@ -25,7 +25,7 @@ Requirements: Go, a JDK 17 to 21 (Temurin 21 is tested), Gradle on `PATH` or in
 ```bash
 export JAVA_HOME=/path/to/jdk-21
 ./ports/android/build.sh            # debug APK
-./ports/android/build.sh release    # release APK, signed with the debug key
+./ports/android/build.sh release    # release APK; see "Signing" below
 adb install -r ports/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -33,6 +33,18 @@ Do not build with Android Studio's bundled runtime. It reports a malformed
 version string (`25.0.2+-15348964-b329.117`) that the Kotlin DSL's version
 parser rejects with a bare `IllegalArgumentException: 25.0.2`.
 `settings.gradle.kts` lets Gradle download a proper JDK for compilation.
+
+## Signing
+
+A release build is signed with the key named by `CK_KEYSTORE_FILE`,
+`CK_KEYSTORE_PASSWORD`, `CK_KEY_ALIAS` and `CK_KEY_PASSWORD` when
+`CK_KEYSTORE_FILE` is set, and with the debug key otherwise. Android refuses to
+upgrade an app across a change of signing key, and an uninstall deletes the
+favorites, so every published APK must use the same release key. The release
+workflow takes it from repository secrets; see the repository README.
+
+Versions come from `-PversionName` and `-PversionCode`, which the release
+workflow sets from the tag. Local builds default to `1.0` and `1`.
 
 ## How it runs
 
