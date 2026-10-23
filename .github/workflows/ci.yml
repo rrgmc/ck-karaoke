@@ -60,7 +60,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          # The image the release builds the Linux package on; see release.yml.
+          - os: ubuntu-24.04
             tags: desktop,production,webkit2_41
             # Room for an uncached WebKitGTK download from a slow mirror.
             timeout: 45

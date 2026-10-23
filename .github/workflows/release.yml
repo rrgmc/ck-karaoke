@@ -192,7 +192,11 @@ jobs:
   linux:
     name: Linux package
     needs: [ci, version]
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: the package requires the glibc it was built
+    # against, and 24.04's keeps it installable on Ubuntu 22.04 and Debian 12.
+    # Keep it the same as the Linux desktop job in ci.yml, which shares the
+    # apt cache.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     defaults:
       run:
