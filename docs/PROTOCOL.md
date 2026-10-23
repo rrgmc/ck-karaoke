@@ -47,7 +47,7 @@ while other clients are connected.
 
 The pong carries its payload **raw, to the end of the packet, with no `uint16`
 length prefix**. A parser that expects the prefix consumes the first two payload
-bytes as a bogus length. A correct parse of the reference unit's pong returns 90
+bytes as a bogus length. A correct parse of a typical pong returns 90
 bytes beginning `pxP24QU5`.
 
 ### 2.2 The device information payload
