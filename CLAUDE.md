@@ -6,7 +6,7 @@ Guidance for Claude Code when working in this repository.
 
 CK Karaoke: a remote control for compatible karaoke units (Videoke VSK, CooKara,
 RafKara) over RakNet. A reusable Go library, one web UI, and native wrappers for
-Android, iOS and the desktop. Read [README.md](README.md) for the layout,
+Android, iOS and the desktop. Read [docs/BUILDING.md](docs/BUILDING.md) for the layout,
 [docs/PROTOCOL.md](docs/PROTOCOL.md) for the wire format and
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design rules.
 

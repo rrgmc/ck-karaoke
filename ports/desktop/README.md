@@ -38,8 +38,8 @@ network one, macOS drops the discovery broadcast).
 exactly as a release does: the installer on Windows,
 a verified universal disk image on macOS (it also checks the bundle's version,
 identifier and privacy strings), and a tarball on Linux. CI runs it on every
-push; the release workflow runs it on a version tag (see the repository
-README).
+push; the release workflow runs it on a version tag (see
+[docs/BUILDING.md](../../docs/BUILDING.md#continuous-integration-and-releases)).
 
 The release builds are not code-signed. Windows SmartScreen may warn on first
 run ("More info", then "Run anyway"). On macOS, open the app once with

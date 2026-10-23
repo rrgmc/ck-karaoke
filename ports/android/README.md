@@ -41,7 +41,8 @@ A release build is signed with the key named by `CK_KEYSTORE_FILE`,
 `CK_KEYSTORE_FILE` is set, and with the debug key otherwise. Android refuses to
 upgrade an app across a change of signing key, and an uninstall deletes the
 favorites, so every published APK must use the same release key. The release
-workflow takes it from repository secrets; see the repository README.
+workflow takes it from repository secrets; see
+[docs/BUILDING.md](../../docs/BUILDING.md#continuous-integration-and-releases).
 
 Versions come from `-PversionName` and `-PversionCode`, which the release
 workflow sets from the tag. Local builds default to `1.0` and `1`.
