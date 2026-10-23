@@ -63,6 +63,15 @@ targets:
         # that must rise between uploads of the same version.
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "1"
+        # The scene life cycle is required: without this manifest an app built
+        # with the current SDK fails to launch. One window only; the server and
+        # its device session are not shared between windows.
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Default
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).SceneDelegate
         UILaunchScreen:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations:
