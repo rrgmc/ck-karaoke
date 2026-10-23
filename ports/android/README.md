@@ -66,12 +66,18 @@ to uninstall first, which deletes the favorites.
 APKs keep `libckkaraoke.so` compressed, as `useLegacyPackaging` asks, so Android
 still extracts it to disk where it can run. The server's ELF segments are
 aligned at 64 KB, which meets Play's 16 KB page size requirement. To check a
-bundle before uploading it, install the APKs Play would make:
+bundle before uploading it, install the APKs Play would make with
+[bundletool](https://github.com/google/bundletool/releases). It ships as a
+single jar, so download `bundletool-all-<version>.jar` and run it with Java.
+It needs `adb` on the `PATH` and signs the APKs with the debug key:
 
 ```bash
-bundletool build-apks --bundle app-release.aab --output app.apks --connected-device
-bundletool install-apks --apks app.apks
+java -jar bundletool-all.jar build-apks --bundle app-release.aab --output app.apks --connected-device
+java -jar bundletool-all.jar install-apks --apks app.apks
 ```
+
+Uninstall a release build from the device first, because the debug key does
+not match it.
 
 **Play Console forms.** These answers follow from how the app works:
 
