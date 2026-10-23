@@ -8,4 +8,4 @@
 
      An element is always emitted, never nothing — see _queuecount.html for why an
      empty payload is not safe to rely on. */}}
-{{define "_conn.html"}}{{if .}}<span class="conn-dot conn-on" title="Connected to the karaoke device" aria-label="Connected"></span>{{else}}<span class="conn-dot conn-off" title="No connection to the karaoke device" aria-label="Disconnected"></span>{{end}}{{end}}
+{{define "_conn.html"}}{{if .}}<span class="conn-dot conn-on" title="{{t "Connected to the karaoke device"}}" aria-label="{{t "Connected"}}"></span>{{else}}<span class="conn-dot conn-off" title="{{t "No connection to the karaoke device"}}" aria-label="{{t "Disconnected"}}"></span>{{end}}{{end}}

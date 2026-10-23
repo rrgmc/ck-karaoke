@@ -1,8 +1,8 @@
 {{define "_queue.html"}}
-{{if .Err}}
-  <div class="alert alert-warning py-2">{{.Err}}</div>
+{{if .Offline}}
+  <div class="alert alert-warning py-2">{{t "Device offline"}}</div>
 {{else if .Pending}}
-  <p class="empty">Loading the queue…</p>
+  <p class="empty">{{t "Loading the queue…"}}</p>
 {{else if .Entries}}
   <ul class="song-list">
     {{/* Laid out like the song list — title on a line of its own, artist sharing
@@ -13,12 +13,12 @@
     <li class="queue-item">
       <div class="queue-pos">{{.Position}}</div>
       <div class="queue-body">
-        <div class="song-name">{{.Title}}</div>
+        <div class="song-name">{{if .Title}}{{.Title}}{{else}}{{t "Song %s" .SongID}}{{end}}</div>
         <div class="song-line">
           <div class="song-sub">{{.Artist}} <span class="song-id">#{{.SongID}}</span>{{if .By}} <span class="queued-by">{{.By}}</span>{{end}}</div>
           <div class="song-actions" id="qsong-{{.SongID}}">
             <button class="btn btn-outline-danger icon-btn"
-                    title="Remove from queue" aria-label="Remove from queue"
+                    title="{{t "Remove from queue"}}" aria-label="{{t "Remove from queue"}}"
                     hx-post="/song/{{.SongID}}/remove" hx-target="#qsong-{{.SongID}}"
                     hx-confirm="Remove “{{.Title}}” from the queue?"
                     hx-swap="innerHTML">✕</button>
@@ -28,8 +28,8 @@
     </li>
     {{end}}
   </ul>
-  <p class="result-count">{{.Total}} reserved</p>
+  <p class="result-count">{{t "%d reserved" .Total}}</p>
 {{else}}
-  <p class="empty">The queue is empty.</p>
+  <p class="empty">{{t "The queue is empty."}}</p>
 {{end}}
 {{end}}

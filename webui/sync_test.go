@@ -15,6 +15,7 @@ import (
 
 	"github.com/rrgmc/ck-karaoke/favorites"
 	"github.com/rrgmc/ck-karaoke/favorites/qrshare"
+	"github.com/rrgmc/ck-karaoke/i18n"
 )
 
 func syncServer(t *testing.T) *Server {
@@ -117,7 +118,7 @@ func TestFolderCodeCarriesTheName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data, err := s.folderCode(ctx, rock)
+	data, err := s.folderCode(ctx, i18n.English, rock)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +150,7 @@ func TestHugeFolderFallsBackToText(t *testing.T) {
 	}
 	f = defaultFolder(t, s)
 
-	data, err := s.folderCode(context.Background(), f)
+	data, err := s.folderCode(context.Background(), i18n.English, f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +343,7 @@ func TestDoneOffersTheReturnLeg(t *testing.T) {
 	if !strings.Contains(out, "/favorites/sync/"+strconv.Itoa(f.ID)+"/send") {
 		t.Error("no way back to showing this device's code")
 	}
-	if !strings.Contains(out, "not in this device's song list") {
+	if !strings.Contains(out, "left out") {
 		t.Error("the skipped songs are not explained")
 	}
 	if !strings.Contains(out, "folder="+strconv.Itoa(f.ID)) {
@@ -359,7 +360,7 @@ func TestEverySyncScreenLeavesToFavorites(t *testing.T) {
 		t.Fatal(err)
 	}
 	f = defaultFolder(t, s)
-	sent, err := s.folderCode(context.Background(), f)
+	sent, err := s.folderCode(context.Background(), i18n.English, f)
 	if err != nil {
 		t.Fatal(err)
 	}

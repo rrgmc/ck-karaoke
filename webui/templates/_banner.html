@@ -1,7 +1,9 @@
 {{define "_banner.html"}}
 {{if not .Online}}
 <div class="offline-banner">
-  Device {{if .Reason}}{{.Reason}}{{else}}offline{{end}} — retrying {{.DeviceAddr}}
+  {{if eq .Reason "busy"}}{{t "Device busy — it serves two clients at once, so a slot may be taken by another remote — retrying %s" .DeviceAddr}}
+  {{else if eq .Reason "unreachable"}}{{t "Device unreachable — retrying %s" .DeviceAddr}}
+  {{else}}{{t "Device offline — retrying %s" .DeviceAddr}}{{end}}
 </div>
 {{end}}
 {{end}}

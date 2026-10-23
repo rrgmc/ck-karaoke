@@ -20,31 +20,28 @@
 <a class="sync-choice" href="/favorites/backup.xml">
   <span class="sync-choice-icon" aria-hidden="true">⇩</span>
   <span class="sync-choice-text">
-    <span class="sync-choice-name">Save a backup</span>
+    <span class="sync-choice-name">{{t "Save a backup"}}</span>
     <span class="sync-choice-sub">
-      {{.Songs}} song{{if ne .Songs 1}}s{{end}} in
-      {{len .Folders}} folder{{if ne (len .Folders) 1}}s{{end}}, as one file
+      {{t "%s in %s, as one file" (tn .Songs "%d song" "%d songs") (tn (len .Folders) "%d folder" "%d folders")}}
     </span>
   </span>
   <span class="chevron">›</span>
 </a>
 {{else}}
-<p class="sync-intro">There are no favorites here yet, so there is nothing to save.</p>
+<p class="sync-intro">{{t "There are no favorites here yet, so there is nothing to save."}}</p>
 {{end}}
 
 <a class="sync-choice" href="/favorites/backup/import">
   <span class="sync-choice-icon" aria-hidden="true">⇧</span>
   <span class="sync-choice-text">
-    <span class="sync-choice-name">Restore from a file</span>
-    <span class="sync-choice-sub">Add everything in a saved backup to what is here</span>
+    <span class="sync-choice-name">{{t "Restore from a file"}}</span>
+    <span class="sync-choice-sub">{{t "Add everything in a saved backup to what is here"}}</span>
   </span>
   <span class="chevron">›</span>
 </a>
 
 <p class="sync-intro">
-  Restoring only ever adds. Folders that are missing are created, songs that are
-  already here stay as they are, and nothing is removed — so restoring the same
-  file twice changes nothing the second time.
+  {{t "Restoring only ever adds. Folders that are missing are created, songs that are already here stay as they are, and nothing is removed — so restoring the same file twice changes nothing the second time."}}
 </p>
 {{end}}
 

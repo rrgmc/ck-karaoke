@@ -6,6 +6,9 @@
 // most, since iOS's own camera app handles a plain-text QR poorly and that is
 // the whole reason for scanning inside the app.
 //
+// The messages it shows come from data attributes on the #scan box, which the
+// server renders in the page's language.
+//
 // Nothing here understands the code. It goes into a hidden field and straight
 // back to the server, which is what names the folder and works out where the
 // songs should go.
@@ -55,7 +58,7 @@
     startBtn.hidden = true;
     view.hidden = false;
     stopBtn.hidden = false;
-    say("Starting the camera…");
+    say(box.dataset.starting);
 
     navigator.mediaDevices.getUserMedia({
       // The back camera, at enough resolution to resolve a dense code without
@@ -104,7 +107,7 @@
     field.value = found.data.trim();
     stop();
     if (navigator.vibrate) navigator.vibrate(60);
-    say("Got it…");
+    say(box.dataset.got);
     form.submit();
   }
 
@@ -129,13 +132,12 @@
     switch (err && err.name) {
       case "NotAllowedError":
       case "SecurityError":
-        return "The camera was not allowed. Turn it on for this app in the " +
-          "system settings, or use “Can't scan it?” below.";
+        return box.dataset.denied;
       case "NotFoundError":
       case "OverconstrainedError":
-        return "No camera was found. Use “Can't scan it?” below.";
+        return box.dataset.missing;
       default:
-        return "The camera could not be started. Use “Can't scan it?” below.";
+        return box.dataset.failed;
     }
   }
 })();

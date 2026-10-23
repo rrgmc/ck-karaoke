@@ -48,7 +48,7 @@ func (s *Server) sheet(w http.ResponseWriter, r *http.Request) {
 	}
 	songID, err := strconv.Atoi(r.PathValue("song"))
 	if err != nil {
-		s.fail(w, errors.New("bad song id"))
+		s.fail(w, r, errors.New("bad song id"))
 		return
 	}
 	s.renderSheet(w, r, songID, "")
@@ -72,14 +72,14 @@ func (s *Server) toggleFavorite(w http.ResponseWriter, r *http.Request) {
 	folderID, err1 := strconv.Atoi(r.PathValue("folder"))
 	songID, err2 := strconv.Atoi(r.PathValue("song"))
 	if err1 != nil || err2 != nil {
-		s.fail(w, errors.New("bad folder or song id"))
+		s.fail(w, r, errors.New("bad folder or song id"))
 		return
 	}
 
 	added, err := s.favs.Toggle(r.Context(), folderID, songID)
 	if err != nil {
 		s.logger.Error("toggling favorite", "folder", folderID, "song", songID, "error", err)
-		s.renderSheet(w, r, songID, err.Error())
+		s.renderSheet(w, r, songID, errorText(langOf(r), err))
 		return
 	}
 
@@ -97,9 +97,9 @@ func (s *Server) toggleFavorite(w http.ResponseWriter, r *http.Request) {
 
 	if name := s.folderName(r, folderID); name != "" {
 		if added {
-			withToast(w, toastGood, "Added to "+name)
+			withToast(w, toastGood, langOf(r).T("Added to %s", name))
 		} else {
-			withToast(w, toastInfo, "Removed from "+name)
+			withToast(w, toastInfo, langOf(r).T("Removed from %s", name))
 		}
 	}
 }
@@ -127,19 +127,19 @@ func (s *Server) createFolder(w http.ResponseWriter, r *http.Request) {
 	if songID == 0 {
 		s.browse(w, r)
 		if err != nil {
-			withToast(w, toastBad, err.Error())
+			withToast(w, toastBad, errorText(langOf(r), err))
 		} else {
-			withToast(w, toastGood, "Created "+name)
+			withToast(w, toastGood, langOf(r).T("Created %s", name))
 		}
 		return
 	}
 
 	if err != nil {
-		s.renderSheet(w, r, songID, err.Error())
+		s.renderSheet(w, r, songID, errorText(langOf(r), err))
 		return
 	}
 	s.renderSheet(w, r, songID, "")
-	withToast(w, toastGood, "Created "+name)
+	withToast(w, toastGood, langOf(r).T("Created %s", name))
 }
 
 // renameFolder changes a folder's name from inside it.
@@ -156,7 +156,7 @@ func (s *Server) renameFolder(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		s.fail(w, errors.New("bad folder id"))
+		s.fail(w, r, errors.New("bad folder id"))
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("name"))
@@ -169,9 +169,9 @@ func (s *Server) renameFolder(w http.ResponseWriter, r *http.Request) {
 
 	s.browse(w, r)
 	if err != nil {
-		withToast(w, toastBad, err.Error())
+		withToast(w, toastBad, errorText(langOf(r), err))
 	} else {
-		withToast(w, toastGood, "Renamed to "+name)
+		withToast(w, toastGood, langOf(r).T("Renamed to %s", name))
 	}
 }
 
@@ -188,14 +188,14 @@ func (s *Server) removeFavorite(w http.ResponseWriter, r *http.Request) {
 	folderID, err1 := strconv.Atoi(r.PathValue("id"))
 	songID, err2 := strconv.Atoi(r.PathValue("song"))
 	if err1 != nil || err2 != nil {
-		s.fail(w, errors.New("bad folder or song id"))
+		s.fail(w, r, errors.New("bad folder or song id"))
 		return
 	}
 
 	name := s.folderName(r, folderID)
 	if err := s.favs.RemoveSong(r.Context(), folderID, songID); err != nil {
 		s.logger.Error("removing a favorite", "folder", folderID, "song", songID, "error", err)
-		s.fail(w, err)
+		s.fail(w, r, err)
 		return
 	}
 
@@ -203,7 +203,7 @@ func (s *Server) removeFavorite(w http.ResponseWriter, r *http.Request) {
 	// part of it and would otherwise go on claiming the song is still there.
 	s.browse(w, r)
 	if name != "" {
-		withToast(w, toastInfo, "Removed from "+name)
+		withToast(w, toastInfo, langOf(r).T("Removed from %s", name))
 	}
 }
 
@@ -222,7 +222,7 @@ func (s *Server) deleteFolder(w http.ResponseWriter, r *http.Request) {
 
 	folderID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		s.fail(w, errors.New("bad folder id"))
+		s.fail(w, r, errors.New("bad folder id"))
 		return
 	}
 	songID := atoiDefault(r.FormValue("song"), 0)
@@ -232,11 +232,11 @@ func (s *Server) deleteFolder(w http.ResponseWriter, r *http.Request) {
 		if !errors.Is(err, favorites.ErrLastFolder) {
 			s.logger.Error("deleting folder", "folder", folderID, "error", err)
 		}
-		s.renderSheet(w, r, songID, err.Error())
+		s.renderSheet(w, r, songID, errorText(langOf(r), err))
 		return
 	}
 	s.renderSheet(w, r, songID, "")
-	withToast(w, toastInfo, "Deleted "+name)
+	withToast(w, toastInfo, langOf(r).T("Deleted %s", name))
 }
 
 // renderSheet writes the picker plus an out-of-band refresh of the row's star,
@@ -251,13 +251,13 @@ func (s *Server) renderSheet(w http.ResponseWriter, r *http.Request, songID int,
 
 	folders, err := s.favs.Folders(r.Context())
 	if err != nil {
-		s.fail(w, err)
+		s.fail(w, r, err)
 		return
 	}
 	data.Folders = folders
 
 	if data.In, err = s.favs.FoldersForSong(r.Context(), songID); err != nil {
-		s.fail(w, err)
+		s.fail(w, r, err)
 		return
 	}
 
@@ -267,15 +267,15 @@ func (s *Server) renderSheet(w http.ResponseWriter, r *http.Request, songID int,
 		}
 	}
 	if data.Title == "" {
-		data.Title = "Song " + strconv.Itoa(songID)
+		data.Title = langOf(r).T("Song %s", strconv.Itoa(songID))
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.tmpl.ExecuteTemplate(w, "_sheet.html", data); err != nil {
+	if err := s.templates(langOf(r)).ExecuteTemplate(w, "_sheet.html", data); err != nil {
 		s.logger.Error("rendering sheet", "error", err)
 		return
 	}
-	if err := s.tmpl.ExecuteTemplate(w, "_star", starData{
+	if err := s.templates(langOf(r)).ExecuteTemplate(w, "_star", starData{
 		ID: songID, On: len(data.In) > 0, OOB: true,
 	}); err != nil {
 		s.logger.Error("rendering star", "error", err)
@@ -290,7 +290,7 @@ func (s *Server) starOOB(w http.ResponseWriter, r *http.Request, songID int) {
 		s.logger.Error("reading folders for song", "song", songID, "error", err)
 		return
 	}
-	if err := s.tmpl.ExecuteTemplate(w, "_star", starData{
+	if err := s.templates(langOf(r)).ExecuteTemplate(w, "_star", starData{
 		ID: songID, On: len(in) > 0, OOB: true,
 	}); err != nil {
 		s.logger.Error("rendering star", "error", err)

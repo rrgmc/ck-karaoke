@@ -14,11 +14,15 @@ import (
 	"github.com/rrgmc/ck-karaoke/catalog"
 	"github.com/rrgmc/ck-karaoke/client"
 	"github.com/rrgmc/ck-karaoke/favorites"
+	"github.com/rrgmc/ck-karaoke/i18n"
 	"github.com/rrgmc/ck-karaoke/protocol"
 )
 
 // pageData is what every full page template receives.
 type pageData struct {
+	// Lang is the language the page is rendered in. page sets it from the
+	// request.
+	Lang       i18n.Lang
 	Title      string
 	Nav        string
 	Online     bool
@@ -67,6 +71,8 @@ const (
 
 // browseData drives the catalogue page in both its modes.
 type browseData struct {
+	// Lang is the language of the sentences built here, such as EmptyText.
+	Lang    i18n.Lang
 	Mode    string
 	Query   string
 	LanType int
@@ -176,7 +182,7 @@ func (b browseData) activeLetter() string {
 // digit bucket differs from the value itself, and "0" is not what it means.
 func (b browseData) letterPhrase() string {
 	if b.activeLetter() == "0" {
-		return "a digit"
+		return b.Lang.T("a digit")
 	}
 	return b.activeLetter()
 }
@@ -189,36 +195,33 @@ func (b browseData) Is(mode string) bool { return b.Mode == mode }
 
 // Placeholder adapts the search box to what is being listed.
 func (b browseData) Placeholder() string {
+	l := b.Lang
 	if b.ArtistID != 0 {
-		return "Search within " + b.Artist.Name
+		return l.T("Search within %s", b.Artist.Name)
 	}
 	if b.FolderID != 0 {
-		return "Search within " + b.Folder.Name
+		return l.T("Search within %s", b.Folder.Name)
 	}
 	switch b.Mode {
 	case modeArtists:
-		return "Search artists"
+		return l.T("Search artists")
 	case modeFavorites:
-		return "Search folders"
+		return l.T("Search folders")
 	default:
-		return "Song title or number"
+		return l.T("Song title or number")
 	}
 }
 
 // CountText is the match count, shown beside the language filter rather than on
 // a line of its own — it is one short phrase and was costing a whole row.
 func (b browseData) CountText() string {
-	noun := "song"
 	switch {
 	case b.ShowingArtists():
-		noun = "artist"
+		return b.Lang.N(b.Total, "%d artist", "%d artists")
 	case b.ShowingFolders():
-		noun = "folder"
+		return b.Lang.N(b.Total, "%d folder", "%d folders")
 	}
-	if b.Total == 1 {
-		return "1 " + noun
-	}
-	return fmt.Sprintf("%d %ss", b.Total, noun)
+	return b.Lang.N(b.Total, "%d song", "%d songs")
 }
 
 // IsEmpty reports whether the list has no rows, whichever of the three kinds
@@ -241,41 +244,41 @@ func (b browseData) IsEmpty() bool {
 // could come up empty. Nested {{if}}s that deep stop being readable, and a
 // sentence is the one thing worth testing directly.
 func (b browseData) EmptyText() string {
-	quoted := "“" + b.Query + "”"
+	l, q := b.Lang, b.Query
 	letter := b.activeLetter()
 	switch {
 	case b.ShowingFolders():
-		if b.Query != "" {
-			return "No folders match " + quoted + "."
+		if q != "" {
+			return l.T("No folders match “%s”.", q)
 		}
-		return "No folders yet."
+		return l.T("No folders yet.")
 
 	case b.ShowingArtists():
 		switch {
-		case b.Query != "" && letter != "":
-			return "No artists starting with " + b.letterPhrase() + " match " + quoted + "."
-		case b.Query != "":
-			return "No artists match " + quoted + "."
+		case q != "" && letter != "":
+			return l.T("No artists starting with %s match “%s”.", b.letterPhrase(), q)
+		case q != "":
+			return l.T("No artists match “%s”.", q)
 		case letter != "":
-			return "No artists start with " + b.letterPhrase() + "."
+			return l.T("No artists start with %s.", b.letterPhrase())
 		}
 		// Only a language filter can empty the whole artist list, and saying so
 		// would be guessing at the cause.
-		return "No artists here."
+		return l.T("No artists here.")
 
 	// An empty folder is worth its own words: it is the one case with an
 	// obvious next step rather than a filter to loosen.
-	case b.FolderID != 0 && b.Query == "":
-		return "This folder is empty. Star a song to file it here."
+	case b.FolderID != 0 && q == "":
+		return l.T("This folder is empty. Star a song to file it here.")
 
-	case b.Query != "" && letter != "":
-		return "No songs starting with " + b.letterPhrase() + " match " + quoted + "."
-	case b.Query != "":
-		return "Nothing matches " + quoted + "."
+	case q != "" && letter != "":
+		return l.T("No songs starting with %s match “%s”.", b.letterPhrase(), q)
+	case q != "":
+		return l.T("Nothing matches “%s”.", q)
 	case letter != "":
-		return "No songs start with " + b.letterPhrase() + "."
+		return l.T("No songs start with %s.", b.letterPhrase())
 	}
-	return "No songs here."
+	return l.T("No songs here.")
 }
 
 // QueryString rebuilds the browse URL for paging and mode links.
@@ -308,7 +311,8 @@ func (b browseData) QueryString(offset int) string {
 type queueData struct {
 	Entries []queueEntry
 	Total   int
-	Err     string
+	// Offline is true when there is no session to ask for the list.
+	Offline bool
 	// Pending is true while no list has arrived yet, so the page can say it is
 	// loading rather than claim the queue is empty.
 	Pending bool
@@ -317,8 +321,10 @@ type queueData struct {
 type queueEntry struct {
 	Position int
 	SongID   string
-	Title    string
-	Artist   string
+	// Title is empty for a song the catalogue does not know; the template
+	// names it by number instead.
+	Title  string
+	Artist string
 	// By names the client that reserved it, which the device records per entry.
 	By string
 }
@@ -359,7 +365,7 @@ func (s *Server) playerData(st *protocol.Status) playerData {
 
 func (s *Server) now(w http.ResponseWriter, r *http.Request) {
 	s.page(w, r, "now.html", pageData{
-		Title:  "Now Playing",
+		Title:  langOf(r).T("Now Playing"),
 		Player: s.playerData(s.dev.Status()),
 	})
 }
@@ -371,7 +377,7 @@ func (s *Server) playerFragment(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/now", http.StatusSeeOther)
 		return
 	}
-	s.fragment(w, "_player.html", s.playerData(s.dev.Status()))
+	s.fragment(w, r, "_player.html", s.playerData(s.dev.Status()))
 }
 
 // isHTMX reports whether the request came from htmx rather than the address bar.
@@ -601,9 +607,10 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 		data.ShowExtraActions = v == "1"
 		rememberShowActions(w, data.ShowExtraActions)
 	}
+	data.Lang = langOf(r)
 
 	if s.songs == nil {
-		s.page(w, r, "browse.html", pageData{Title: "Songs", Browse: data})
+		s.page(w, r, "browse.html", pageData{Title: data.title(), Browse: data})
 		return
 	}
 
@@ -635,7 +642,7 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.loadBrowse(r, &data); err != nil {
-		s.fail(w, err)
+		s.fail(w, r, err)
 		return
 	}
 
@@ -655,21 +662,21 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 
 	switch fragment {
 	case "browse":
-		s.fragment(w, "_browsepage.html", pageData{Browse: data, Catalogue: s.catalogue()})
+		s.fragment(w, r, "_browsepage.html", pageData{Lang: data.Lang, Browse: data, Catalogue: s.catalogue()})
 		return
 	case "list":
 		// Push the clean browse URL rather than letting htmx push the request
 		// URL it just built, which is the one carrying fragment=list. The
 		// header wins over hx-push-url, and it must be set before the body.
 		w.Header().Set("HX-Push-Url", browseURL(data))
-		s.fragment(w, "_browse.html", data)
+		s.fragment(w, r, "_browse.html", data)
 		// The count lives up in the filter row, outside the swapped list, so it
 		// is updated out of band.
 		fmt.Fprintf(w, `<span id="count" class="result-count" hx-swap-oob="true">%s</span>`,
 			template.HTMLEscapeString(data.CountText()))
 		return
 	case "rows":
-		s.fragment(w, "_rows.html", data)
+		s.fragment(w, r, "_rows.html", data)
 		return
 	}
 	s.page(w, r, "browse.html", pageData{Title: data.title(), Browse: data})
@@ -684,11 +691,11 @@ func (b browseData) title() string {
 	}
 	switch b.Mode {
 	case modeArtists:
-		return "Artists"
+		return b.Lang.T("Artists")
 	case modeFavorites:
-		return "Favorites"
+		return b.Lang.T("Favorites")
 	default:
-		return "Songs"
+		return b.Lang.T("Songs")
 	}
 }
 
@@ -788,7 +795,7 @@ func (s *Server) loadBrowse(r *http.Request, data *browseData) error {
 }
 
 func (s *Server) queuePage(w http.ResponseWriter, r *http.Request) {
-	s.page(w, r, "queue.html", pageData{Title: "Queue", Queue: s.cachedQueue(r.Context())})
+	s.page(w, r, "queue.html", pageData{Title: langOf(r).T("Queue"), Queue: s.cachedQueue(r.Context())})
 	s.refreshQueue()
 }
 
@@ -797,7 +804,7 @@ func (s *Server) queueFragment(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/queue", http.StatusSeeOther)
 		return
 	}
-	s.fragment(w, "_queue.html", s.cachedQueue(r.Context()))
+	s.fragment(w, r, "_queue.html", s.cachedQueue(r.Context()))
 	s.refreshQueue()
 }
 
@@ -810,7 +817,7 @@ func (s *Server) queueFragment(w http.ResponseWriter, r *http.Request) {
 // is usually current anyway.
 func (s *Server) cachedQueue(ctx context.Context) queueData {
 	if !s.dev.Online() {
-		return queueData{Err: "Device offline"}
+		return queueData{Offline: true}
 	}
 	q := s.dev.LastQueue()
 	if q == nil {
@@ -848,18 +855,8 @@ func (s *Server) PublishQueue(q *protocol.Queue) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	html, err := s.render("_queue.html", s.describeQueue(ctx, q))
-	if err != nil {
-		s.logger.Error("rendering queue", "error", err)
-		return
-	}
-	s.hub.publish(eventQueue, html)
-
-	if badge, err := s.render("_queuecount.html", q.Total); err != nil {
-		s.logger.Error("rendering queue count", "error", err)
-	} else {
-		s.hub.publish(eventQueueCount, badge)
-	}
+	s.publish(eventQueue, "_queue.html", s.describeQueue(ctx, q))
+	s.publish(eventQueueCount, "_queuecount.html", q.Total)
 }
 
 // describeQueue joins the device's song ids against the catalogue, since the
@@ -884,9 +881,6 @@ func (s *Server) describeQueue(ctx context.Context, q *protocol.Queue) queueData
 			if song, ok := titles[id]; ok {
 				entry.Title, entry.Artist = song.Title, song.Artist
 			}
-		}
-		if entry.Title == "" {
-			entry.Title = "Song " + e.SongID
 		}
 		out.Entries = append(out.Entries, entry)
 	}
@@ -961,7 +955,7 @@ func (s *Server) control(w http.ResponseWriter, r *http.Request) {
 	// the button looking dead, because htmx does not swap on a non-2xx response.
 	// Only a genuinely broken connection is worth reporting.
 	if err != nil && !isEchoTimeout(err) {
-		s.fail(w, err)
+		s.fail(w, r, err)
 		return
 	}
 	if err != nil {
@@ -970,7 +964,7 @@ func (s *Server) control(w http.ResponseWriter, r *http.Request) {
 
 	// Give the device a moment to report the new state before re-rendering.
 	time.Sleep(150 * time.Millisecond)
-	s.fragment(w, "_player.html", s.playerData(s.dev.Status()))
+	s.fragment(w, r, "_player.html", s.playerData(s.dev.Status()))
 }
 
 // isEchoTimeout reports whether the device simply never acknowledged a command,
@@ -990,9 +984,10 @@ func isEchoTimeout(err error) bool {
 func (s *Server) songAction(w http.ResponseWriter, r *http.Request) {
 	id, action := r.PathValue("id"), r.PathValue("action")
 	if _, err := strconv.Atoi(id); err != nil {
-		s.fail(w, fmt.Errorf("bad song id %q", id))
+		s.fail(w, r, fmt.Errorf("bad song id %q", id))
 		return
 	}
+	lang := langOf(r)
 
 	ctx, cancel := deviceCtx()
 	defer cancel()
@@ -1016,15 +1011,16 @@ func (s *Server) songAction(w http.ResponseWriter, r *http.Request) {
 	// button stuck. It is reported honestly though — the row says "sent" rather
 	// than "queued", because without the acknowledgement we do not know.
 	if err != nil && !isEchoTimeout(err) {
-		s.fail(w, err)
-		withToast(w, toastBad, err.Error())
+		s.fail(w, r, err)
+		withToast(w, toastBad, errorText(lang, err))
 		return
 	}
 
-	label, level, note := actionLabel(action), toastGood, ""
-	if err != nil {
+	label, level := actionLabel(lang, action), toastGood
+	acked := err == nil
+	if !acked {
 		s.logger.Debug("no echo for song command", "action", action, "song", id, "error", err)
-		label, level, note = "sent", toastInfo, " (not acknowledged)"
+		label, level = lang.T("sent"), toastInfo
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1034,7 +1030,7 @@ func (s *Server) songAction(w http.ResponseWriter, r *http.Request) {
 	// Queueing something changes the list, so pull a fresh one for the Queue tab.
 	s.refreshQueue()
 
-	title := "Song " + id
+	title := lang.T("Song %s", id)
 	if s.songs != nil {
 		if n, err := strconv.Atoi(id); err == nil {
 			if song, err := s.songs.Song(r.Context(), n); err == nil {
@@ -1042,35 +1038,39 @@ func (s *Server) songAction(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	withToast(w, level, actionMessage(action)+": "+title+note)
+	msg := actionMessage(lang, action, title)
+	if !acked {
+		msg = lang.T("%s (not acknowledged)", msg)
+	}
+	withToast(w, level, msg)
 }
 
-func actionLabel(action string) string {
+func actionLabel(lang i18n.Lang, action string) string {
 	switch action {
 	case "reserve":
-		return "queued"
+		return lang.T("queued")
 	case "reserve-top":
-		return "next up"
+		return lang.T("next up")
 	case "play":
-		return "playing"
+		return lang.T("playing")
 	case "remove":
-		return "removed"
+		return lang.T("removed")
 	}
-	return "done"
+	return lang.T("done")
 }
 
-func actionMessage(action string) string {
+func actionMessage(lang i18n.Lang, action, title string) string {
 	switch action {
 	case "reserve":
-		return "Queued"
+		return lang.T("Queued: %s", title)
 	case "reserve-top":
-		return "Playing next"
+		return lang.T("Playing next: %s", title)
 	case "play":
-		return "Now playing"
+		return lang.T("Now playing: %s", title)
 	case "remove":
-		return "Removed"
+		return lang.T("Removed: %s", title)
 	}
-	return "Done"
+	return lang.T("Done: %s", title)
 }
 
 // stepperData and sliderData describe one control row.
@@ -1089,8 +1089,28 @@ type sliderData struct {
 	Value, Up, Down    int
 }
 
-func templateFuncs() template.FuncMap {
+// parseTemplates parses every template with the functions for one language.
+func parseTemplates(lang i18n.Lang) (*template.Template, error) {
+	return template.New("").Funcs(templateFuncs(lang)).ParseFS(templateFS, "templates/*.html")
+}
+
+func templateFuncs(lang i18n.Lang) template.FuncMap {
 	return template.FuncMap{
+		// t translates a message, {{t "Remove from %s" .Name}}; tn picks the
+		// singular or plural by a count, {{tn .Songs "%d song" "%d songs"}}.
+		// Both return plain text, which the template escapes as usual.
+		"t":  lang.T,
+		"tn": lang.N,
+		// th is t for a message that carries markup of its own, such as
+		// <strong>. The catalogue is trusted; the arguments are not, so they
+		// are escaped before going in.
+		"th": func(msg string, args ...any) template.HTML {
+			for i, a := range args {
+				args[i] = template.HTMLEscapeString(fmt.Sprint(a))
+			}
+			return template.HTML(lang.T(msg, args...))
+		},
+		"lang":  lang.Tag,
 		"asset": assetURL,
 		// The one URL that points outside the app. A helper rather than a
 		// string built in the template, because the query has to be
@@ -1106,8 +1126,8 @@ func templateFuncs() template.FuncMap {
 		// buttons in a fixed order, which a map would not.
 		"modes": func() []struct{ Mode, Label string } {
 			return []struct{ Mode, Label string }{
-				{modeSongs, "Songs"},
-				{modeArtists, "Artists"},
+				{modeSongs, lang.T("Songs")},
+				{modeArtists, lang.T("Artists")},
 				{modeFavorites, "★"},
 			}
 		},

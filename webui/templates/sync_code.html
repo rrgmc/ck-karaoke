@@ -8,23 +8,22 @@
 {{else}}
 
 <p class="sync-intro">
-  {{.Sync.Folder.Songs}} song{{if ne .Sync.Folder.Songs 1}}s{{end}}.
-  On the other device, open the same folder, choose <strong>Receive</strong> and
-  point it at this.
+  {{tn .Sync.Folder.Songs "%d song." "%d songs."}}
+  {{th "On the other device, open the same folder, choose <strong>Receive</strong> and point it at this."}}
 </p>
 
 {{if .Sync.TooDense}}
-<p class="sync-err">Too many songs for one QR code. Copy the text below instead.</p>
+<p class="sync-err">{{t "Too many songs for one QR code. Copy the text below instead."}}</p>
 {{else}}
 {{/* no-store on the image, so this always shows what the folder holds now */}}
-<img class="sync-qr" src="/favorites/qr/{{.Sync.Folder.ID}}" alt="Code for {{.Sync.Folder.Name}}">
+<img class="sync-qr" src="/favorites/qr/{{.Sync.Folder.ID}}" alt="{{t "Code for %s" .Sync.Folder.Name}}">
 {{end}}
 
 {{/* Shut by default. The typed code is for a folder past what a QR can hold, or
      a camera that will not start — not part of the ordinary path. */}}
 <details class="sync-code" {{if .Sync.TooDense}}open{{end}}>
-  <summary>Can't scan it?</summary>
-  <p class="sync-note">Copy this and paste it into Receive on the other device.</p>
+  <summary>{{t "Can't scan it?"}}</summary>
+  <p class="sync-note">{{t "Copy this and paste it into Receive on the other device."}}</p>
   <textarea class="form-control" rows="4" readonly onclick="this.select()">{{.Sync.Code}}</textarea>
 </details>
 

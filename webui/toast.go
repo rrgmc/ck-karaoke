@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+
+	"github.com/rrgmc/ck-karaoke/i18n"
 )
 
 // Toast severities.
@@ -34,13 +36,19 @@ func oobToast(level, message string) string {
 
 // notify sends a toast to every connected browser. Used for things nobody asked
 // for, like the device dropping off.
-func (s *Server) notify(level, message string) {
-	s.hub.publish(eventToast, toastHTML(level, message))
+//
+// The message is English, translated for each page's language as it is sent;
+// with arguments, it is a format string as for i18n.Lang.T.
+func (s *Server) notify(level, message string, args ...any) {
+	s.hub.publish(eventToast, func(lang i18n.Lang) string {
+		return toastHTML(level, lang.T(message, args...))
+	})
 }
 
 // withToast appends an out-of-band toast to a response already being written.
 // Used for the result of an action, so the notification lands on the page that
-// triggered it even if the swap target is somewhere else entirely.
+// triggered it even if the swap target is somewhere else entirely. The message
+// is already in the page's language.
 func withToast(w http.ResponseWriter, level, message string) {
 	fmt.Fprint(w, oobToast(level, message))
 }

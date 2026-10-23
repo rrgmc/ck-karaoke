@@ -13,7 +13,7 @@
      hx-get="/favorites/sheet/close" hx-target="#sheet" hx-swap="innerHTML"></div>
 
 <div class="sheet" role="dialog" aria-modal="true"
-     aria-label="{{if .Multi}}Choose folders{{else}}Choose a folder{{end}}">
+     aria-label="{{if .Multi}}{{t "Choose folders"}}{{else}}{{t "Choose a folder"}}{{end}}">
   <div class="sheet-head">
     <div class="sheet-title">{{.Title}}</div>
     {{if .Artist}}<div class="sheet-sub">{{.Artist}}</div>{{end}}
@@ -39,10 +39,10 @@
            refuses regardless, so this is presentation rather than the control. */}}
       {{if $.AllowDelete}}
       <button class="btn btn-outline-danger icon-btn sheet-delete"
-              title="Delete {{.Name}}" aria-label="Delete folder {{.Name}}"
+              title="{{t "Delete %s" .Name}}" aria-label="{{t "Delete folder %s" .Name}}"
               hx-post="/favorites/folders/{{.ID}}/delete"
               hx-vals='{"song":"{{$.SongID}}","multi":"{{if $.Multi}}1{{else}}0{{end}}"}'
-              hx-confirm="Delete the folder “{{.Name}}” and everything filed in it?"
+              hx-confirm="{{t "Delete the folder “%s” and everything filed in it?" .Name}}"
               hx-target="#sheet" hx-swap="innerHTML">✕</button>
       {{end}}
     </li>
@@ -55,22 +55,22 @@
     <input type="hidden" name="song" value="{{.SongID}}">
     <input type="hidden" name="multi" value="{{if .Multi}}1{{else}}0{{end}}">
     <div class="input-group">
-      <input name="name" class="form-control" placeholder="New folder…"
+      <input name="name" class="form-control" placeholder="{{t "New folder…"}}"
              autocomplete="off" autocapitalize="words" maxlength="60">
-      <button class="btn btn-outline-primary" type="submit">Add</button>
+      <button class="btn btn-outline-primary" type="submit">{{t "Add"}}</button>
     </div>
   </form>
 
   {{if .Multi}}
   <button class="btn btn-primary w-100 mt-2"
-          hx-get="/favorites/sheet/close" hx-target="#sheet" hx-swap="innerHTML">Done</button>
+          hx-get="/favorites/sheet/close" hx-target="#sheet" hx-swap="innerHTML">{{t "Done"}}</button>
   {{else}}
   {{/* Quiet, because it is the second way and not the one to reach for. */}}
   <button class="btn btn-link w-100 mt-1 sheet-multi"
           hx-get="/favorites/sheet/{{.SongID}}?multi=1"
-          hx-target="#sheet" hx-swap="innerHTML">Add to more than one…</button>
+          hx-target="#sheet" hx-swap="innerHTML">{{t "Add to more than one…"}}</button>
   <button class="btn btn-outline-secondary w-100"
-          hx-get="/favorites/sheet/close" hx-target="#sheet" hx-swap="innerHTML">Close</button>
+          hx-get="/favorites/sheet/close" hx-target="#sheet" hx-swap="innerHTML">{{t "Close"}}</button>
   {{end}}
 </div>
 {{end}}

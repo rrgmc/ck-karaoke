@@ -33,7 +33,7 @@
                placeholder="{{.Placeholder}}" value="{{.Query}}"
                autocomplete="off" autocapitalize="off" enterkeyhint="search">
         <button type="button" class="btn btn-outline-secondary btn-clear"
-                aria-label="Clear search"
+                aria-label="{{t "Clear search"}}"
                 hx-get="/?mode={{.Mode}}{{if .ArtistID}}&artist={{.ArtistID}}{{end}}{{if .FolderID}}&folder={{.FolderID}}{{end}}&fragment=browse"
                 hx-include="#lan, #letter"
                 hx-target="#browse" hx-swap="outerHTML" hx-push-url="false">✕</button>
@@ -41,7 +41,7 @@
       <div class="filter-row">
         {{if and .Languages .UsesLanguage}}
         <select id="lan" name="lan" class="form-select form-select-sm">
-          <option value="0" {{if eq $.Browse.LanType 0}}selected{{end}}>All languages</option>
+          <option value="0" {{if eq $.Browse.LanType 0}}selected{{end}}>{{t "All languages"}}</option>
           {{range .Languages}}
           <option value="{{.LanType}}" {{if eq $.Browse.LanType .LanType}}selected{{end}}>{{.Name}} ({{.Songs}})</option>
           {{end}}
@@ -57,7 +57,7 @@
              characters, and it names the control while nothing is chosen. */}}
         {{if .UsesLetter}}
         <select id="letter" name="letter" class="form-select form-select-sm letter-select"
-                title="Filter by first letter" aria-label="Filter by first letter">
+                title="{{t "Filter by first letter"}}" aria-label="{{t "Filter by first letter"}}">
           <option value="" {{if eq $.Browse.Letter ""}}selected{{end}}>A–Z</option>
           {{range letters}}
           <option value="{{.Value}}" {{if eq $.Browse.Letter .Value}}selected{{end}}>{{.Label}}</option>
@@ -70,8 +70,8 @@
              whose phone is next to yours. */}}
         <button type="button"
                 class="btn btn-sm actions-toggle {{if .ShowExtraActions}}btn-primary{{else}}btn-outline-secondary{{end}}"
-                title="{{if .ShowExtraActions}}Hide play-now controls{{else}}Show play-now controls{{end}}"
-                aria-label="{{if .ShowExtraActions}}Hide play-now controls{{else}}Show play-now controls{{end}}"
+                title="{{if .ShowExtraActions}}{{t "Hide play-now controls"}}{{else}}{{t "Show play-now controls"}}{{end}}"
+                aria-label="{{if .ShowExtraActions}}{{t "Hide play-now controls"}}{{else}}{{t "Show play-now controls"}}{{end}}"
                 aria-pressed="{{if .ShowExtraActions}}true{{else}}false{{end}}"
                 hx-get="/?mode={{.Mode}}{{if .ArtistID}}&artist={{.ArtistID}}{{end}}{{if .FolderID}}&folder={{.FolderID}}{{end}}&actions={{if .ShowExtraActions}}0{{else}}1{{end}}&fragment=browse"
                 hx-include="#q, #lan, #letter"
@@ -85,15 +85,15 @@
              search form never submits it. */}}
         <input type="checkbox" id="newfolder" class="reveal-input">
         <label for="newfolder" class="btn btn-sm btn-outline-primary newfolder-btn"
-               title="New folder">+ Folder</label>
+               title="{{t "New folder"}}">+ {{t "Folder"}}</label>
 
         {{/* The exact mirror of ⇄ Sync below, which appears only inside a folder.
              Backup is about the whole database, so it belongs where the folders
              are and nowhere else — offering it inside one folder would invite the
              reading that it backs up that folder. */}}
         <a class="btn btn-sm btn-outline-primary backup-btn" href="/favorites/backup"
-           title="Save or restore all favorites"
-           aria-label="Save or restore all favorites">⇩ Backup</a>
+           title="{{t "Save or restore all favorites"}}"
+           aria-label="{{t "Save or restore all favorites"}}">⇩ {{t "Backup"}}</a>
         {{end}}
 
         {{/* Sync is a folder-scoped action and lives only here. Offering it on
@@ -101,8 +101,8 @@
              again on a page listing the folders you were just looking at. */}}
         {{if .InFolder}}
         <a class="btn btn-sm btn-outline-primary sync-btn" href="/favorites/sync/{{.FolderID}}"
-           title="Sync {{.Folder.Name}} with another device"
-           aria-label="Sync this folder with another device">⇄ Sync</a>
+           title="{{t "Sync %s with another device" .Folder.Name}}"
+           aria-label="{{t "Sync this folder with another device"}}">⇄ {{t "Sync"}}</a>
         {{end}}
       </div>
     </form>
@@ -117,35 +117,35 @@
     <form class="newfolder-form input-group input-group-sm"
           hx-post="/favorites/folders?mode=favorites&fragment=browse"
           hx-target="#browse" hx-swap="outerHTML" hx-push-url="false">
-      <input name="name" class="form-control" placeholder="New folder name" maxlength="60"
+      <input name="name" class="form-control" placeholder="{{t "New folder name"}}" maxlength="60"
              autocomplete="off" autocapitalize="words" enterkeyhint="done">
-      <button class="btn btn-outline-primary" type="submit">Add</button>
+      <button class="btn btn-outline-primary" type="submit">{{t "Add"}}</button>
     </form>
     {{end}}
 
     {{if .ArtistID}}
     <div class="artist-header">
-      <a class="btn btn-sm btn-outline-primary back-btn" href="/?mode=artists">‹ All artists</a>
+      <a class="btn btn-sm btn-outline-primary back-btn" href="/?mode=artists">‹ {{t "All artists"}}</a>
       <span class="artist-name">{{.Artist.Name}}</span>
     </div>
     {{end}}
 
     {{if .FolderID}}
     <div class="artist-header">
-      <a class="btn btn-sm btn-outline-primary back-btn" href="/?mode=favorites">‹ All folders</a>
+      <a class="btn btn-sm btn-outline-primary back-btn" href="/?mode=favorites">‹ {{t "All folders"}}</a>
       <span class="artist-name">{{.Folder.Name}}</span>
     </div>
     {{/* Renaming lives inside the folder rather than on the list: it is the one
          place the name is already the subject, and it keeps a rarely-used
          control off every row. Folded away for the same reason. */}}
     <details class="rename-folder">
-      <summary>Rename</summary>
+      <summary>{{t "Rename"}}</summary>
       <form class="input-group input-group-sm"
             hx-post="/favorites/folders/{{.FolderID}}/rename?mode=favorites&folder={{.FolderID}}&fragment=browse"
             hx-target="#browse" hx-swap="outerHTML" hx-push-url="false">
         <input name="name" class="form-control" value="{{.Folder.Name}}" maxlength="60"
                autocomplete="off" autocapitalize="words" enterkeyhint="done">
-        <button class="btn btn-outline-primary" type="submit">Save</button>
+        <button class="btn btn-outline-primary" type="submit">{{t "Save"}}</button>
       </form>
     </details>
     {{end}}

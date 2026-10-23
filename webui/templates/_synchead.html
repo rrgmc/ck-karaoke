@@ -7,10 +7,10 @@
 {{define "_synchead"}}
 <div class="sync-bar-head">
   {{if .Sync.Back}}
-  <a class="btn btn-sm btn-outline-secondary sync-back" href="{{.Sync.Back}}">‹ Back</a>
+  <a class="btn btn-sm btn-outline-secondary sync-back" href="{{.Sync.Back}}">‹ {{t "Back"}}</a>
   {{end}}
   <h2 class="h5 m-0 sync-head-title">{{.Title}}</h2>
   <a class="btn btn-sm btn-outline-secondary sync-exit" href="/?mode=favorites"
-     title="Back to favorites" aria-label="Back to favorites">✕</a>
+     title="{{t "Back to favorites"}}" aria-label="{{t "Back to favorites"}}">✕</a>
 </div>
 {{end}}

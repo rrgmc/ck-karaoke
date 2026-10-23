@@ -10,7 +10,7 @@
   <div class="sync-tick" aria-hidden="true">✓</div>
   <div class="sync-received-what">
     {{if .Sync.Scanned.Name}}<span class="sync-received-name">{{.Sync.Scanned.Name}}</span>{{end}}
-    <span class="song-sub">{{len .Sync.Scanned.IDs}} song{{if ne (len .Sync.Scanned.IDs) 1}}s{{end}}</span>
+    <span class="song-sub">{{tn (len .Sync.Scanned.IDs) "%d song" "%d songs"}}</span>
   </div>
 </div>
 
@@ -23,17 +23,16 @@
      but worth saying out loud, because names not matching is also what a
      mis-scan looks like. */}}
 <p class="sync-note">
-  This code came from <strong>{{.Sync.Scanned.Name}}</strong>, and you are adding
-  it to <strong>{{.Sync.Folder.Name}}</strong>.
+  {{th "This code came from <strong>%s</strong>, and you are adding it to <strong>%s</strong>." .Sync.Scanned.Name .Sync.Folder.Name}}
 </p>
 {{end}}
 
 <form method="post" action="{{.Sync.Path}}/merge">
   <input type="hidden" name="code" value="{{.Sync.Raw}}">
-  <button class="btn btn-primary btn-lg w-100" type="submit">Add to {{.Sync.Folder.Name}}</button>
+  <button class="btn btn-primary btn-lg w-100" type="submit">{{t "Add to %s" .Sync.Folder.Name}}</button>
 </form>
 
-<p class="sync-note"><a href="{{.Sync.Path}}/receive">‹ Scan something else</a></p>
+<p class="sync-note"><a href="{{.Sync.Path}}/receive">‹ {{t "Scan something else"}}</a></p>
 
 {{template "foot" .}}
 {{end}}

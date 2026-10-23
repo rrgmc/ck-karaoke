@@ -9,10 +9,10 @@
 {{define "_backuphead"}}
 <div class="sync-bar-head">
   {{if .Backup.Back}}
-  <a class="btn btn-sm btn-outline-secondary sync-back" href="{{.Backup.Back}}">‹ Back</a>
+  <a class="btn btn-sm btn-outline-secondary sync-back" href="{{.Backup.Back}}">‹ {{t "Back"}}</a>
   {{end}}
   <h2 class="h5 m-0 sync-head-title">{{.Title}}</h2>
   <a class="btn btn-sm btn-outline-secondary sync-exit" href="/?mode=favorites"
-     title="Back to favorites" aria-label="Back to favorites">✕</a>
+     title="{{t "Back to favorites"}}" aria-label="{{t "Back to favorites"}}">✕</a>
 </div>
 {{end}}

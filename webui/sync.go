@@ -10,6 +10,7 @@ import (
 	"github.com/rrgmc/ck-karaoke/catalog"
 	"github.com/rrgmc/ck-karaoke/favorites"
 	"github.com/rrgmc/ck-karaoke/favorites/qrshare"
+	"github.com/rrgmc/ck-karaoke/i18n"
 	"rsc.io/qr"
 )
 
@@ -76,7 +77,7 @@ type mergeResult struct {
 func (s *Server) syncFolder(w http.ResponseWriter, r *http.Request) (favorites.Folder, bool) {
 	id, err := strconv.Atoi(r.PathValue("folder"))
 	if err != nil {
-		s.fail(w, errors.New("bad folder id"))
+		s.fail(w, r, errors.New("bad folder id"))
 		return favorites.Folder{}, false
 	}
 	folder, err := s.favs.Folder(r.Context(), id)
@@ -96,7 +97,7 @@ func (s *Server) syncChoose(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.page(w, r, "sync.html", pageData{
-		Title: "Sync " + folder.Name,
+		Title: langOf(r).T("Sync %s", folder.Name),
 		Sync: syncData{
 			Folder: folder,
 			Back:   "/?mode=favorites&folder=" + strconv.Itoa(folder.ID),
@@ -110,9 +111,9 @@ func (s *Server) syncSend(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	data, err := s.folderCode(r.Context(), folder)
+	data, err := s.folderCode(r.Context(), langOf(r), folder)
 	if err != nil {
-		s.fail(w, err)
+		s.fail(w, r, err)
 		return
 	}
 	data.Back = data.Path()
@@ -127,7 +128,7 @@ func (s *Server) syncReceive(w http.ResponseWriter, r *http.Request) {
 	}
 	data := syncData{Folder: folder}
 	data.Back = data.Path()
-	s.page(w, r, "sync_receive.html", pageData{Title: "Receive into " + folder.Name, Sync: data})
+	s.page(w, r, "sync_receive.html", pageData{Title: langOf(r).T("Receive into %s", folder.Name), Sync: data})
 }
 
 // syncScanned shows what was read before anything is written.
@@ -144,15 +145,15 @@ func (s *Server) syncScanned(w http.ResponseWriter, r *http.Request) {
 
 	scanned, err := qrshare.Decode(r.FormValue("code"))
 	if err != nil {
-		data.Err = err.Error()
+		data.Err = errorText(langOf(r), err)
 		data.Back = data.Path()
-		s.page(w, r, "sync_receive.html", pageData{Title: "Receive into " + folder.Name, Sync: data})
+		s.page(w, r, "sync_receive.html", pageData{Title: langOf(r).T("Receive into %s", folder.Name), Sync: data})
 		return
 	}
 
 	data.Scanned, data.Raw = scanned, r.FormValue("code")
 	data.Back = data.Path() + "/receive"
-	s.page(w, r, "sync_confirm.html", pageData{Title: "Received", Sync: data})
+	s.page(w, r, "sync_confirm.html", pageData{Title: langOf(r).T("Received"), Sync: data})
 }
 
 // syncMerge files the scanned songs into the folder this started from.
@@ -170,9 +171,9 @@ func (s *Server) syncMerge(w http.ResponseWriter, r *http.Request) {
 
 	scanned, err := qrshare.Decode(r.FormValue("code"))
 	if err != nil {
-		data.Err = err.Error()
+		data.Err = errorText(langOf(r), err)
 		data.Back = data.Path()
-		s.page(w, r, "sync_receive.html", pageData{Title: "Receive into " + folder.Name, Sync: data})
+		s.page(w, r, "sync_receive.html", pageData{Title: langOf(r).T("Receive into %s", folder.Name), Sync: data})
 		return
 	}
 	data.Scanned, data.Raw = scanned, r.FormValue("code")
@@ -182,7 +183,7 @@ func (s *Server) syncMerge(w http.ResponseWriter, r *http.Request) {
 	// opening the folder lists.
 	known, err := s.knownSongs(ctx, scanned.IDs)
 	if err != nil {
-		s.fail(w, err)
+		s.fail(w, r, err)
 		return
 	}
 	keep := make([]int, 0, len(scanned.IDs))
@@ -195,8 +196,8 @@ func (s *Server) syncMerge(w http.ResponseWriter, r *http.Request) {
 	added, err := s.favs.AddSongs(ctx, folder.ID, keep)
 	if err != nil {
 		s.logger.Error("merging favorites", "folder", folder.ID, "songs", len(keep), "error", err)
-		data.Err = err.Error()
-		s.page(w, r, "sync_confirm.html", pageData{Title: "Received", Sync: data})
+		data.Err = errorText(langOf(r), err)
+		s.page(w, r, "sync_confirm.html", pageData{Title: langOf(r).T("Received"), Sync: data})
 		return
 	}
 
@@ -204,7 +205,7 @@ func (s *Server) syncMerge(w http.ResponseWriter, r *http.Request) {
 		"scanned", len(scanned.IDs), "added", added, "unknown", len(scanned.IDs)-len(keep))
 
 	s.page(w, r, "sync_done.html", pageData{
-		Title: "Merged",
+		Title: langOf(r).T("Merged"),
 		Sync: syncData{Folder: folder, Result: &mergeResult{
 			Folder:   folder.Name,
 			FolderID: folder.ID,
@@ -222,7 +223,7 @@ func (s *Server) favoritesQR(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	data, err := s.folderCode(r.Context(), folder)
+	data, err := s.folderCode(r.Context(), langOf(r), folder)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -268,7 +269,7 @@ func quiet(size int) int { return max(size, 1) + 8 }
 
 // folderCode encodes a folder, reporting whether the result is beyond what a QR
 // can hold.
-func (s *Server) folderCode(ctx context.Context, folder favorites.Folder) (syncData, error) {
+func (s *Server) folderCode(ctx context.Context, lang i18n.Lang, folder favorites.Folder) (syncData, error) {
 	ids, err := s.favs.SongIDs(ctx, folder.ID)
 	if err != nil {
 		return syncData{}, err
@@ -276,7 +277,7 @@ func (s *Server) folderCode(ctx context.Context, folder favorites.Folder) (syncD
 
 	data := syncData{Folder: folder}
 	if data.Code, err = qrshare.Encode(qrshare.Folder{Name: folder.Name, IDs: ids}); err != nil {
-		data.Err = err.Error()
+		data.Err = errorText(lang, err)
 		return data, nil
 	}
 	// Asked here as well as in the image handler, because a page that links an

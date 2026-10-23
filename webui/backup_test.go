@@ -279,7 +279,7 @@ func TestRestoreDropsSongsThisCatalogueLacks(t *testing.T) {
 
 	body := restore(t, s, "backup.xml", file)
 	assert.Contains(t, body, "1 song added")
-	assert.Contains(t, body, "not in this device's song list")
+	assert.Contains(t, body, "left out")
 
 	f, _, err := s.favs.EnsureFolder(context.Background(), "Rock")
 	require.NoError(t, err)

@@ -17,6 +17,7 @@ import (
 	"github.com/rrgmc/ck-karaoke/catalog"
 	"github.com/rrgmc/ck-karaoke/client"
 	"github.com/rrgmc/ck-karaoke/favorites"
+	"github.com/rrgmc/ck-karaoke/i18n"
 	"github.com/rrgmc/ck-karaoke/protocol"
 )
 
@@ -36,8 +37,12 @@ type Server struct {
 	// action in the UI and is off unless the operator asked for it.
 	allowFolderDelete bool
 	saveFile          func(name string, data []byte) (string, error)
-	tmpl              *template.Template
-	hub               *hub
+	// tmpl is the English template set, and byLang holds one set per language.
+	// Each set binds its own "t" function, so a template translates without the
+	// language having to be threaded through every piece of data it is given.
+	tmpl   *template.Template
+	byLang map[i18n.Lang]*template.Template
+	hub    *hub
 	// defaultLan is the language a first-time visitor sees. Resolved from the
 	// catalogue by name rather than hardcoded, since the ids come from the
 	// device's own table.
@@ -75,13 +80,18 @@ type Options struct {
 
 // New builds a Server. The Device must be run separately.
 func New(dev *Device, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger, opts Options) (*Server, error) {
-	tmpl, err := template.New("").Funcs(templateFuncs()).ParseFS(templateFS, "templates/*.html")
-	if err != nil {
-		return nil, fmt.Errorf("parsing templates: %w", err)
+	byLang := map[i18n.Lang]*template.Template{}
+	for _, lang := range i18n.Supported {
+		tmpl, err := parseTemplates(lang)
+		if err != nil {
+			return nil, fmt.Errorf("parsing templates: %w", err)
+		}
+		byLang[lang] = tmpl
 	}
 	srv := &Server{
 		dev: dev, songs: songs, favs: favs, logger: logger,
-		tmpl: tmpl, hub: newHub(), stopping: make(chan struct{}),
+		tmpl: byLang[i18n.English], byLang: byLang,
+		hub: newHub(), stopping: make(chan struct{}),
 		allowFolderDelete: opts.AllowFolderDelete,
 		saveFile:          opts.SaveFile,
 	}
@@ -122,12 +132,7 @@ func (s *Server) PublishStatus(st *protocol.Status) {
 	if s.hub.count() == 0 {
 		return
 	}
-	html, err := s.render("_player.html", s.playerData(st))
-	if err != nil {
-		s.logger.Error("rendering player", "error", err)
-		return
-	}
-	s.hub.publish(eventPlayer, html)
+	s.publish(eventPlayer, "_player.html", s.playerData(st))
 }
 
 // WatchConnection wires the device's up/down transitions to notifications, so a
@@ -152,8 +157,7 @@ func (s *Server) WatchConnection(dev *Device) {
 		case errors.Is(reason, client.ErrBusy):
 			// Worth spelling out: the usual cause is another
 			// remote still holding the single connection slot.
-			s.notify(toastBad, "Device is busy — it allows one connection at a time. "+
-				"Close any other remote.")
+			s.notify(toastBad, "Device is busy — it allows one connection at a time. Close any other remote.")
 		case reason != nil:
 			s.notify(toastWarn, "Device unreachable — retrying")
 		default:
@@ -164,37 +168,34 @@ func (s *Server) WatchConnection(dev *Device) {
 
 // publishBanner pushes the connection banner to every open page.
 func (s *Server) publishBanner(online bool, reason error) {
-	html, err := s.render("_banner.html", bannerData{
+	s.publish(eventBanner, "_banner.html", bannerData{
 		Online:     online,
 		DeviceAddr: s.dev.Addr(),
 		Reason:     offlineReason(reason),
 	})
-	if err != nil {
-		s.logger.Error("rendering banner", "error", err)
-		return
-	}
-	s.hub.publish(eventBanner, html)
 }
 
 // publishConn updates the session indicator in the tab bar.
 func (s *Server) publishConn(online bool) {
-	html, err := s.render("_conn.html", online)
-	if err != nil {
-		s.logger.Error("rendering connection indicator", "error", err)
-		return
-	}
-	s.hub.publish(eventConn, html)
+	s.publish(eventConn, "_conn.html", online)
 }
 
-// offlineReason turns a dial failure into something worth reading.
+// Why the device is unavailable, for the banner to put into words.
+const (
+	reasonBusy        = "busy"
+	reasonUnreachable = "unreachable"
+)
+
+// offlineReason classifies a dial failure, so the banner can say "busy" rather
+// than a generic "offline".
 func offlineReason(err error) string {
 	switch {
 	case err == nil:
 		return ""
 	case errors.Is(err, client.ErrBusy):
-		return "busy — it serves two clients at once, so a slot may be taken by another remote"
+		return reasonBusy
 	default:
-		return "unreachable"
+		return reasonUnreachable
 	}
 }
 
@@ -264,17 +265,47 @@ func (s *Server) catalogue() catalog.Info {
 	return s.songs.Info()
 }
 
+// langOf is the language to answer a request in: the best match for what the
+// browser asks for. The phone and desktop web views send the system's
+// languages, so the app follows the device it runs on.
+func langOf(r *http.Request) i18n.Lang {
+	return i18n.Match(r.Header.Get("Accept-Language"))
+}
+
+// templates returns the template set for a language. A Server built without
+// byLang, as some tests do, falls back to the English set.
+func (s *Server) templates(lang i18n.Lang) *template.Template {
+	if t, ok := s.byLang[lang]; ok {
+		return t
+	}
+	return s.tmpl
+}
+
 // render executes one template to a string.
-func (s *Server) render(name string, data any) (string, error) {
+func (s *Server) render(lang i18n.Lang, name string, data any) (string, error) {
 	var buf bytes.Buffer
-	if err := s.tmpl.ExecuteTemplate(&buf, name, data); err != nil {
+	if err := s.templates(lang).ExecuteTemplate(&buf, name, data); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
 }
 
+// publish renders a template for every language with a page open and pushes
+// it to the browsers. A failed render is logged and that language skipped.
+func (s *Server) publish(event, name string, data any) {
+	s.hub.publish(event, func(lang i18n.Lang) string {
+		html, err := s.render(lang, name, data)
+		if err != nil {
+			s.logger.Error("rendering an update", "template", name, "error", err)
+			return ""
+		}
+		return html
+	})
+}
+
 // page renders a full page, or just the named fragment when htmx asked for one.
 func (s *Server) page(w http.ResponseWriter, r *http.Request, name string, data pageData) {
+	data.Lang = langOf(r)
 	data.Online = s.dev.Online()
 	data.DeviceAddr = s.dev.Addr()
 	data.OfflineReason = offlineReason(s.dev.LastError())
@@ -287,22 +318,23 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request, name string, data 
 	data.Nav = navFor(r.URL.Path)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.tmpl.ExecuteTemplate(w, name, data); err != nil {
+	w.Header().Set("Content-Language", data.Lang.Tag())
+	if err := s.templates(data.Lang).ExecuteTemplate(w, name, data); err != nil {
 		s.logger.Error("rendering page", "template", name, "error", err)
 	}
 }
 
 // fragment writes one htmx fragment.
-func (s *Server) fragment(w http.ResponseWriter, name string, data any) {
+func (s *Server) fragment(w http.ResponseWriter, r *http.Request, name string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.tmpl.ExecuteTemplate(w, name, data); err != nil {
+	if err := s.templates(langOf(r)).ExecuteTemplate(w, name, data); err != nil {
 		s.logger.Error("rendering fragment", "template", name, "error", err)
 	}
 }
 
 // fail reports a problem to the user as a small banner htmx can swap in, rather
 // than a bare HTTP error the UI would have to handle specially.
-func (s *Server) fail(w http.ResponseWriter, err error) {
+func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 	status := http.StatusInternalServerError
 	if errors.Is(err, ErrOffline) {
 		status = http.StatusServiceUnavailable
@@ -310,7 +342,7 @@ func (s *Server) fail(w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	fmt.Fprintf(w, `<div class="alert alert-danger py-2 my-2">%s</div>`,
-		template.HTMLEscapeString(err.Error()))
+		template.HTMLEscapeString(errorText(langOf(r), err)))
 }
 
 func (s *Server) manifest(w http.ResponseWriter, r *http.Request) {

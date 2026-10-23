@@ -6,9 +6,9 @@
 <div class="sync-received">
   <div class="sync-tick" aria-hidden="true">✓</div>
   <div class="sync-received-what">
-    <span class="sync-received-name">{{.Added}} song{{if ne .Added 1}}s{{end}} added</span>
+    <span class="sync-received-name">{{tn .Added "%d song added" "%d songs added"}}</span>
     <span class="song-sub">
-      {{.Read}} read from {{.Folders}} folder{{if ne .Folders 1}}s{{end}}{{if .Already}}, {{.Already}} already here{{end}}{{if .Created}}, {{.Created}} folder{{if ne .Created 1}}s{{end}} created{{end}}
+      {{tn .Folders "%[2]d read from %[1]d folder" "%[2]d read from %[1]d folders" .Read}}{{if .Already}}{{t ", %d already here" .Already}}{{end}}{{if .Created}}{{tn .Created ", %d folder created" ", %d folders created"}}{{end}}
     </span>
   </div>
 </div>
@@ -18,18 +18,17 @@
      come from the favorites database while the listing is filtered through the
      catalogue, so an id nothing can show would make the folder claim more than
      it lists. */}}
-<p class="sync-note">{{.Unknown}} song{{if ne .Unknown 1}}s are{{else}} is{{end}} not in this device's song list, so {{if ne .Unknown 1}}they were{{else}}it was{{end}} left out.</p>
+<p class="sync-note">{{tn .Unknown "%d song is not in this device's song list, so it was left out." "%d songs are not in this device's song list, so they were left out."}}</p>
 {{end}}
 {{end}}
 
-<a class="btn btn-primary btn-lg w-100" href="/?mode=favorites">Open favorites</a>
+<a class="btn btn-primary btn-lg w-100" href="/?mode=favorites">{{t "Open favorites"}}</a>
 
 {{/* Restoring is add-only, so the file is still exactly what it was and reading
      it again would do nothing. Saying so is cheaper than letting someone wonder
      whether it half-worked. */}}
 <p class="sync-intro">
-  Nothing was removed, and the file is unchanged — restoring it again would add
-  nothing.
+  {{t "Nothing was removed, and the file is unchanged — restoring it again would add nothing."}}
 </p>
 
 {{template "foot" .}}

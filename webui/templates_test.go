@@ -14,11 +14,12 @@ import (
 
 	"github.com/rrgmc/ck-karaoke/catalog"
 	"github.com/rrgmc/ck-karaoke/favorites"
+	"github.com/rrgmc/ck-karaoke/i18n"
 )
 
 func templates(t *testing.T) *template.Template {
 	t.Helper()
-	tmpl, err := template.New("").Funcs(templateFuncs()).ParseFS(templateFS, "templates/*.html")
+	tmpl, err := parseTemplates(i18n.English)
 	if err != nil {
 		t.Fatalf("parsing templates: %v", err)
 	}

@@ -2,8 +2,8 @@
 {{template "head" .}}
 
 <div class="d-flex align-items-center justify-content-between my-2">
-  <h2 class="h5 m-0">Reserved songs</h2>
-  <button class="btn btn-sm btn-outline-primary" hx-get="/fragment/queue" hx-target="#queue">Refresh</button>
+  <h2 class="h5 m-0">{{t "Reserved songs"}}</h2>
+  <button class="btn btn-sm btn-outline-primary" hx-get="/fragment/queue" hx-target="#queue">{{t "Refresh"}}</button>
 </div>
 
 {{/* The device pushes the reserved list unprompted, so the page updates itself

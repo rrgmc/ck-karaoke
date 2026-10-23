@@ -1,6 +1,6 @@
 {{define "head"}}
 <!doctype html>
-<html lang="en" data-bs-theme="light">
+<html lang="{{lang}}" data-bs-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -56,15 +56,15 @@
        would take a quarter of it. */}}
   <span id="conn" sse-swap="conn">{{template "_conn.html" .Online}}</span>
   <a href="/" class="{{if eq .Nav "browse"}}active{{end}}">
-    <span class="tab-icon">⌕</span><span>Songs</span>
+    <span class="tab-icon">⌕</span><span>{{t "Songs"}}</span>
   </a>
   <a href="/now" class="{{if eq .Nav "now"}}active{{end}}">
-    <span class="tab-icon">♪</span><span>Now</span>
+    <span class="tab-icon">♪</span><span>{{t "Now"}}</span>
   </a>
   {{/* The badge is on every page, so it is its own stream event rather than
        part of the queue list, which only the Queue page renders. */}}
   <a href="/queue" class="{{if eq .Nav "queue"}}active{{end}}">
-    <span class="tab-icon">≡</span><span>Queue</span><span class="tab-count" sse-swap="queuecount">{{template "_queuecount.html" .QueueCount}}</span>
+    <span class="tab-icon">≡</span><span>{{t "Queue"}}</span><span class="tab-count" sse-swap="queuecount">{{template "_queuecount.html" .QueueCount}}</span>
   </a>
 </nav>
 </body>

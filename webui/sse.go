@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/rrgmc/ck-karaoke/i18n"
 )
 
 // Server-sent event names. The player fragment replaces the Now page's controls;
@@ -32,33 +34,56 @@ type update struct {
 	html  string
 }
 
+// renderFunc produces an update's markup in one language. An empty result means
+// there is nothing to send in that language.
+type renderFunc func(i18n.Lang) string
+
+// subscriber is one open event stream and the language its page is in.
+type subscriber struct {
+	lang i18n.Lang
+	ch   chan update
+}
+
 // hub fans device updates out to connected browsers.
 //
 // Each subscriber gets a small buffered channel and updates are dropped for a
 // subscriber that falls behind, never queued. A phone that locks its screen
 // mid-song must not be able to stall the goroutine reading from the device.
+//
+// Pages in different languages can be open at once, so an update is published
+// as a function rather than as markup, and rendered once for each language that
+// has a subscriber.
 type hub struct {
 	mu   sync.Mutex
 	next int
-	subs map[int]chan update
+	subs map[int]subscriber
 	// latest holds the most recent state-bearing event per name, replayed to a new
 	// subscriber so a freshly opened page shows current state without waiting for
 	// the device's next push. Toasts are excluded: a notification that already
 	// happened is noise on arrival.
-	latest map[string]string
+	latest map[string]renderFunc
 }
 
-func newHub() *hub { return &hub{subs: map[int]chan update{}, latest: map[string]string{}} }
+func newHub() *hub { return &hub{subs: map[int]subscriber{}, latest: map[string]renderFunc{}} }
 
-func (h *hub) publish(event, html string) {
+func (h *hub) publish(event string, render renderFunc) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if event != eventToast {
-		h.latest[event] = html
+		h.latest[event] = render
 	}
-	for _, ch := range h.subs {
+	rendered := map[i18n.Lang]string{}
+	for _, sub := range h.subs {
+		html, ok := rendered[sub.lang]
+		if !ok {
+			html = render(sub.lang)
+			rendered[sub.lang] = html
+		}
+		if html == "" {
+			continue
+		}
 		select {
-		case ch <- update{event, html}:
+		case sub.ch <- update{event, html}:
 		default: // subscriber is behind; it will get the next one
 		}
 	}
@@ -71,8 +96,9 @@ func (h *hub) count() int {
 	return len(h.subs)
 }
 
-// subscribe returns a channel of updates and a function to release it.
-func (h *hub) subscribe() (<-chan update, func()) {
+// subscribe returns a channel of updates in a language and a function to
+// release it.
+func (h *hub) subscribe(lang i18n.Lang) (<-chan update, func()) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -80,18 +106,20 @@ func (h *hub) subscribe() (<-chan update, func()) {
 	h.next++
 	ch := make(chan update, 8)
 	for _, event := range []string{eventPlayer, eventQueue, eventQueueCount, eventBanner, eventConn} {
-		if html := h.latest[event]; html != "" {
-			ch <- update{event, html}
+		if render := h.latest[event]; render != nil {
+			if html := render(lang); html != "" {
+				ch <- update{event, html}
+			}
 		}
 	}
-	h.subs[id] = ch
+	h.subs[id] = subscriber{lang: lang, ch: ch}
 
 	return ch, func() {
 		h.mu.Lock()
 		defer h.mu.Unlock()
-		if c, ok := h.subs[id]; ok {
+		if sub, ok := h.subs[id]; ok {
 			delete(h.subs, id)
-			close(c)
+			close(sub.ch)
 		}
 	}
 }
@@ -113,7 +141,7 @@ func (s *Server) serveSSE(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
-	updates, release := s.hub.subscribe()
+	updates, release := s.hub.subscribe(langOf(r))
 	defer release()
 
 	// Logged because logRequests deliberately skips this path, and a stream that

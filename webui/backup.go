@@ -9,6 +9,7 @@ import (
 
 	"github.com/rrgmc/ck-karaoke/favorites"
 	"github.com/rrgmc/ck-karaoke/favorites/xmlbackup"
+	"github.com/rrgmc/ck-karaoke/i18n"
 )
 
 // Backup carries the whole favorites database out as one XML file, and reads one
@@ -91,7 +92,7 @@ func (s *Server) backupChoose(w http.ResponseWriter, r *http.Request) {
 
 	folders, err := s.favs.Folders(r.Context())
 	if err != nil {
-		s.fail(w, err)
+		s.fail(w, r, err)
 		return
 	}
 	for _, f := range folders {
@@ -102,7 +103,7 @@ func (s *Server) backupChoose(w http.ResponseWriter, r *http.Request) {
 		data.Songs += f.Songs
 	}
 
-	s.page(w, r, "backup.html", pageData{Title: "Backup", Backup: data})
+	s.page(w, r, "backup.html", pageData{Title: langOf(r).T("Backup"), Backup: data})
 }
 
 // backupExport writes every folder and every song in it.
@@ -116,7 +117,7 @@ func (s *Server) backupExport(w http.ResponseWriter, r *http.Request) {
 
 	folders, err := s.favs.Folders(ctx)
 	if err != nil {
-		s.fail(w, err)
+		s.fail(w, r, err)
 		return
 	}
 
@@ -127,7 +128,7 @@ func (s *Server) backupExport(w http.ResponseWriter, r *http.Request) {
 	for _, folder := range folders {
 		ids, err := s.favs.SongIDs(ctx, folder.ID)
 		if err != nil {
-			s.fail(w, err)
+			s.fail(w, r, err)
 			return
 		}
 		if len(ids) == 0 {
@@ -135,7 +136,7 @@ func (s *Server) backupExport(w http.ResponseWriter, r *http.Request) {
 		}
 		known, err := s.lookupSongs(ctx, ids)
 		if err != nil {
-			s.fail(w, err)
+			s.fail(w, r, err)
 			return
 		}
 
@@ -156,7 +157,7 @@ func (s *Server) backupExport(w http.ResponseWriter, r *http.Request) {
 
 	name := backupFilename(time.Now())
 	if s.saveFile != nil {
-		s.saveNatively(w, name, out)
+		s.saveNatively(w, r, name, out)
 		return
 	}
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
@@ -179,23 +180,23 @@ func (s *Server) backupExport(w http.ResponseWriter, r *http.Request) {
 // The answer is 204 No Content, which leaves the page that asked exactly where
 // it was; the outcome arrives as a toast on the event stream that page is still
 // listening to.
-func (s *Server) saveNatively(w http.ResponseWriter, name string, out xmlbackup.Favorites) {
+func (s *Server) saveNatively(w http.ResponseWriter, r *http.Request, name string, out xmlbackup.Favorites) {
 	var buf bytes.Buffer
 	if err := xmlbackup.Marshal(&buf, out); err != nil {
-		s.fail(w, err)
+		s.fail(w, r, err)
 		return
 	}
 	path, err := s.saveFile(name, buf.Bytes())
 	switch {
 	case err != nil:
 		s.logger.Error("saving a favorites backup", "error", err)
-		s.notify(toastBad, "The backup could not be saved: "+err.Error())
+		s.notify(toastBad, "The backup could not be saved: %s", err.Error())
 	case path == "":
 		// Cancelled; nothing to say.
 	default:
 		s.logger.Info("saved a favorites backup", "path", path,
 			"folders", len(out.Folders), "songs", out.Songs())
-		s.notify(toastGood, "Backup saved to "+path)
+		s.notify(toastGood, "Backup saved to %s", path)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -203,7 +204,7 @@ func (s *Server) saveNatively(w http.ResponseWriter, name string, out xmlbackup.
 // backupImport shows the file picker.
 func (s *Server) backupImport(w http.ResponseWriter, r *http.Request) {
 	data := backupData{Back: "/favorites/backup"}
-	s.page(w, r, "backup_import.html", pageData{Title: "Restore favorites", Backup: data})
+	s.page(w, r, "backup_import.html", pageData{Title: langOf(r).T("Restore favorites"), Backup: data})
 }
 
 // backupRestore files everything in the uploaded file.
@@ -219,16 +220,16 @@ func (s *Server) backupRestore(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUpload)
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		data.Err = uploadError(err)
-		s.page(w, r, "backup_import.html", pageData{Title: "Restore favorites", Backup: data})
+		data.Err = uploadError(langOf(r), err)
+		s.page(w, r, "backup_import.html", pageData{Title: langOf(r).T("Restore favorites"), Backup: data})
 		return
 	}
 	defer file.Close()
 
 	read, err := xmlbackup.Parse(file)
 	if err != nil {
-		data.Err = err.Error()
-		s.page(w, r, "backup_import.html", pageData{Title: "Restore favorites", Backup: data})
+		data.Err = errorText(langOf(r), err)
+		s.page(w, r, "backup_import.html", pageData{Title: langOf(r).T("Restore favorites"), Backup: data})
 		return
 	}
 
@@ -237,8 +238,8 @@ func (s *Server) backupRestore(w http.ResponseWriter, r *http.Request) {
 		target, created, err := s.favs.EnsureFolder(ctx, folder.Name)
 		if err != nil {
 			s.logger.Error("restoring a favorites backup", "folder", folder.Name, "error", err)
-			data.Err = err.Error()
-			s.page(w, r, "backup_import.html", pageData{Title: "Restore favorites", Backup: data})
+			data.Err = errorText(langOf(r), err)
+			s.page(w, r, "backup_import.html", pageData{Title: langOf(r).T("Restore favorites"), Backup: data})
 			return
 		}
 		if created {
@@ -251,7 +252,7 @@ func (s *Server) backupRestore(w http.ResponseWriter, r *http.Request) {
 		}
 		known, err := s.knownSongs(ctx, ids)
 		if err != nil {
-			s.fail(w, err)
+			s.fail(w, r, err)
 			return
 		}
 		keep := make([]int, 0, len(ids))
@@ -265,8 +266,8 @@ func (s *Server) backupRestore(w http.ResponseWriter, r *http.Request) {
 		added, err := s.favs.AddSongs(ctx, target.ID, keep)
 		if err != nil {
 			s.logger.Error("restoring a favorites backup", "folder", folder.Name, "error", err)
-			data.Err = err.Error()
-			s.page(w, r, "backup_import.html", pageData{Title: "Restore favorites", Backup: data})
+			data.Err = errorText(langOf(r), err)
+			s.page(w, r, "backup_import.html", pageData{Title: langOf(r).T("Restore favorites"), Backup: data})
 			return
 		}
 		result.Added += added
@@ -282,18 +283,18 @@ func (s *Server) backupRestore(w http.ResponseWriter, r *http.Request) {
 		"read", result.Read, "added", result.Added, "unknown", result.Unknown)
 
 	data.Result = &result
-	s.page(w, r, "backup_done.html", pageData{Title: "Restored", Backup: data})
+	s.page(w, r, "backup_done.html", pageData{Title: langOf(r).T("Restored"), Backup: data})
 }
 
 // uploadError words the two ways picking a file goes wrong, because neither of
 // the underlying messages is worth showing to anyone.
-func uploadError(err error) string {
+func uploadError(lang i18n.Lang, err error) string {
 	var tooBig *http.MaxBytesError
 	if errors.As(err, &tooBig) {
-		return fmt.Sprintf("that file is larger than %d MB, so it is not a favorites backup", maxUpload>>20)
+		return lang.T("that file is larger than %d MB, so it is not a favorites backup", maxUpload>>20)
 	}
 	if errors.Is(err, http.ErrMissingFile) {
-		return "no file was chosen"
+		return lang.T("no file was chosen")
 	}
-	return "that file could not be read"
+	return lang.T("that file could not be read")
 }

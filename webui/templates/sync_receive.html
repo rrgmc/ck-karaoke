@@ -16,30 +16,34 @@
   {{/* Hidden until the script has established there is a camera to use, so a
        browser without one shows the typed fallback alone rather than a button
        that cannot work. */}}
-  <div id="scan" class="scan" hidden>
-    <button type="button" class="btn btn-primary btn-lg" id="scan-start">Start the camera</button>
+  <div id="scan" class="scan" hidden
+       data-starting="{{t "Starting the camera…"}}"
+       data-got="{{t "Got it…"}}"
+       data-denied="{{t "The camera was not allowed. Turn it on for this app in the system settings, or use “Can't scan it?” below."}}"
+       data-missing="{{t "No camera was found. Use “Can't scan it?” below."}}"
+       data-failed="{{t "The camera could not be started. Use “Can't scan it?” below."}}">
+    <button type="button" class="btn btn-primary btn-lg" id="scan-start">{{t "Start the camera"}}</button>
     <div id="scan-view" hidden>
       {{/* playsinline and muted, or iOS takes the video fullscreen the moment
            it plays and the page underneath is gone. */}}
       <video id="scan-video" class="scan-video" playsinline muted autoplay></video>
-      <button type="button" class="btn btn-sm btn-outline-secondary" id="scan-stop" hidden>Stop the camera</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="scan-stop" hidden>{{t "Stop the camera"}}</button>
     </div>
     <p class="sync-note" id="scan-status" role="status" aria-live="polite"></p>
   </div>
 </form>
 
 <p class="sync-intro">
-  Point this at the code shown on the other device. Its songs go into
-  <strong>{{.Sync.Folder.Name}}</strong>.
+  {{th "Point this at the code shown on the other device. Its songs go into <strong>%s</strong>." .Sync.Folder.Name}}
 </p>
 
 <details class="sync-code">
-  <summary>Can't scan it?</summary>
+  <summary>{{t "Can't scan it?"}}</summary>
   <form method="post" action="{{.Sync.Path}}/receive" class="sync-merge">
-    <p class="sync-note">Paste the code shown under the other device's QR.</p>
+    <p class="sync-note">{{t "Paste the code shown under the other device's QR."}}</p>
     <textarea name="code" class="form-control" rows="3" required
               autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
-    <button class="btn btn-primary" type="submit">Continue</button>
+    <button class="btn btn-primary" type="submit">{{t "Continue"}}</button>
   </form>
 </details>
 
