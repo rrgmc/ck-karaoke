@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CK Karaoke icon, on Android's 108-unit adaptive-icon canvas.
+  The same geometry is in internal/cmd/genicon and in the Android vector
+  drawables; change all three together.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="108" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3730A3"/>
+      <stop offset="1" stop-color="#0D9488"/>
+    </linearGradient>
+  </defs>
+  <rect width="108" height="108" fill="url(#bg)"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round">
+    <!-- Head -->
+    <path d="M44,40 A10,10 0 0 1 64,40 V48 A10,10 0 0 1 44,48 Z" fill="#FFFFFF" stroke="none"/>
+    <!-- Cradle, stem and base -->
+    <path d="M38,48 A16,16 0 0 0 70,48"/>
+    <path d="M54,64 V76"/>
+    <path d="M44,76 H64"/>
+    <!-- Sound waves -->
+    <path d="M73.92,27.29 A26,26 0 0 1 73.92,60.71"/>
+    <path d="M79.28,22.79 A33,33 0 0 1 79.28,65.21"/>
+    <path d="M34.08,27.29 A26,26 0 0 0 34.08,60.71"/>
+    <path d="M28.72,22.79 A33,33 0 0 0 28.72,65.21"/>
+  </g>
+</svg>
