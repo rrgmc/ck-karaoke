@@ -12,6 +12,9 @@ Android, iOS and the desktop. Read [docs/BUILDING.md](docs/BUILDING.md) for the 
 
 ## Commands
 
+`Taskfile.yml` wraps the common commands (`task --list`; `task check` runs
+what CI checks for the Go code). The plain commands:
+
 ```bash
 go build ./... && go vet ./... && go test ./...
 gofmt -l .
@@ -25,6 +28,9 @@ go run ./internal/cmd/genicon                # re-render icon rasters
 (cd ports/desktop && wails build)            # desktop; separate Go module
 (cd ports/desktop && go vet -tags desktop,production .)
 ```
+
+The version is in `version/VERSION`, the one source every build reads. A
+release tag must match it, so bump the file before tagging.
 
 All tests are hermetic. The catalog tests run against a seeded fixture
 (`catalog/fixture_test.go`); the protocol tests replay reference encodings in

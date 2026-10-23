@@ -1,0 +1,132 @@
+# Common tasks. Run `task --list` to see them. Needs go-task
+# (https://taskfile.dev).
+version: "3"
+
+vars:
+  VERSION:
+    sh: cat version/VERSION
+  DIST: dist
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  version:
+    desc: Print the version from version/VERSION
+    cmds:
+      - echo {{.VERSION}}
+    silent: true
+
+  # Go library and debug server
+
+  build:
+    desc: Build every Go package
+    cmds:
+      - go build ./...
+
+  test:
+    desc: Run the Go tests
+    cmds:
+      - go test ./...
+
+  vet:
+    desc: Vet the library and the desktop module
+    cmds:
+      - go vet ./...
+      - task: desktop:vet
+
+  fmt:
+    desc: Format the Go code
+    cmds:
+      - gofmt -w .
+
+  fmt:check:
+    desc: Fail if any Go file needs formatting
+    cmds:
+      - |
+        unformatted=$(gofmt -l .)
+        if [ -n "$unformatted" ]; then
+          echo "These files need gofmt:"; echo "$unformatted"; exit 1
+        fi
+
+  lint:workflows:
+    desc: Check the GitHub workflows with actionlint
+    cmds:
+      - go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/*.yml
+
+  check:
+    desc: Everything CI checks for the Go code
+    cmds:
+      - task: fmt:check
+      - task: vet
+      - task: test
+
+  server:
+    desc: Run the debug server (pass flags after --, for example task server -- -v)
+    cmds:
+      - go run ./cmd/ck-karaoke-server {{.CLI_ARGS}}
+
+  icon:
+    desc: Render the icon rasters from the source geometry
+    cmds:
+      - go run ./internal/cmd/genicon
+
+  # Android
+
+  android:
+    desc: Build the Android debug APK
+    cmds:
+      - ./ports/android/build.sh
+
+  android:release:
+    desc: Build the Android release APK (signed with the release key if CK_KEYSTORE_FILE is set)
+    cmds:
+      - ./ports/android/build.sh release
+
+  android:install:
+    desc: Build the debug APK and install it on the connected device
+    deps: [android]
+    cmds:
+      - adb install -r ports/android/app/build/outputs/apk/debug/app-debug.apk
+
+  # iOS (macOS only)
+
+  ios:
+    desc: Build the Go server for iOS and generate the Xcode project
+    platforms: [darwin]
+    cmds:
+      - ./ports/ios/build.sh
+
+  ios:package:
+    desc: Package an unsigned IPA into dist/
+    platforms: [darwin]
+    cmds:
+      - ./ports/ios/package.sh {{.DIST}}
+
+  # Desktop
+
+  desktop:
+    desc: Build the desktop app for this platform with Wails
+    dir: ports/desktop
+    cmds:
+      - wails build
+
+  desktop:vet:
+    desc: Vet the desktop module
+    dir: ports/desktop
+    vars:
+      TAGS: '{{if eq OS "linux"}}desktop,production,webkit2_41{{else}}desktop,production{{end}}'
+    cmds:
+      - go vet -tags {{.TAGS}} .
+
+  desktop:package:
+    desc: Package the desktop app into dist/ the way a release does
+    cmds:
+      - ./ports/desktop/package.sh {{.DIST}}
+
+  clean:
+    desc: Remove build outputs
+    cmds:
+      - rm -rf {{.DIST}} bin ports/desktop/build/bin ports/android/app/build ports/android/build ports/ios/build ports/ios/Frameworks

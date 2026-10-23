@@ -44,3 +44,6 @@ CLAUDE.local.md
 
 # Git worktrees, one per change; see CLAUDE.md.
 /.claude/worktrees/
+
+# Packaged release files from the Taskfile.
+/dist/
