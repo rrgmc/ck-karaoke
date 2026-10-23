@@ -44,8 +44,9 @@ favorites, so every published APK must use the same release key. The release
 workflow takes it from repository secrets; see
 [docs/BUILDING.md](../../docs/BUILDING.md#continuous-integration-and-releases).
 
-Versions come from `-PversionName` and `-PversionCode`, which the release
-workflow sets from the tag. Local builds default to `1.0` and `1`.
+The version name and code come from `version/VERSION` (the code is
+`MAJOR×10000 + MINOR×100 + PATCH`). `-PversionName` and `-PversionCode`
+override them.
 
 ## How it runs
 

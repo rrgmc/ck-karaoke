@@ -120,7 +120,7 @@ jobs:
       # The same packaging the release runs, so a broken installer, bundle or
       # disk image shows up here rather than on a tag. Nothing is uploaded.
       - name: Package
-        run: ./package.sh 0.0.0-ci "$RUNNER_TEMP/dist"
+        run: ./package.sh "$RUNNER_TEMP/dist"
 
   android:
     name: Android
@@ -162,4 +162,4 @@ jobs:
       - name: Package the unsigned IPA
         run: |
           XCODE="$(xcode-select -p | sed 's#/Contents/Developer##')" \
-            ./ports/ios/package.sh 0.0.0-ci "$RUNNER_TEMP/dist"
+            ./ports/ios/package.sh "$RUNNER_TEMP/dist"

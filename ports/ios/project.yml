@@ -51,9 +51,10 @@ targets:
         # What the Go runtime and its net package need from the system.
         OTHER_LDFLAGS: -lresolv
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        # Overridden by package.sh for a release; see CFBundleVersion below.
-        MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        # From version/VERSION, exported by build.sh. package.sh overrides them
+        # for a release; see CFBundleVersion below.
+        MARKETING_VERSION: "${CK_VERSION}"
+        CURRENT_PROJECT_VERSION: "${CK_BUILD}"
     info:
       path: CKKaraoke/Info.plist
       properties:

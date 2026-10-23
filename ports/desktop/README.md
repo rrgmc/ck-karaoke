@@ -34,7 +34,7 @@ on `PATH`. The installer scripts are in `build/windows/installer/`, and
 `build/darwin/Info.plist` adds the macOS privacy strings (without the local
 network one, macOS drops the discovery broadcast).
 
-`./package.sh <version> <dir>` builds and packages for the host platform
+`./package.sh <dir> [version]` builds and packages for the host platform
 exactly as a release does: the installer on Windows,
 a verified universal disk image on macOS (it also checks the bundle's version,
 identifier and privacy strings), and a tarball on Linux. CI runs it on every

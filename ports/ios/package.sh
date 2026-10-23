@@ -3,7 +3,9 @@
 # release ships it. CI runs it on every push so that packaging problems show up
 # before a tag, and the release workflow runs it to make the file it publishes.
 #
-#   ./ports/ios/package.sh <version> <output dir>
+#   ./ports/ios/package.sh <output dir> [version]
+#
+# The version defaults to version/VERSION.
 #
 # Output: ck-karaoke-<version>-ios-unsigned.ipa
 #
@@ -13,9 +15,9 @@
 # Needs what build.sh needs: Xcode and xcodegen.
 set -euo pipefail
 
-version=${1:?usage: package.sh <version> <output dir>}
-out=$(mkdir -p "${2:?usage: package.sh <version> <output dir>}" && cd "$2" && pwd)
+out=$(mkdir -p "${1:?usage: package.sh <output dir> [version]}" && cd "$1" && pwd)
 cd "$(dirname "$0")"
+version=${2:-$(tr -d '[:space:]' < ../../version/VERSION)}
 
 # The app carries only the numeric part of the version: bundle versions accept
 # nothing but digits and dots. The build number is the Android version code, so

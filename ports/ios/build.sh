@@ -51,6 +51,14 @@ xcodebuild -create-xcframework \
     -output "$OUT/CKKaraoke.xcframework" >/dev/null
 
 echo "generating the Xcode project"
+# project.yml takes the version from these, through XcodeGen's ${...}
+# expansion. The build number is the Android version code, so it rises with
+# every release.
+CK_VERSION=$(tr -d '[:space:]' < version/VERSION)
+CK_VERSION=${CK_VERSION%%-*}
+IFS=. read -r major minor patch <<< "$CK_VERSION"
+CK_BUILD=$(( major * 10000 + minor * 100 + patch ))
+export CK_VERSION CK_BUILD
 XCODEGEN="${XCODEGEN:-$(command -v xcodegen || true)}"
 : "${XCODEGEN:?no xcodegen found — brew install xcodegen, or set XCODEGEN}"
 (cd ports/ios && "$XCODEGEN" generate --quiet)

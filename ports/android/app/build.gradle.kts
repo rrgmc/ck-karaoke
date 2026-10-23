@@ -3,6 +3,15 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// The version comes from version/VERSION, the same file the Go code embeds.
+// The version code is MAJOR*10000 + MINOR*100 + PATCH, so it rises with every
+// release; a suffix such as -rc1 does not change it.
+val appVersion = rootDir.resolve("../../version/VERSION").readText().trim()
+val appVersionCode = Regex("""^(\d+)\.(\d+)\.(\d+)""").find(appVersion)
+    ?.destructured
+    ?.let { (major, minor, patch) -> major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt() }
+    ?: error("version/VERSION holds \"$appVersion\", not MAJOR.MINOR.PATCH")
+
 android {
     namespace = "com.rrgmc.ckkaraoke"
     compileSdk = 36
@@ -13,11 +22,10 @@ android {
         targetSdk = 36
         // versionName is what a person reads; versionCode is what Android
         // compares, and it has to keep going up or an upgrade is refused as a
-        // downgrade. Release builds pass both from the version tag
-        // (-PversionName=1.2.3 -PversionCode=10203); these are the defaults for
-        // local builds.
-        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
-        versionName = (findProperty("versionName") as String?) ?: "1.0"
+        // downgrade. Both come from version/VERSION; -PversionName and
+        // -PversionCode override them.
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: appVersionCode
+        versionName = (findProperty("versionName") as String?) ?: appVersion
 
         // The server binary is built only for arm64: of the Android targets,
         // that is the one Go links without cgo, and it covers current phones.

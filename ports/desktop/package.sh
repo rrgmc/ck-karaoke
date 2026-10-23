@@ -3,7 +3,9 @@
 # release ships it. CI runs it on every push so that packaging problems show up
 # before a tag, and the release workflow runs it to make the files it publishes.
 #
-#   ./ports/desktop/package.sh <version> <output dir>
+#   ./ports/desktop/package.sh <output dir> [version]
+#
+# The version defaults to version/VERSION.
 #
 # Output:
 #   Windows  ck-karaoke-<version>-windows-amd64-setup.exe  (NSIS installer)
@@ -23,9 +25,9 @@
 #   MACOS_NOTARY_TEAM_ID   them still works, but macOS warns on first launch.
 set -euo pipefail
 
-version=${1:?usage: package.sh <version> <output dir>}
-out=$(mkdir -p "${2:?usage: package.sh <version> <output dir>}" && cd "$2" && pwd)
+out=$(mkdir -p "${1:?usage: package.sh <output dir> [version]}" && cd "$1" && pwd)
 cd "$(dirname "$0")"
+version=${2:-$(tr -d '[:space:]' < ../../version/VERSION)}
 
 # The apps carry only the numeric part of the version: NSIS rejects anything
 # but digits and dots, and so do macOS bundle versions. File names keep the

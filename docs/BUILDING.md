@@ -65,6 +65,18 @@ network can drive the unit through them.
 
 ## Development
 
+The [Taskfile](../Taskfile.yml) holds the common commands; it needs
+[go-task](https://taskfile.dev). `task --list` shows them all, for example:
+
+```bash
+task check            # gofmt check, vet (library and desktop) and tests
+task server -- -v     # the debug server
+task android:install  # build the debug APK and install it over adb
+task desktop:package  # package the desktop app into dist/ like a release
+```
+
+Without go-task, the plain commands are:
+
 ```bash
 go build ./... && go vet ./... && go test ./...
 ```
@@ -86,19 +98,25 @@ request. It tests the library on Linux, Windows and macOS, vets and builds the
 desktop app on all three, builds the Android APK, and builds the iOS app for
 the simulator. It produces no downloads.
 
-Binaries are built only for a release. Pushing a version tag starts the
-[release workflow](../.github/workflows/release.yml), which runs CI, then
-publishes a GitHub release with the Android APK, the Windows installer, the
-macOS disk image, an unsigned iOS IPA and a `SHA256SUMS.txt`:
+The version lives in [version/VERSION](../version/VERSION). The Go binaries
+embed it (package `version`; `ck-karaoke-server -version` prints it), and the
+Android, iOS and desktop builds take their version from it. The Android version
+code and the iOS build number are `MAJOR×10000 + MINOR×100 + PATCH`.
+
+Binaries are built only for a release. To make one, set the new version in
+`version/VERSION`, commit and push it, then push the matching tag. The tag
+starts the [release workflow](../.github/workflows/release.yml), which checks
+that it matches `version/VERSION`, runs CI, then publishes a GitHub release with
+the Android APK, the Windows installer, the macOS disk image, an unsigned iOS
+IPA and a `SHA256SUMS.txt`:
 
 ```bash
 git tag v1.2.3
 git push origin v1.2.3
 ```
 
-The tag must be `vMAJOR.MINOR.PATCH`, with minor and patch below 100; a suffix
-such as `v1.2.3-rc1` publishes a pre-release. The tag sets the version of every
-app, and the Android version code is `MAJOR×10000 + MINOR×100 + PATCH`.
+The version must be `MAJOR.MINOR.PATCH`, with minor and patch below 100; a
+suffix such as `1.2.3-rc1` publishes a pre-release.
 
 The APK is signed with the release key from these repository secrets:
 
@@ -151,7 +169,7 @@ running `ports/desktop/package.sh`:
 ```bash
 MACOS_SIGN_IDENTITY="Developer ID Application: Rangel Reale (5XV6P36QZR)" \
 MACOS_NOTARY_APPLE_ID=... MACOS_NOTARY_PASSWORD=... MACOS_NOTARY_TEAM_ID=5XV6P36QZR \
-  ./ports/desktop/package.sh 1.2.3 dist
+  ./ports/desktop/package.sh dist
 ```
 
 The Windows installer is not code-signed. The iOS IPA is not signed either, and

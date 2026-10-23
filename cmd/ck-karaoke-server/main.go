@@ -19,6 +19,7 @@ import (
 
 	"github.com/rrgmc/ck-karaoke/client"
 	"github.com/rrgmc/ck-karaoke/server"
+	"github.com/rrgmc/ck-karaoke/version"
 )
 
 func main() {
@@ -67,8 +68,13 @@ func run(ctx context.Context) error {
 		name     = flag.String("name", "", "name the device shows beside songs queued here; the hostname if empty")
 		refresh  = flag.Bool("refresh-db", false, "re-download the song database even if one exists")
 		verbose  = flag.Bool("v", false, "verbose logging")
+		showVer  = flag.Bool("version", false, "print the version and exit")
 	)
 	flag.Parse()
+	if *showVer {
+		fmt.Println(version.Version)
+		return nil
+	}
 
 	dir, err := dataDir(*dataDirF)
 	if err != nil {

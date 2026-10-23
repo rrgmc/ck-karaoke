@@ -22,6 +22,7 @@ import (
 	"github.com/rrgmc/ck-karaoke/client"
 	"github.com/rrgmc/ck-karaoke/favorites"
 	"github.com/rrgmc/ck-karaoke/protocol"
+	"github.com/rrgmc/ck-karaoke/version"
 	"github.com/rrgmc/ck-karaoke/webui"
 )
 
@@ -144,6 +145,7 @@ func Run(ctx context.Context, cfg Config) error {
 		time.Local = cfg.Local
 		logger.Debug("time zone", "zone", cfg.Local.String())
 	}
+	logger.Info("CK Karaoke", "version", version.Version)
 
 	// Generated, not chosen: the device accepts any UUID.
 	identity := protocol.NewIdentity()

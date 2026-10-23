@@ -28,12 +28,19 @@ jobs:
       code: ${{ steps.v.outputs.code }}
       prerelease: ${{ steps.v.outputs.prerelease }}
     steps:
+      - uses: actions/checkout@v7
+      # The builds take their version from version/VERSION, so the tag has to
+      # name the same one. Bump the file, commit, then tag.
       - id: v
         name: Parse the tag
         run: |
           version="${GITHUB_REF_NAME#v}"
           if ! [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH[-SUFFIX]"; exit 1
+          fi
+          source=$(tr -d '[:space:]' < version/VERSION)
+          if [ "$version" != "$source" ]; then
+            echo "tag $GITHUB_REF_NAME does not match version/VERSION ($source)"; exit 1
           fi
           major=${BASH_REMATCH[1]} minor=${BASH_REMATCH[2]} patch=${BASH_REMATCH[3]}
           if (( minor > 99 || patch > 99 )); then
@@ -83,8 +90,7 @@ jobs:
           CK_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           CK_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          ./ports/android/build.sh release \
-            -PversionName="$VERSION" -PversionCode="${{ needs.version.outputs.code }}"
+          ./ports/android/build.sh release
           mkdir -p dist
           cp ports/android/app/build/outputs/apk/release/app-release.apk \
             "dist/ck-karaoke-$VERSION-android.apk"
@@ -116,7 +122,7 @@ jobs:
           choco install nsis -y --no-progress
           echo "C:/Program Files (x86)/NSIS" >> "$GITHUB_PATH"
       - name: Package
-        run: ./package.sh "$VERSION" ../../dist
+        run: ./package.sh ../../dist
       - uses: actions/upload-artifact@v7
         with:
           name: windows
@@ -176,7 +182,7 @@ jobs:
               exit 1
             fi
           done
-          ./package.sh "$VERSION" ../../dist
+          ./package.sh ../../dist
       - uses: actions/upload-artifact@v7
         with:
           name: macos
@@ -200,7 +206,7 @@ jobs:
       - name: Package
         run: |
           XCODE="$(xcode-select -p | sed 's#/Contents/Developer##')" \
-            ./ports/ios/package.sh "$VERSION" dist
+            ./ports/ios/package.sh dist
       - uses: actions/upload-artifact@v7
         with:
           name: ios
