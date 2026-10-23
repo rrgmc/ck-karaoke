@@ -7,7 +7,6 @@
 #
 # Output:
 #   Windows  ck-karaoke-<version>-windows-amd64-setup.exe  (NSIS installer)
-#            ck-karaoke-<version>-windows-amd64.exe        (portable)
 #   macOS    ck-karaoke-<version>-macos-universal.dmg
 #   Linux    ck-karaoke-<version>-linux-amd64.tar.gz       (CI check only)
 #
@@ -41,7 +40,6 @@ case "$(uname -s)" in
         installer="build/bin/CK Karaoke-amd64-installer.exe"
         [ -f "$installer" ] || fail "no installer at $installer"
         cp "$installer" "$out/ck-karaoke-$version-windows-amd64-setup.exe"
-        cp build/bin/ck-karaoke.exe "$out/ck-karaoke-$version-windows-amd64.exe"
         ;;
 
     Darwin)

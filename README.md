@@ -118,8 +118,8 @@ the simulator. It produces no downloads.
 
 Binaries are built only for a release. Pushing a version tag starts the
 [release workflow](.github/workflows/release.yml), which runs CI, then
-publishes a GitHub release with the Android APK, the Windows installer and
-executable, the macOS disk image and a `SHA256SUMS.txt`:
+publishes a GitHub release with the Android APK, the Windows installer, the
+macOS disk image and a `SHA256SUMS.txt`:
 
 ```bash
 git tag v1.2.3

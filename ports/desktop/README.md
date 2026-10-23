@@ -35,7 +35,7 @@ on `PATH`. The installer scripts are in `build/windows/installer/`, and
 network one, macOS drops the discovery broadcast).
 
 `./package.sh <version> <dir>` builds and packages for the host platform
-exactly as a release does: the installer and portable executable on Windows,
+exactly as a release does: the installer on Windows,
 a verified universal disk image on macOS (it also checks the bundle's version,
 identifier and privacy strings), and a tarball on Linux. CI runs it on every
 push; the release workflow runs it on a version tag (see the repository
