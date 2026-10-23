@@ -106,6 +106,21 @@ func TestQueueRemoveAsksFirst(t *testing.T) {
 	assert.Contains(t, got, `hx-confirm="Remove “A DAY IN THE LIFE” from the queue?"`)
 }
 
+// WKWebView answers confirm() with Cancel unless the app handles it, so every
+// page carries its own dialog for the hx-confirm questions, in its language.
+func TestPagesCarryTheConfirmDialog(t *testing.T) {
+	pt, err := parseTemplates(i18n.Portuguese)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.NoError(t, pt.ExecuteTemplate(&buf, "queue.html", pageData{Lang: i18n.Portuguese}))
+
+	got := buf.String()
+	assert.Contains(t, got, `id="confirm"`)
+	assert.Contains(t, got, `>Cancelar</button>`)
+	assert.Contains(t, got, `/static/confirm`)
+}
+
 // The whole player is replaced every time the device reports, so any button
 // without hx-preserve is destroyed and rebuilt about thirty times a minute —
 // which is what made a tapped button flicker. Preserving needs a unique id on

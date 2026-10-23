@@ -67,6 +67,20 @@
     <span class="tab-icon">≡</span><span>{{t "Queue"}}</span><span class="tab-count" sse-swap="queuecount">{{template "_queuecount.html" .QueueCount}}</span>
   </a>
 </nav>
+{{/* Asks the hx-confirm questions in place of the browser's confirm(), which
+     WKWebView answers with Cancel and shows nothing unless the app implements a
+     handler for it. Neither the iOS app nor Wails does. confirm.js fills it. */}}
+<div id="confirm" class="confirm" hidden>
+  <div class="sheet-backdrop" data-confirm="no"></div>
+  <div class="confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirm-text">
+    <p id="confirm-text" class="confirm-text"></p>
+    <div class="confirm-actions">
+      <button type="button" class="btn btn-outline-secondary" data-confirm="no">{{t "Cancel"}}</button>
+      <button type="button" class="btn btn-primary" data-confirm="yes">{{t "OK"}}</button>
+    </div>
+  </div>
+</div>
+<script src="{{asset "confirm.js"}}"></script>
 </body>
 </html>
 {{end}}

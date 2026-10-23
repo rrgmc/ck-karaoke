@@ -453,6 +453,33 @@ body {
   font-size: 0.85em;
 }
 .sheet-delete { flex: none; }
+
+/* The hx-confirm question, centred over the sheet backdrop. Above the sheet,
+   because deleting a folder is asked from inside it. */
+.confirm[hidden] { display: none; }
+
+.confirm .sheet-backdrop { z-index: 1060; }
+
+.confirm-box {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1070;
+  width: min(22rem, calc(100vw - 2rem));
+  background: var(--page-bg);
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.25);
+}
+
+.confirm-text { margin: 0 0 1rem; overflow-wrap: anywhere; }
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
 .sheet-new { margin-top: 0.85rem; }
 
 /* Artist rows are a single line, so they keep the compact inline layout. */

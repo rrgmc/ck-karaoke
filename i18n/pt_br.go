@@ -23,6 +23,10 @@ var portuguese = map[string]string{
 	"Back":              "Voltar",
 	"Back to favorites": "Voltar aos favoritos",
 
+	// Confirmation dialog.
+	"Cancel": "Cancelar",
+	"OK":     "OK",
+
 	// Connection.
 	"Connected":                           "Conectado",
 	"Disconnected":                        "Desconectado",
