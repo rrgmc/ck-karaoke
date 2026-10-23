@@ -51,6 +51,9 @@ targets:
         # What the Go runtime and its net package need from the system.
         OTHER_LDFLAGS: -lresolv
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Overridden by package.sh for a release; see CFBundleVersion below.
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
     info:
       path: CKKaraoke/Info.plist
       properties:
@@ -61,8 +64,12 @@ targets:
         # ShortVersionString is the version people see and matches Android's
         # versionName; CFBundleVersion is the build within it, and is the one
         # that must rise between uploads of the same version.
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        #
+        # Both come from build settings, so that package.sh can stamp a release
+        # version without editing this file. MARKETING_VERSION and
+        # CURRENT_PROJECT_VERSION in the target's settings are for local builds.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # The scene life cycle is required: without this manifest an app built
         # with the current SDK fails to launch. One window only; the server and
         # its device session are not shared between windows.

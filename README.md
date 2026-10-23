@@ -119,7 +119,7 @@ the simulator. It produces no downloads.
 Binaries are built only for a release. Pushing a version tag starts the
 [release workflow](.github/workflows/release.yml), which runs CI, then
 publishes a GitHub release with the Android APK, the Windows installer, the
-macOS disk image and a `SHA256SUMS.txt`:
+macOS disk image, an unsigned iOS IPA and a `SHA256SUMS.txt`:
 
 ```bash
 git tag v1.2.3
@@ -141,7 +141,9 @@ The APK is signed with the release key from these repository secrets:
 
 Without them the APK is signed with a throwaway debug key, and the next
 release will not install over it. The Windows and macOS builds are not
-code-signed.
+code-signed. The iOS IPA is not signed either, and iOS installs only signed
+apps: see [Installing the release IPA](ports/ios/README.md#installing-the-release-ipa)
+for how to sign it.
 
 ## Documentation
 

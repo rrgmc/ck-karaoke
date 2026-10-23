@@ -12,6 +12,79 @@ Re-run `build.sh` whenever Go code changes. It regenerates
 `ports/ios/CKKaraoke.xcodeproj` from `ports/ios/project.yml`, so never edit the project in
 Xcode expecting it to stick — edit the spec.
 
+## Installing the release IPA
+
+Each release includes `ck-karaoke-<version>-ios-unsigned.ipa`, built by
+[`package.sh`](package.sh). An IPA is the zip file iOS installs apps from. This
+one is **not signed**, and iOS refuses to install an app without a signature
+from an Apple developer account. You sign it with your own account. There are
+three ways.
+
+### Build it yourself (simplest on a Mac)
+
+Skip the IPA. Set `DEVELOPMENT_TEAM` in [`project.yml`](project.yml) to your
+team ID, run `./ports/ios/build.sh`, open the project, connect the device and
+press Run. Xcode creates the certificate and the provisioning profile for you.
+
+### Sign it with a sideloading tool
+
+Tools such as [Sideloadly](https://sideloadly.io) and
+[AltStore](https://altstore.io) sign an IPA with your Apple ID and install it
+over USB or WiFi. They work on Windows and macOS.
+
+With a free Apple ID the signature expires after 7 days, and the app must be
+signed and installed again. A paid Apple Developer Program membership gives a
+signature that lasts a year.
+
+### Sign it by hand on a Mac
+
+You need:
+
+- an **Apple Development certificate** in your keychain. Xcode creates one when
+  you add your Apple ID under Settings, Accounts;
+- a **provisioning profile** (a `.mobileprovision` file) that lists your device
+  and covers the app ID `com.rrgmc.ckkaraoke`. A wildcard profile (`*`) also
+  works. Xcode keeps the profiles it creates in
+  `~/Library/Developer/Xcode/UserData/Provisioning Profiles`.
+
+Then, with the IPA and the profile in the current directory:
+
+```bash
+unzip -q ck-karaoke-<version>-ios-unsigned.ipa -d ipa
+app=ipa/Payload/CKKaraoke.app
+
+# Embed the profile and take the entitlements from it.
+cp profile.mobileprovision "$app/embedded.mobileprovision"
+security cms -D -i profile.mobileprovision > profile.plist
+/usr/libexec/PlistBuddy -x -c 'Print :Entitlements' profile.plist > entitlements.plist
+
+# A wildcard profile grants "PREFIX.*"; the app must claim its own ID.
+prefix=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationIdentifierPrefix:0' profile.plist)
+bundle=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")
+/usr/libexec/PlistBuddy -c "Set :application-identifier $prefix.$bundle" entitlements.plist
+
+codesign --force --sign "Apple Development" --entitlements entitlements.plist "$app"
+codesign --verify --strict "$app"
+(cd ipa && zip -qry ../ck-karaoke-signed.ipa Payload)
+```
+
+If your profile is for a different app ID, change the app's bundle ID to match
+before you sign:
+`/usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier <your app ID>' "$app/Info.plist"`.
+If you have more than one Apple Development certificate, pass its SHA-1 hash to
+`--sign` instead; `security find-identity -v -p codesigning` lists them.
+
+Install the signed IPA with Xcode (Window, Devices and Simulators, then drag the
+IPA onto the device) or from the command line:
+
+```bash
+xcrun devicectl list devices
+xcrun devicectl device install app --device <device id> ck-karaoke-signed.ipa
+```
+
+On iOS 16 and later the device must have Developer Mode turned on (Settings,
+Privacy & Security, Developer Mode).
+
 ## Why this is not the Android design
 
 The Android app ships `cmd/ck-karaoke-server` as a native library and forks it with

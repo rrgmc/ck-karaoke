@@ -157,3 +157,9 @@ jobs:
             -sdk iphonesimulator -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
+      # The device build a release ships, so that packaging problems show up
+      # before a tag.
+      - name: Package the unsigned IPA
+        run: |
+          XCODE="$(xcode-select -p | sed 's#/Contents/Developer##')" \
+            ./ports/ios/package.sh 0.0.0-ci "$RUNNER_TEMP/dist"
