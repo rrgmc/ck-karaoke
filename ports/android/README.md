@@ -79,6 +79,10 @@ java -jar bundletool-all.jar install-apks --apks app.apks
 Uninstall a release build from the device first, because the debug key does
 not match it.
 
+**Store listing graphics.** `play/icon-512.png` is the 512×512 app icon and
+`play/feature-graphic.png` the 1024×500 feature graphic, both 32-bit PNGs as
+Play asks. `internal/cmd/genicon` renders them with the other icon rasters.
+
 **Play Console forms.** These answers follow from how the app works:
 
 | Form | Answer |

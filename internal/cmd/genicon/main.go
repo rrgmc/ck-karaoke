@@ -13,10 +13,15 @@
 package main
 
 import (
+	"bytes"
+	"compress/zlib"
+	"encoding/binary"
 	"fmt"
+	"hash/crc32"
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -55,17 +60,21 @@ const (
 )
 
 type target struct {
-	path  string
-	size  int
-	scale float64 // artwork scale about the centre
+	path          string
+	width, height int
+	scale         float64 // artwork scale about the centre
+	rgba          bool    // write 32-bit RGBA instead of 24-bit RGB
 }
 
 var targets = []target{
-	{"ports/ios/CKKaraoke/Assets.xcassets/AppIcon.appiconset/icon-1024.png", 1024, 1.2},
-	{"ports/desktop/build/appicon.png", 1024, 1.2},
-	{"webui/static/icon-180.png", 180, 1.2},
-	{"webui/static/icon-192.png", 192, 1.2},
-	{"webui/static/icon-512.png", 512, 1.2},
+	{"ports/ios/CKKaraoke/Assets.xcassets/AppIcon.appiconset/icon-1024.png", 1024, 1024, 1.2, false},
+	{"ports/desktop/build/appicon.png", 1024, 1024, 1.2, false},
+	{"webui/static/icon-180.png", 180, 180, 1.2, false},
+	{"webui/static/icon-192.png", 192, 192, 1.2, false},
+	{"webui/static/icon-512.png", 512, 512, 1.2, false},
+	// Google Play asks for 32-bit PNGs: the app icon and the feature graphic.
+	{"ports/android/play/icon-512.png", 512, 512, 1.2, true},
+	{"ports/android/play/feature-graphic.png", 1024, 500, 1.1, true},
 }
 
 func main() {
@@ -74,7 +83,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}
-		fmt.Printf("wrote %s (%dx%d)\n", t.path, t.size, t.size)
+		fmt.Printf("wrote %s (%dx%d)\n", t.path, t.width, t.height)
 	}
 }
 
@@ -88,27 +97,35 @@ func write(t target) error {
 	}
 	defer f.Close()
 	// Fully opaque: an iOS app icon may not have transparency.
-	return png.Encode(f, render(t.size, t.scale))
+	img := render(t.width, t.height, t.scale)
+	if t.rgba {
+		return encodeRGBA(f, img)
+	}
+	return png.Encode(f, img)
 }
 
 // samples per axis, for anti-aliasing.
 const samples = 4
 
-func render(size int, scale float64) image.Image {
-	img := image.NewNRGBA(image.Rect(0, 0, size, size))
-	unit := float64(canvas) / float64(size)
+// render draws the gradient over the whole image and the artwork at its centre,
+// sized by the image's height.
+func render(width, height int, scale float64) *image.NRGBA {
+	img := image.NewNRGBA(image.Rect(0, 0, width, height))
+	unit := float64(canvas) / float64(height)
+	aspect := float64(width) / float64(height)
 	const c = canvas / 2.0
+	cx := c * aspect
 
-	for py := range size {
-		for px := range size {
+	for py := range height {
+		for px := range width {
 			var covered, t float64
 			for sy := range samples {
 				for sx := range samples {
 					x := (float64(px) + (float64(sx)+0.5)/samples) * unit
 					y := (float64(py) + (float64(sy)+0.5)/samples) * unit
-					t += (x + y) / (2 * canvas)
+					t += (x/aspect + y) / (2 * canvas)
 					// Map the sample back into artwork space.
-					if foreground(c+(x-c)/scale, c+(y-c)/scale) {
+					if foreground(c+(x-cx)/scale, c+(y-c)/scale) {
 						covered++
 					}
 				}
@@ -124,6 +141,64 @@ func render(size int, scale float64) image.Image {
 		}
 	}
 	return img
+}
+
+// encodeRGBA writes img as an 8-bit RGBA PNG. image/png writes a fully opaque
+// image as RGB, with no alpha channel.
+func encodeRGBA(w io.Writer, img *image.NRGBA) error {
+	b := img.Bounds()
+	var raw bytes.Buffer
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		raw.WriteByte(0) // filter type: none
+		i := img.PixOffset(b.Min.X, y)
+		raw.Write(img.Pix[i : i+4*b.Dx()])
+	}
+	var idat bytes.Buffer
+	zw := zlib.NewWriter(&idat)
+	if _, err := zw.Write(raw.Bytes()); err != nil {
+		return err
+	}
+	if err := zw.Close(); err != nil {
+		return err
+	}
+
+	// Width, height, bit depth 8 and colour type 6 (RGBA); compression,
+	// filter and interlace methods stay 0.
+	ihdr := make([]byte, 13)
+	binary.BigEndian.PutUint32(ihdr[0:], uint32(b.Dx()))
+	binary.BigEndian.PutUint32(ihdr[4:], uint32(b.Dy()))
+	ihdr[8], ihdr[9] = 8, 6
+
+	if _, err := io.WriteString(w, "\x89PNG\r\n\x1a\n"); err != nil {
+		return err
+	}
+	for _, c := range []struct {
+		name string
+		data []byte
+	}{{"IHDR", ihdr}, {"IDAT", idat.Bytes()}, {"IEND", nil}} {
+		if err := writeChunk(w, c.name, c.data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeChunk writes one PNG chunk: length, name, data and CRC.
+func writeChunk(w io.Writer, name string, data []byte) error {
+	var head [8]byte
+	binary.BigEndian.PutUint32(head[:4], uint32(len(data)))
+	copy(head[4:], name)
+	crc := crc32.NewIEEE()
+	crc.Write(head[4:])
+	crc.Write(data)
+	var tail [4]byte
+	binary.BigEndian.PutUint32(tail[:], crc.Sum32())
+	for _, p := range [][]byte{head[:], data, tail[:]} {
+		if _, err := w.Write(p); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func lerp(a, b uint8, t float64) float64 {
