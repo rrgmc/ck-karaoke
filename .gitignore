@@ -41,3 +41,6 @@ CLAUDE.local.md
 /.idea/
 /.vscode/
 /ports/desktop/build/windows/installer/tmp/
+
+# Git worktrees, one per change; see CLAUDE.md.
+/.claude/worktrees/

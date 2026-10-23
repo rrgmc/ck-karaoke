@@ -34,12 +34,36 @@ with `stretchr/testify` (`require` for preconditions, `assert` for checks).
 Older tests in `protocol`, `catalog` and `favorites` use the standard library;
 leave them as they are.
 
+## Worktrees
+
+**Make every change in its own git worktree, never in the main checkout.**
+Several sessions work in this repository at once, and a branch switched or a
+file edited in the shared checkout lands under whoever else is working there.
+
+- **Start** each change with `EnterWorktree`, before the first edit. It creates
+  `.claude/worktrees/<name>` on a new branch from `origin/master`. Without that
+  tool, run
+  `git worktree add -b <branch> .claude/worktrees/<name> origin/master`.
+- **Keep the main checkout on `master` with a clean tree.** Do not switch its
+  branch, edit files in it, or build in it.
+- **Bring the branch up to date** before merging: `git fetch` then
+  `git rebase origin/master`.
+- **Merge** by pushing the branch to `master` as a fast-forward:
+  `git push origin HEAD:master`. If GitHub refuses because `master` moved,
+  rebase again. A session in a worktree cannot touch the main checkout, so
+  this push is the merge; the main checkout catches up with `git pull`.
+- **Clean up** after the merge: `ExitWorktree` with `remove`, or
+  `git worktree remove .claude/worktrees/<name>` and `git branch -d <branch>`.
+
+Each worktree has its own build outputs (`bin/`, `data/`, the Android and iOS
+build directories), so a port has to be built again inside a new worktree.
+
 ## Branching while the ports are being finalised
 
-Until every platform is finalised, merge feature branches straight into
-`master` without a pull request and without asking first. Still create a
-branch for each change, keep CI green, and ask before pushing or tagging.
-Remove this section once all ports have shipped.
+Until every platform is finalised, merge each worktree's branch straight into
+`master` with the push described under "Worktrees", without a pull request.
+Because that push is the merge, ask before making it, and before tagging.
+Keep CI green. Remove this section once all ports have shipped.
 
 ## Port status
 
