@@ -45,6 +45,18 @@ favorites, so every published APK must use the same release key. The release
 workflow takes it from repository secrets; see
 [docs/BUILDING.md](../../docs/BUILDING.md#continuous-integration-and-releases).
 
+Each of the four is read from the environment first, then as a Gradle property,
+then from `ports/android/local.properties`. On a developer machine, put them in
+`~/.gradle/gradle.properties`: it stays out of the repository and every
+worktree shares it, while each worktree has its own `local.properties`.
+
+```properties
+CK_KEYSTORE_FILE=C:/path/to/release.jks
+CK_KEYSTORE_PASSWORD=...
+CK_KEY_ALIAS=...
+CK_KEY_PASSWORD=...
+```
+
 The version name and code come from `version/VERSION` (the code is
 `MAJOR×10000 + MINOR×100 + PATCH`). `-PversionName` and `-PversionCode`
 override them.

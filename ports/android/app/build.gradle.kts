@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,6 +13,17 @@ val appVersionCode = Regex("""^(\d+)\.(\d+)\.(\d+)""").find(appVersion)
     ?.destructured
     ?.let { (major, minor, patch) -> major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt() }
     ?: error("version/VERSION holds \"$appVersion\", not MAJOR.MINOR.PATCH")
+
+// A signing setting: from the environment, which is how CI provides it (see
+// .github/workflows/release.yml), else from a Gradle property such as one in
+// ~/.gradle/gradle.properties, else from ports/android/local.properties. The
+// last two keep the key's settings out of the repository on a developer's
+// machine; only ~/.gradle is shared by every worktree.
+val localProperties = Properties().apply {
+    rootDir.resolve("local.properties").takeIf { it.exists() }?.reader()?.use { load(it) }
+}
+fun signing(name: String): String? =
+    System.getenv(name) ?: findProperty(name) as String? ?: localProperties.getProperty(name)
 
 android {
     namespace = "com.rrgmc.ckkaraoke"
@@ -40,16 +53,15 @@ android {
         }
     }
 
-    // The release key, when the environment provides one. CI decodes it from
-    // repository secrets; see .github/workflows/release.yml.
-    val releaseKeystore = System.getenv("CK_KEYSTORE_FILE")
+    // The release key, when one is configured; see signing above.
+    val releaseKeystore = signing("CK_KEYSTORE_FILE")
     if (releaseKeystore != null) {
         signingConfigs {
             create("release") {
                 storeFile = file(releaseKeystore)
-                storePassword = System.getenv("CK_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("CK_KEY_ALIAS")
-                keyPassword = System.getenv("CK_KEY_PASSWORD")
+                storePassword = signing("CK_KEYSTORE_PASSWORD")
+                keyAlias = signing("CK_KEY_ALIAS")
+                keyPassword = signing("CK_KEY_PASSWORD")
             }
         }
     }
