@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "CK Karaoke",
+  "outputfilename": "ck-karaoke",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "author": {
+    "name": "Rangel Reale"
+  },
+  "info": {
+    "companyName": "rrgmc",
+    "productName": "CK Karaoke",
+    "productVersion": "1.0.0",
+    "copyright": "",
+    "comments": "Remote control for compatible karaoke devices"
+  }
+}

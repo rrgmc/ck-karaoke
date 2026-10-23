@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CK Karaoke</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: #fff;
+    background: linear-gradient(135deg, #3730A3, #0D9488);
+  }
+  main {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 0 1.5rem;
+    box-sizing: border-box;
+    text-align: center;
+  }
+  h1 { font-size: 1.6rem; margin: 0; font-weight: 600; }
+  p { margin: 0; opacity: 0.85; }
+  #error { display: none; max-width: 28rem; }
+  .failed #status { display: none; }
+  .failed #error { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>CK Karaoke</h1>
+  <p id="status">Looking for your karaoke device…</p>
+  <p id="error"></p>
+</main>
+<script>
+  // The Go side starts the server and emits server:ready with its URL. The page
+  // also asks on load, in case that event fired before this script ran.
+  (function () {
+    var status = document.getElementById("status");
+    var error = document.getElementById("error");
+
+    function go(url) { if (url) window.location.replace(url); }
+    function failed(message) {
+      error.textContent = "The server stopped: " + message;
+      document.body.className = "failed";
+    }
+
+    window.runtime.EventsOn("server:ready", go);
+    window.runtime.EventsOn("server:failed", failed);
+    window.runtime.EventsOn("server:progress", function (percent) {
+      status.textContent = "Downloading the song list… " + percent + "%";
+    });
+
+    window.go.main.App.ServerURL().then(go);
+    window.go.main.App.ServerError().then(function (message) {
+      if (message) failed(message);
+    });
+  })();
+</script>
+</body>
+</html>
