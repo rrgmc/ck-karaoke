@@ -1,6 +1,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  The macOS bundle's Info.plist. Wails fills the {{...}} fields from wails.json.
+  The macOS bundle's Info.plist. It is a Go template: Wails fills the
+  .Info and .OutputFilename fields from wails.json, so no template braces
+  may appear in this comment.
   It is the Wails default plus the privacy strings this app needs: without
   NSLocalNetworkUsageDescription, macOS silently drops the discovery broadcast.
 -->
