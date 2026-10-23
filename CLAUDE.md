@@ -47,20 +47,18 @@ Remove this section once all ports have shipped.
 |---|---|---|
 | Windows desktop | CI and locally | against a real unit |
 | Android | CI and locally | on a Galaxy S23 against a real unit |
-| macOS desktop | CI | **not yet** |
-| iOS | CI (simulator, unsigned) | **not yet** |
+| macOS desktop | CI and locally | against a real unit |
+| iOS | CI (simulator, unsigned) and locally | on an iPad (6th generation) and the simulator against a real unit |
 | Linux desktop | CI | not yet |
 
-The next step is on a Mac:
+Checked so far on macOS and iOS: the local network prompt, discovery (also when
+the prompt is answered late), the catalogue download and the device session.
+Still to check:
 
-- iOS: `./ports/ios/build.sh`, then run on a real iPhone or iPad from Xcode.
-  The project's `DEVELOPMENT_TEAM` comes from `ports/ios/project.yml`. Check
-  discovery by sweep, the catalogue download, the QR scanner and backup save
-  through the share sheet.
-- macOS desktop: `cd ports/desktop && wails build`, then run
-  `build/bin/CK Karaoke.app` (or the disk image from a release). Check that
-  macOS asks for local network access, that discovery finds the unit, and that
-  the backup Save dialog works.
+- iOS: the QR scanner, and backup save through the share sheet. To install on
+  a device, sign the release IPA as `ports/ios/README.md` describes, or run
+  from Xcode after `./ports/ios/build.sh`.
+- macOS desktop: the backup Save dialog.
 
 ## Rules
 
