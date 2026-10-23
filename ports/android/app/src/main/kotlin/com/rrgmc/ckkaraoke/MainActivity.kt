@@ -132,7 +132,7 @@ class MainActivity : Activity() {
                 try {
                     connection.inputStream.use { source ->
                         val sink = contentResolver.openOutputStream(target)
-                            ?: throw IOException("nothing would open $target for writing")
+                            ?: throw IOException(getString(R.string.save_no_output, target.toString()))
                         sink.use { source.copyTo(it) }
                     }
                 } finally {
@@ -141,11 +141,15 @@ class MainActivity : Activity() {
                 null
             } catch (e: Exception) {
                 Log.w(Server.TAG, "saving $url", e)
-                e.message ?: "it could not be written"
+                e.message ?: getString(R.string.save_unwritable)
             }
 
             main.post {
-                if (error == null) toast("Backup saved.") else toast("Could not save it: $error")
+                if (error == null) {
+                    toast(getString(R.string.backup_saved))
+                } else {
+                    toast(getString(R.string.backup_failed, error))
+                }
             }
         }, "ckkaraoke-save").apply { isDaemon = true }.start()
     }
@@ -209,7 +213,7 @@ class MainActivity : Activity() {
                 }
             }
             main.post {
-                showFailure(Server.failure ?: "the server is taking longer than expected to start")
+                showFailure(Server.failure ?: getString(R.string.server_slow))
             }
         }, "ckkaraoke-wait").apply { isDaemon = true }
         waiting?.start()
@@ -424,7 +428,7 @@ class MainActivity : Activity() {
                 } catch (e: ActivityNotFoundException) {
                     Log.w(Server.TAG, "no document picker on this device", e)
                     pendingDownload = null
-                    toast("This phone has no app that can save a file.")
+                    toast(getString(R.string.no_save_app))
                 }
             }
         }
@@ -555,9 +559,8 @@ class MainActivity : Activity() {
         bindWeb(null)
         setContentView(
             message(
-                "Starting the karaoke server…",
-                "The first run downloads the song catalogue from the device, which takes " +
-                    "a few seconds. Later launches are immediate.",
+                getString(R.string.starting_title),
+                getString(R.string.starting_detail),
                 null,
             )
         )
@@ -567,7 +570,7 @@ class MainActivity : Activity() {
     private fun showFailure(reason: String) {
         bindWeb(null)
         setContentView(
-            message("Could not start the karaoke server.", reason) {
+            message(getString(R.string.failure_title), reason) {
                 ServerService.start(this, savedDeviceAddress())
                 showStarting()
                 waitForServer()
@@ -600,7 +603,7 @@ class MainActivity : Activity() {
             })
             if (retry != null) {
                 addView(Button(this@MainActivity).apply {
-                    text = "Try again"
+                    text = getString(R.string.try_again)
                     setTextColor(ACCENT)
                     setOnClickListener { retry() }
                 })

@@ -46,15 +46,15 @@ final class RootViewController: UIViewController {
     private func showProgress(_ state: Server.Startup) {
         switch state {
         case .starting:
-            startingLabel?.text = "Starting the karaoke server…"
+            startingLabel?.text = NSLocalizedString("Starting the karaoke server…", comment: "Startup caption")
         case .searching:
             // A first launch waits here until the user answers the local network
             // prompt, and on any launch while the unit is off.
-            startingLabel?.text = "No device has answered yet. Check that it is switched on "
-                + "and on the same WiFi as this device, and that CK Karaoke has Local "
-                + "Network access in Settings."
+            startingLabel?.text = NSLocalizedString(
+                "No device has answered yet. Check that it is switched on and on the same WiFi as this device, and that CK Karaoke has Local Network access in Settings.",
+                comment: "Startup caption while discovery finds nothing")
         case .downloading(let percent):
-            startingLabel?.text = "Downloading the song list… \(percent)%"
+            startingLabel?.text = String(format: NSLocalizedString("Downloading the song list… %d%%", comment: "Startup caption; the argument is a percentage"), percent)
         }
     }
 
@@ -69,7 +69,7 @@ final class RootViewController: UIViewController {
         spinner.color = Self.muted
         spinner.startAnimating()
 
-        let label = Self.label("Starting the karaoke server…", color: Self.muted, size: 15)
+        let label = Self.label(NSLocalizedString("Starting the karaoke server…", comment: "Startup caption"), color: Self.muted, size: 15)
         startingLabel = label
 
         let stack = UIStackView(arrangedSubviews: [spinner, label])
@@ -186,18 +186,18 @@ final class RootViewController: UIViewController {
     private func showFailure(_ reason: String) {
         clear()
 
-        let title = Self.label("Cannot reach the karaoke device", color: Self.ink, size: 17, weight: .semibold)
+        let title = Self.label(NSLocalizedString("Cannot reach the karaoke device", comment: "Failure screen title"), color: Self.ink, size: 17, weight: .semibold)
         let detail = Self.label(reason, color: Self.muted, size: 13)
 
-        Self.configure(addressField, placeholder: "Device address, e.g. 192.168.1.146")
+        Self.configure(addressField, placeholder: NSLocalizedString("Device address, e.g. 192.168.1.146", comment: "Text field placeholder"))
         addressField.text = Settings.deviceAddress
         addressField.keyboardType = .numbersAndPunctuation
 
-        Self.configure(nameField, placeholder: "Name shown beside queued songs")
+        Self.configure(nameField, placeholder: NSLocalizedString("Name shown beside queued songs", comment: "Text field placeholder"))
         nameField.text = Settings.name
 
         let retry = UIButton(type: .system)
-        retry.setTitle("Try again", for: .normal)
+        retry.setTitle(NSLocalizedString("Try again", comment: "Retry button"), for: .normal)
         retry.setTitleColor(.white, for: .normal)
         retry.backgroundColor = Self.accent
         retry.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
@@ -205,7 +205,8 @@ final class RootViewController: UIViewController {
         retry.heightAnchor.constraint(equalToConstant: 48).isActive = true
         retry.addTarget(self, action: #selector(retryTapped), for: .touchUpInside)
 
-        let hint = Self.label("Leave the address empty to search the network again.",
+        let hint = Self.label(NSLocalizedString("Leave the address empty to search the network again.",
+                                                      comment: "Hint under the address field"),
                               color: Self.muted, size: 12)
 
         let stack = UIStackView(arrangedSubviews: [title, detail, addressField, nameField, retry, hint])
@@ -229,7 +230,7 @@ final class RootViewController: UIViewController {
     /// the app looked like after a long spell in the background, and the only thing
     /// on offer was a Try again that could not work.
     private func showLoadFailure(_ error: Error) {
-        let target = Server.url?.absoluteString ?? "the local server"
+        let target = Server.url?.absoluteString ?? NSLocalizedString("the local server", comment: "Stands in for a URL in a load failure message")
         NSLog("ckkaraoke: loading %@ failed: %@ (port=%d, error=%@)",
               target, error.localizedDescription, Server.port ?? 0,
               Server.failure ?? "none")
@@ -241,7 +242,8 @@ final class RootViewController: UIViewController {
             restartServer()
             return
         }
-        showFailure("Could not load \(target)\n\(error.localizedDescription)")
+        showFailure(String(format: NSLocalizedString("Could not load %@\n%@", comment: "Load failure; the arguments are the address and the system error"),
+                           target, error.localizedDescription))
     }
 
     @objc private func retryTapped() {
@@ -274,7 +276,7 @@ final class RootViewController: UIViewController {
                 // Waiting on that would be waiting for a port that is never coming.
                 guard started else {
                     NSLog("ckkaraoke: the server refused to restart")
-                    self.showFailure("The server did not start again.\nClose the app and open it once more.")
+                    self.showFailure(NSLocalizedString("The server did not start again.\nClose the app and open it once more.", comment: "Failure after a restart"))
                     return
                 }
                 self.waitForServer()
@@ -477,7 +479,7 @@ extension RootViewController: WKNavigationDelegate {
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         showLoadFailure(NSError(domain: "CKKaraoke", code: -1, userInfo: [
-            NSLocalizedDescriptionKey: "The web view stopped unexpectedly.",
+            NSLocalizedDescriptionKey: NSLocalizedString("The web view stopped unexpectedly.", comment: "Load failure detail"),
         ]))
     }
 }
@@ -565,10 +567,10 @@ extension RootViewController: WKDownloadDelegate {
         // Its own alert, and emphatically not showLoadFailure: a backup that
         // could not be written is a thing that did not happen, not the server
         // going away, and restarting it would throw the page away for nothing.
-        let alert = UIAlertController(title: "The backup could not be saved",
+        let alert = UIAlertController(title: NSLocalizedString("The backup could not be saved", comment: "Alert title"),
                                       message: error.localizedDescription,
                                       preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Alert button"), style: .default))
         present(alert, animated: true)
     }
 

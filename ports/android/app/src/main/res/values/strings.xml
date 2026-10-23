@@ -1,4 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">CK Karaoke</string>
+    <string name="app_name" translatable="false">CK Karaoke</string>
+
+    <!-- Startup and failure screens -->
+    <string name="starting_title">Starting the karaoke server…</string>
+    <string name="starting_detail">The first run downloads the song catalogue from the device, which takes a few seconds. Later launches are immediate.</string>
+    <string name="failure_title">Could not start the karaoke server.</string>
+    <string name="try_again">Try again</string>
+    <string name="server_slow">the server is taking longer than expected to start</string>
+    <string name="server_binary_missing">the server binary is missing or not executable at %1$s</string>
+    <string name="server_start_failed">could not start the server: %1$s</string>
+    <string name="server_exited">the server exited before it started listening (code %1$d)</string>
+
+    <!-- Backup download -->
+    <string name="backup_saved">Backup saved.</string>
+    <string name="backup_failed">Could not save it: %1$s</string>
+    <string name="no_save_app">This phone has no app that can save a file.</string>
+    <string name="save_no_output">nothing would open %1$s for writing</string>
+    <string name="save_unwritable">it could not be written</string>
+
+    <!-- Notification -->
+    <string name="notification_title">Karaoke remote</string>
+    <string name="notification_text">Connected to the karaoke device</string>
+    <string name="channel_description">Shown while the remote is connected to the karaoke device.</string>
+    <string name="stop">Stop</string>
 </resources>

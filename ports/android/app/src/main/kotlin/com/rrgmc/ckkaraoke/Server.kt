@@ -34,6 +34,9 @@ object Server {
 
     private var process: Process? = null
 
+    /** Kept so a failure can be worded in the phone's language after `start` returns. */
+    private var appContext: Context? = null
+
     val isRunning: Boolean
         get() = process?.isAlive == true
 
@@ -41,10 +44,11 @@ object Server {
     fun start(context: Context, deviceAddress: String?) {
         if (isRunning) return
         failure = null
+        appContext = context.applicationContext
 
         val binary = File(context.applicationInfo.nativeLibraryDir, "libckkaraoke.so")
         if (!binary.canExecute()) {
-            failure = "the server binary is missing or not executable at ${binary.path}"
+            failure = context.getString(R.string.server_binary_missing, binary.path)
             Log.e(TAG, failure!!)
             return
         }
@@ -72,7 +76,7 @@ object Server {
             passTimeZone(builder)
             builder.start()
         } catch (e: Exception) {
-            failure = "could not start the server: ${e.message}"
+            failure = context.getString(R.string.server_start_failed, e.message ?: "")
             Log.e(TAG, failure!!, e)
             return
         }
@@ -155,7 +159,8 @@ object Server {
         synchronized(this) {
             if (process !== p) return
             if (port == 0) {
-                failure = "the server exited before it started listening (code $code)"
+                failure = appContext?.getString(R.string.server_exited, code)
+                    ?: "the server exited before it started listening (code $code)"
             }
             process = null
             port = 0

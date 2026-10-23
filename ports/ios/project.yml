@@ -7,6 +7,7 @@ name: CKKaraoke
 
 options:
   bundleIdPrefix: com.rrgmc
+  developmentLanguage: en
   deploymentTarget:
     iOS: "15.0"
   createIntermediateGroups: true
@@ -59,6 +60,13 @@ targets:
       path: CKKaraoke/Info.plist
       properties:
         CFBundleDisplayName: CK Karaoke
+        # WKWebView builds its Accept-Language from the languages the bundle
+        # declares, so without pt-BR here the web UI would always arrive in
+        # English. The matching strings live in the en.lproj and pt-BR.lproj
+        # folders under CKKaraoke, which XcodeGen adds as localized variant
+        # groups on its own.
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [en, pt-BR]
         # Set here rather than left to XcodeGen, which quietly defaults these to
         # 1.0 and 1 — the same numbers by accident rather than on purpose, and
         # nothing to notice when one of them should have moved.

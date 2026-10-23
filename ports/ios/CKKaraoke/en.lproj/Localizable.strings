@@ -1,0 +1,41 @@
+/* Startup caption */
+"Starting the karaoke server…" = "Starting the karaoke server…";
+
+/* Startup caption while discovery finds nothing */
+"No device has answered yet. Check that it is switched on and on the same WiFi as this device, and that CK Karaoke has Local Network access in Settings." = "No device has answered yet. Check that it is switched on and on the same WiFi as this device, and that CK Karaoke has Local Network access in Settings.";
+
+/* Startup caption; the argument is a percentage */
+"Downloading the song list… %d%%" = "Downloading the song list… %d%%";
+
+/* Failure screen title */
+"Cannot reach the karaoke device" = "Cannot reach the karaoke device";
+
+/* Text field placeholder */
+"Device address, e.g. 192.168.1.146" = "Device address, e.g. 192.168.1.146";
+
+/* Text field placeholder */
+"Name shown beside queued songs" = "Name shown beside queued songs";
+
+/* Retry button */
+"Try again" = "Try again";
+
+/* Hint under the address field */
+"Leave the address empty to search the network again." = "Leave the address empty to search the network again.";
+
+/* Stands in for a URL in a load failure message */
+"the local server" = "the local server";
+
+/* Load failure; the arguments are the address and the system error */
+"Could not load %@\n%@" = "Could not load %@\n%@";
+
+/* Failure after a restart */
+"The server did not start again.\nClose the app and open it once more." = "The server did not start again.\nClose the app and open it once more.";
+
+/* Load failure detail */
+"The web view stopped unexpectedly." = "The web view stopped unexpectedly.";
+
+/* Alert title */
+"The backup could not be saved" = "The backup could not be saved";
+
+/* Alert button */
+"OK" = "OK";

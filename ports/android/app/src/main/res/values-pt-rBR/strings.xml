@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Startup and failure screens -->
+    <string name="starting_title">Iniciando o servidor de karaokê…</string>
+    <string name="starting_detail">Na primeira vez, a lista de músicas é baixada do aparelho, o que leva alguns segundos. Nas próximas vezes, a abertura é imediata.</string>
+    <string name="failure_title">Não foi possível iniciar o servidor de karaokê.</string>
+    <string name="try_again">Tentar de novo</string>
+    <string name="server_slow">o servidor está demorando mais que o esperado para iniciar</string>
+    <string name="server_binary_missing">o programa do servidor não existe ou não pode ser executado em %1$s</string>
+    <string name="server_start_failed">não foi possível iniciar o servidor: %1$s</string>
+    <string name="server_exited">o servidor terminou antes de começar a escutar (código %1$d)</string>
+
+    <!-- Backup download -->
+    <string name="backup_saved">Backup salvo.</string>
+    <string name="backup_failed">Não foi possível salvar: %1$s</string>
+    <string name="no_save_app">Este celular não tem um app que possa salvar arquivos.</string>
+    <string name="save_no_output">nada pôde abrir %1$s para gravação</string>
+    <string name="save_unwritable">não foi possível gravar o arquivo</string>
+
+    <!-- Notification -->
+    <string name="notification_title">Controle remoto de karaokê</string>
+    <string name="notification_text">Conectado ao aparelho de karaokê</string>
+    <string name="channel_description">Exibida enquanto o controle remoto está conectado ao aparelho de karaokê.</string>
+    <string name="stop">Parar</string>
+</resources>

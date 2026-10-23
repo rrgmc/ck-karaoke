@@ -1,0 +1,41 @@
+/* Startup caption */
+"Starting the karaoke server…" = "Iniciando o servidor de karaokê…";
+
+/* Startup caption while discovery finds nothing */
+"No device has answered yet. Check that it is switched on and on the same WiFi as this device, and that CK Karaoke has Local Network access in Settings." = "Nenhum aparelho respondeu ainda. Verifique se ele está ligado e no mesmo WiFi que este aparelho, e se o CK Karaoke tem acesso à Rede Local nos Ajustes.";
+
+/* Startup caption; the argument is a percentage */
+"Downloading the song list… %d%%" = "Baixando a lista de músicas… %d%%";
+
+/* Failure screen title */
+"Cannot reach the karaoke device" = "Não foi possível acessar o aparelho de karaokê";
+
+/* Text field placeholder */
+"Device address, e.g. 192.168.1.146" = "Endereço do aparelho, ex.: 192.168.1.146";
+
+/* Text field placeholder */
+"Name shown beside queued songs" = "Nome exibido ao lado das músicas na fila";
+
+/* Retry button */
+"Try again" = "Tentar de novo";
+
+/* Hint under the address field */
+"Leave the address empty to search the network again." = "Deixe o endereço vazio para procurar na rede de novo.";
+
+/* Stands in for a URL in a load failure message */
+"the local server" = "o servidor local";
+
+/* Load failure; the arguments are the address and the system error */
+"Could not load %@\n%@" = "Não foi possível carregar %@\n%@";
+
+/* Failure after a restart */
+"The server did not start again.\nClose the app and open it once more." = "O servidor não iniciou de novo.\nFeche o app e abra-o mais uma vez.";
+
+/* Load failure detail */
+"The web view stopped unexpectedly." = "A visualização web parou inesperadamente.";
+
+/* Alert title */
+"The backup could not be saved" = "Não foi possível salvar o backup";
+
+/* Alert button */
+"OK" = "OK";

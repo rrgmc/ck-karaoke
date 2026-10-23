@@ -112,8 +112,10 @@ class ServerService : Service() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL, "Karaoke remote", NotificationManager.IMPORTANCE_LOW)
-                    .apply { description = "Shown while the remote is connected to the karaoke device." }
+                NotificationChannel(
+                    CHANNEL, getString(R.string.notification_title), NotificationManager.IMPORTANCE_LOW,
+                )
+                    .apply { description = getString(R.string.channel_description) }
             )
         }
 
@@ -139,15 +141,15 @@ class ServerService : Service() {
         )
 
         return builder
-            .setContentTitle("Karaoke remote")
-            .setContentText("Connected to the karaoke device")
+            .setContentTitle(getString(R.string.notification_title))
+            .setContentText(getString(R.string.notification_text))
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(open)
             .setOngoing(true)
             .addAction(
                 Notification.Action.Builder(
                     Icon.createWithResource(this, android.R.drawable.ic_menu_close_clear_cancel),
-                    "Stop", stop,
+                    getString(R.string.stop), stop,
                 ).build()
             )
             .build()

@@ -1,0 +1,2 @@
+"NSLocalNetworkUsageDescription" = "Finds your karaoke device on the local network so this app can control it.";
+"NSCameraUsageDescription" = "Reads a favorites code shown on another device, to copy songs across.";
