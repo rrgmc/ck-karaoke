@@ -5,7 +5,9 @@ import (
 	"go/parser"
 	"go/token"
 	"html/template"
+	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -201,6 +203,67 @@ func TestLanguageFollowsTheBrowser(t *testing.T) {
 		r.Header.Set("Accept-Language", header)
 		assert.Equal(t, want, langOf(r), "Accept-Language %q", header)
 	}
+}
+
+func TestChosenLanguageOverridesTheBrowser(t *testing.T) {
+	for cookie, want := range map[string]i18n.Lang{
+		"pt-BR": i18n.Portuguese,
+		"en":    i18n.English,
+		"fr":    i18n.Portuguese, // unknown: the browser decides
+		"":      i18n.Portuguese,
+	} {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.Header.Set("Accept-Language", "pt-BR")
+		if cookie != "" {
+			r.AddCookie(&http.Cookie{Name: langCookie, Value: cookie})
+		}
+		assert.Equal(t, want, langOf(r), "cookie %q", cookie)
+	}
+}
+
+func TestSetLanguage(t *testing.T) {
+	s := &Server{}
+	choose := func(lang string, htmx bool) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "/language", strings.NewReader(url.Values{"lang": {lang}}.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if htmx {
+			r.Header.Set("HX-Request", "true")
+		}
+		w := httptest.NewRecorder()
+		s.setLanguage(w, r)
+		return w
+	}
+
+	w := choose("pt-BR", true)
+	assert.Equal(t, "true", w.Header().Get("HX-Refresh"))
+	cookies := w.Result().Cookies()
+	require.Len(t, cookies, 1)
+	assert.Equal(t, langCookie, cookies[0].Name)
+	assert.Equal(t, "pt-BR", cookies[0].Value)
+	assert.Positive(t, cookies[0].MaxAge)
+
+	w = choose("", false)
+	assert.Equal(t, http.StatusSeeOther, w.Code)
+	cookies = w.Result().Cookies()
+	require.Len(t, cookies, 1)
+	assert.Negative(t, cookies[0].MaxAge, "system language clears the cookie")
+
+	w = choose("fr", true)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Empty(t, w.Result().Cookies())
+}
+
+func TestFolderListShowsTheLanguageChoice(t *testing.T) {
+	s := &Server{tmpl: templates(t)}
+	render := func(choice i18n.Lang) string {
+		data := pageData{Browse: browseData{Mode: modeFavorites, LangChoice: choice}}
+		var buf strings.Builder
+		require.NoError(t, s.templates(i18n.English).ExecuteTemplate(&buf, "browse.html", data))
+		return buf.String()
+	}
+
+	assert.Contains(t, render(""), `<option value="" selected>System language</option>`)
+	assert.Contains(t, render(i18n.Portuguese), `<option value="pt-BR" lang="pt-BR" selected>Português</option>`)
 }
 
 // A Portuguese browser gets a Portuguese page, from the html lang attribute to

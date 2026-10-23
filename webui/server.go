@@ -250,6 +250,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /favorites/backup/import", s.backupImport)
 	mux.HandleFunc("POST /favorites/backup/import", s.backupRestore)
 
+	mux.HandleFunc("POST /language", s.setLanguage)
 	mux.HandleFunc("POST /control/{action}", s.control)
 	mux.HandleFunc("POST /song/{id}/{action}", s.songAction)
 
@@ -265,10 +266,14 @@ func (s *Server) catalogue() catalog.Info {
 	return s.songs.Info()
 }
 
-// langOf is the language to answer a request in: the best match for what the
-// browser asks for. The phone and desktop web views send the system's
-// languages, so the app follows the device it runs on.
+// langOf is the language to answer a request in: the one picked on this device,
+// if any, or else the best match for what the browser asks for. The phone and
+// desktop web views send the system's languages, so by default the app follows
+// the device it runs on.
 func langOf(r *http.Request) i18n.Lang {
+	if lang := recallLang(r); lang != "" {
+		return lang
+	}
 	return i18n.Match(r.Header.Get("Accept-Language"))
 }
 

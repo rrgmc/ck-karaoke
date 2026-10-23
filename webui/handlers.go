@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -121,6 +122,11 @@ type browseData struct {
 	// of a search result is an easy thing to mistap — one guest can reorder
 	// everyone else's evening without meaning to. Queueing stays available.
 	ShowExtraActions bool
+
+	// LangChoice is the language picked on this device for the app itself, or
+	// "" to follow the system. Not to be confused with Languages, the song
+	// languages of the catalogue.
+	LangChoice i18n.Lang
 }
 
 // ShowingArtists reports whether the paging list holds artists. Drilling into an
@@ -442,6 +448,54 @@ func recallShowActions(r *http.Request) bool {
 	return err == nil && c.Value == "1"
 }
 
+// langCookie holds the language chosen on this device, overriding the one the
+// browser asks for. Without it the app follows the system language.
+const langCookie = "ck_lang"
+
+// recallLang returns the language chosen on this device, or "" when none is,
+// or the cookie names a language the app no longer has.
+func recallLang(r *http.Request) i18n.Lang {
+	c, err := r.Cookie(langCookie)
+	if err != nil {
+		return ""
+	}
+	if lang := i18n.Lang(c.Value); slices.Contains(i18n.Supported, lang) {
+		return lang
+	}
+	return ""
+}
+
+// setLanguage stores the language picked on the folder list, or clears the
+// choice for an empty value, then reloads the page. The reload is what makes
+// the switch complete: the page and its event stream both reopen in the new
+// language.
+func (s *Server) setLanguage(w http.ResponseWriter, r *http.Request) {
+	lang := i18n.Lang(r.FormValue("lang"))
+	if lang != "" && !slices.Contains(i18n.Supported, lang) {
+		http.Error(w, "unknown language", http.StatusBadRequest)
+		return
+	}
+	c := &http.Cookie{
+		Name:     langCookie,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	}
+	if lang != "" {
+		c.Value = string(lang)
+		c.MaxAge = int((365 * 24 * time.Hour).Seconds())
+	} else {
+		c.MaxAge = -1
+	}
+	http.SetCookie(w, c)
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Refresh", "true")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
 // rememberBrowse stores the browse state, or clears it when there is nothing
 // worth restoring.
 func (s *Server) rememberBrowse(w http.ResponseWriter, b browseData) {
@@ -608,6 +662,7 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 		rememberShowActions(w, data.ShowExtraActions)
 	}
 	data.Lang = langOf(r)
+	data.LangChoice = recallLang(r)
 
 	if s.songs == nil {
 		s.page(w, r, "browse.html", pageData{Title: data.title(), Browse: data})

@@ -94,6 +94,19 @@
         <a class="btn btn-sm btn-outline-primary backup-btn" href="/favorites/backup"
            title="{{t "Save or restore all favorites"}}"
            aria-label="{{t "Save or restore all favorites"}}">⇩ {{t "Backup"}}</a>
+
+        {{/* The language of the app, remembered per device. Each language is
+             named in itself, so someone who cannot read the current one can
+             still find theirs. The search form's triggers name their sources,
+             so a change here does not run a search; the server answers with a
+             full reload, which reopens the event stream in the new language. */}}
+        <select name="lang" class="form-select form-select-sm lang-select"
+                title="{{t "Language of the app"}}" aria-label="{{t "Language of the app"}}"
+                hx-post="/language" hx-trigger="change" hx-params="lang">
+          <option value="" {{if eq .LangChoice ""}}selected{{end}}>{{t "System language"}}</option>
+          <option value="en" lang="en" {{if eq .LangChoice "en"}}selected{{end}}>English</option>
+          <option value="pt-BR" lang="pt-BR" {{if eq .LangChoice "pt-BR"}}selected{{end}}>Português</option>
+        </select>
         {{end}}
 
         {{/* Sync is a folder-scoped action and lives only here. Offering it on

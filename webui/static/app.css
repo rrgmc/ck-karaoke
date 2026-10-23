@@ -649,6 +649,10 @@ body:has(.htmx-request) { cursor: progress; }
    It follows + Folder, whose margin-left:auto already pushed the pair right. */
 .backup-btn { flex: none; white-space: nowrap; }
 
+/* The app language picker follows Backup on the folder list. As wide as its
+   longest option, so it never squeezes Backup or + Folder. */
+.filter-row .lang-select { flex: none; width: auto; min-width: 0; }
+
 /* + Folder is a label for a hidden checkbox rather than a <details>, because
    the panel it opens has to live outside the search form — a form inside a form
    is not a thing — and only :has() reaches across that. margin-left:auto puts it

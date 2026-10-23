@@ -76,6 +76,8 @@ var portuguese = map[string]string{
 	"New folder":                           "Nova pasta",
 	"Folder":                               "Pasta",
 	"Save or restore all favorites":        "Salvar ou restaurar todos os favoritos",
+	"Language of the app":                  "Idioma do aplicativo",
+	"System language":                      "Idioma do sistema",
 	"Sync %s with another device":          "Sincronizar %s com outro aparelho",
 	"Sync this folder with another device": "Sincronizar esta pasta com outro aparelho",
 	"Sync":                                 "Sincronizar",

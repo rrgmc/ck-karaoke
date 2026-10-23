@@ -38,6 +38,9 @@ ports/android   ports/ios   ports/desktop   cmd/ck-karaoke-server
 The app is in English and Brazilian Portuguese. The web UI answers each request
 in the language that best matches its `Accept-Language` header, so it follows
 the system language of the phone or computer showing it, through its web view.
+A language picked on the favorites folder list overrides that for one device: it
+is kept in the `ck_lang` cookie, and choosing "System language" clears it. The
+native shells and the desktop dialogs still follow the system.
 
 - **The English text is the key.** Code and templates write the English message
   (`lang.T("Added to %s", name)`, `{{t "Pause"}}`), and `i18n/pt_br.go` maps it
