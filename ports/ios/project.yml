@@ -1,0 +1,104 @@
+# XcodeGen spec. Generate the project with ports/ios/build.sh, which builds the Go
+# server first — the app cannot compile without the xcframework it produces.
+#
+# The .xcodeproj is generated and git-ignored, the same treatment the Android
+# app's jniLibs directory gets.
+name: CKKaraoke
+
+options:
+  bundleIdPrefix: com.rrgmc
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    # iPhone and iPad both.
+    TARGETED_DEVICE_FAMILY: "1,2"
+
+targets:
+  CKKaraoke:
+    type: application
+    platform: iOS
+    sources:
+      - path: CKKaraoke
+    dependencies:
+      # A static archive: the Go runtime is linked into the app binary, not
+      # embedded as a separate framework.
+      - framework: Frameworks/CKKaraoke.xcframework
+        embed: false
+      # What the Go runtime pulls in on Darwin: crypto/x509 reaches for Security,
+      # and the net package for CoreFoundation. A Go-built executable gets these
+      # from cgo's own LDFLAGS, but with a c-archive it is the consuming linker —
+      # Xcode — that has to supply them.
+      - sdk: CoreFoundation.framework
+      - sdk: Security.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rrgmc.ckkaraoke
+        # On the target, not just the project. xcodegen writes an empty
+        # DEVELOPMENT_TEAM into every app target's own configurations, and that
+        # overrides a project-level one — leaving Xcode to report that signing
+        # "requires a development team" while the value sits there unused one
+        # level up.
+        #
+        # Change it here, not in Xcode's Signing & Capabilities editor: build.sh
+        # regenerates the project from this file and would discard it.
+        DEVELOPMENT_TEAM: "5XV6P36QZR"
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_OBJC_BRIDGING_HEADER: CKKaraoke/CKKaraoke-Bridging-Header.h
+        # What the Go runtime and its net package need from the system.
+        OTHER_LDFLAGS: -lresolv
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: CKKaraoke/Info.plist
+      properties:
+        CFBundleDisplayName: CK Karaoke
+        # Set here rather than left to XcodeGen, which quietly defaults these to
+        # 1.0 and 1 — the same numbers by accident rather than on purpose, and
+        # nothing to notice when one of them should have moved.
+        # ShortVersionString is the version people see and matches Android's
+        # versionName; CFBundleVersion is the build within it, and is the one
+        # that must rise between uploads of the same version.
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # Without this every packet to the karaoke unit is dropped, and the prompt
+        # the user sees is the only way the app is allowed onto the LAN at all.
+        NSLocalNetworkUsageDescription:
+          Finds your karaoke device on the local network so this app can control it.
+        # Reading a favorites code from another device's screen. Without this key
+        # the app is terminated the moment the scanner asks for the camera,
+        # rather than being refused — and the sync page still takes a pasted
+        # code, so the camera is never required.
+        NSCameraUsageDescription:
+          Reads a favorites code shown on another device, to copy songs across.
+        # The server inside the app is plain HTTP on loopback. This is the
+        # counterpart of the Android app's network_security_config.xml, which
+        # permits cleartext to 127.0.0.1 and nothing else.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+
+# Declared rather than left to Xcode to autocreate. Without a real scheme on disk
+# xcodebuild invents one whose buildable has no supported platforms, and every
+# -destination is then rejected as unmatched.
+schemes:
+  CKKaraoke:
+    build:
+      targets:
+        CKKaraoke: all
+    run:
+      config: Debug
+    archive:
+      config: Release
