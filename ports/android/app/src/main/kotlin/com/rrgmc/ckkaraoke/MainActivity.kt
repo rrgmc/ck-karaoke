@@ -522,6 +522,13 @@ class MainActivity : Activity() {
         setContentView(root)
         useDarkStatusBarIcons()
         bindWeb(web)
+        // pauseTimers in onStop is process-wide and outlives the WebView it was
+        // called on. Swiping the app away stops the server but often leaves the
+        // process alive, so the next launch builds this view with timers still
+        // paused, and onStart's restart path returns before its resumeTimers.
+        // The page then loads but never applies a stream event: the banner
+        // keeps saying "unreachable" after the device has connected.
+        web.resumeTimers()
         web.loadUrl("http://127.0.0.1:$port/")
     }
 
