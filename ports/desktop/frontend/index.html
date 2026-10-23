@@ -47,11 +47,25 @@
   // also asks on load, in case that event fired before this script ran.
   (function () {
     var status = document.getElementById("status");
+    var hint = document.getElementById("hint");
     var error = document.getElementById("error");
+
+    // English until the Go side answers with the text in the system's
+    // language, which it also uses for its own dialogs.
+    var text = {
+      stopped: "The server stopped:",
+      downloading: "Downloading the song list…",
+    };
+    var downloading = false;
+    window.go.main.App.SetLanguage(navigator.languages || [navigator.language]).then(function (t) {
+      text = t;
+      if (!downloading) status.textContent = t.looking;
+      hint.textContent = t.hint;
+    });
 
     function go(url) { if (url) window.location.replace(url); }
     function failed(message) {
-      error.textContent = "The server stopped: " + message;
+      error.textContent = text.stopped + " " + message;
       document.body.className = "failed";
     }
 
@@ -62,7 +76,8 @@
     });
     window.runtime.EventsOn("server:progress", function (percent) {
       document.body.className = "";
-      status.textContent = "Downloading the song list… " + percent + "%";
+      downloading = true;
+      status.textContent = text.downloading + " " + percent + "%";
     });
 
     window.go.main.App.ServerURL().then(go);

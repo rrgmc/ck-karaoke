@@ -16,6 +16,15 @@
         <string>{{.OutputFilename}}</string>
         <key>CFBundleIdentifier</key>
         <string>com.rrgmc.ckkaraoke</string>
+        <!-- WKWebView sends only the languages the bundle declares in
+             Accept-Language, so without pt-BR here the web UI stays English. -->
+        <key>CFBundleDevelopmentRegion</key>
+        <string>en</string>
+        <key>CFBundleLocalizations</key>
+        <array>
+            <string>en</string>
+            <string>pt-BR</string>
+        </array>
         <key>CFBundleVersion</key>
         <string>{{.Info.ProductVersion}}</string>
         <key>CFBundleGetInfoString</key>

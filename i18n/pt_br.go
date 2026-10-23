@@ -203,6 +203,15 @@ var portuguese = map[string]string{
 	"Paste the code shown under the other device's QR.":                                        "Cole o código mostrado embaixo do QR do outro aparelho.",
 	"Continue": "Continuar",
 
+	// Desktop window.
+	"Looking for your karaoke device…": "Procurando o seu aparelho de karaokê…",
+	"No device has answered yet. Check that it is switched on and on the same network as this computer. On a Mac, also check that CK Karaoke is allowed in System Settings, Privacy & Security, Local Network.": "Nenhum aparelho respondeu ainda. Verifique se ele está ligado e na mesma rede que este computador. Num Mac, verifique também se o CK Karaoke tem permissão em Ajustes do Sistema, Privacidade e Segurança, Rede Local.",
+	"Downloading the song list…": "Baixando a lista de músicas…",
+	"The server stopped:":        "O servidor parou:",
+	"CK Karaoke stopped":         "O CK Karaoke parou",
+	"Save favorites backup":      "Salvar backup dos favoritos",
+	"Favorites backup (*.xml)":   "Backup dos favoritos (*.xml)",
+
 	// Errors.
 	"The device is offline.":                                 "O aparelho está desconectado.",
 	"The device is not accepting connections.":               "O aparelho não está aceitando conexões.",

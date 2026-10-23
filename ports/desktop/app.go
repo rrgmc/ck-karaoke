@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/rrgmc/ck-karaoke/client"
+	"github.com/rrgmc/ck-karaoke/i18n"
 	"github.com/rrgmc/ck-karaoke/protocol"
 	"github.com/rrgmc/ck-karaoke/server"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -41,6 +42,9 @@ type App struct {
 	mu  sync.Mutex
 	url string
 	err string
+	// lang is the language of the native dialogs, set by the startup page from
+	// the web view's languages so it matches the web UI.
+	lang i18n.Lang
 }
 
 func newApp() *App {
@@ -115,6 +119,7 @@ func (a *App) fail(err error) {
 	a.mu.Lock()
 	a.err = err.Error()
 	navigated := a.url != ""
+	lang := a.lang
 	a.mu.Unlock()
 
 	if !navigated {
@@ -123,7 +128,7 @@ func (a *App) fail(err error) {
 	}
 	_, _ = runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
 		Type:    runtime.ErrorDialog,
-		Title:   "CK Karaoke stopped",
+		Title:   lang.T("CK Karaoke stopped"),
 		Message: err.Error(),
 	})
 	runtime.Quit(a.ctx)
@@ -149,6 +154,25 @@ func (a *App) ServerURL() string {
 	return a.url
 }
 
+// SetLanguage takes the web view's preferred languages, which the startup page
+// reads from navigator.languages, and returns that page's text in the best
+// match. The native dialogs use the same language from then on.
+//
+// The web view is asked rather than the system, because it is what the web UI
+// follows through Accept-Language, and the dialogs should agree with it.
+func (a *App) SetLanguage(prefs []string) map[string]string {
+	lang := i18n.Match(prefs...)
+	a.mu.Lock()
+	a.lang = lang
+	a.mu.Unlock()
+	return map[string]string{
+		"looking":     lang.T("Looking for your karaoke device…"),
+		"hint":        lang.T("No device has answered yet. Check that it is switched on and on the same network as this computer. On a Mac, also check that CK Karaoke is allowed in System Settings, Privacy & Security, Local Network."),
+		"downloading": lang.T("Downloading the song list…"),
+		"stopped":     lang.T("The server stopped:"),
+	}
+}
+
 // ServerError returns why the server stopped, or "" if it has not.
 func (a *App) ServerError() string {
 	a.mu.Lock()
@@ -160,10 +184,13 @@ func (a *App) ServerError() string {
 // handling of its own on every platform, so a backup goes through the system's
 // save dialog instead.
 func (a *App) saveFile(name string, data []byte) (string, error) {
+	a.mu.Lock()
+	lang := a.lang
+	a.mu.Unlock()
 	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           "Save favorites backup",
+		Title:           lang.T("Save favorites backup"),
 		DefaultFilename: name,
-		Filters:         []runtime.FileFilter{{DisplayName: "Favorites backup (*.xml)", Pattern: "*.xml"}},
+		Filters:         []runtime.FileFilter{{DisplayName: lang.T("Favorites backup (*.xml)"), Pattern: "*.xml"}},
 	})
 	if err != nil || path == "" {
 		return "", err
