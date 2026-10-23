@@ -52,24 +52,25 @@ file edited in the shared checkout lands under whoever else is working there.
   `git worktree add -b <branch> .claude/worktrees/<name> origin/master`.
 - **Keep the main checkout on `master` with a clean tree.** Do not switch its
   branch, edit files in it, or build in it.
-- **Bring the branch up to date** before merging: `git fetch` then
-  `git rebase origin/master`.
-- **Merge** by pushing the branch to `master` as a fast-forward:
-  `git push origin HEAD:master`. If GitHub refuses because `master` moved,
-  rebase again. A session in a worktree cannot touch the main checkout, so
-  this push is the merge; the main checkout catches up with `git pull`.
+- **Bring the branch up to date** before opening a pull request: `git fetch`
+  then `git rebase origin/master`.
+- **Merge** through a pull request. GitHub protects `master`: it refuses
+  direct pushes, including from admins. Push the branch, open the pull
+  request with `gh pr create`, and merge it with
+  `gh pr merge --rebase --delete-branch`, which keeps the history linear. The
+  main checkout catches up with `git pull`.
 - **Clean up** after the merge: `ExitWorktree` with `remove`, or
-  `git worktree remove .claude/worktrees/<name>` and `git branch -d <branch>`.
+  `git worktree remove .claude/worktrees/<name>` and `git branch -D <branch>`.
+  The rebase merge gives the commits new hashes, so `git branch -d` reports
+  the branch as unmerged.
 
 Each worktree has its own build outputs (`bin/`, `data/`, the Android and iOS
 build directories), so a port has to be built again inside a new worktree.
 
-## Branching while the ports are being finalised
+## Pull requests
 
-Until every platform is finalised, merge each worktree's branch straight into
-`master` with the push described under "Worktrees", without a pull request.
-Because that push is the merge, ask before making it, and before tagging.
-Keep CI green. Remove this section once all ports have shipped.
+Opening a pull request needs no approval. Ask before merging one, and before
+tagging. Keep CI green.
 
 ## Port status
 
