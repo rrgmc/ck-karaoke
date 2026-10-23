@@ -1,1 +1,42 @@
-local/
+# Local notes, not committed.
+/local/
+CLAUDE.local.md
+
+# Scratch space.
+/tmp/
+
+# Build output.
+/bin/
+*.exe
+
+# Runtime data beside the debug server: the downloaded catalogue and the
+# favorites, plus the WAL sidecars favorites.db writes.
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Android build output, and the server binary copied in for packaging. The
+# binary is rebuilt by ports/android/build.sh.
+/ports/android/.gradle/
+/ports/android/build/
+/ports/android/app/build/
+/ports/android/local.properties
+/ports/android/app/src/main/jniLibs/
+
+# iOS build output. The xcframework holds the Go server, rebuilt by
+# ports/ios/build.sh, and the project is generated from ports/ios/project.yml by
+# xcodegen.
+/ports/ios/Frameworks/
+/ports/ios/build/
+/ports/ios/*.xcodeproj/
+# Generated from the info.properties block in ports/ios/project.yml.
+/ports/ios/CKKaraoke/Info.plist
+
+# Desktop build output.
+/ports/desktop/build/bin/
+/ports/desktop/frontend/wailsjs/
+
+# IDE
+/.idea/
+/.vscode/
