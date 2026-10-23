@@ -115,17 +115,8 @@ jobs:
           go install "github.com/wailsapp/wails/v2/cmd/wails@$WAILS_VERSION"
           choco install nsis -y --no-progress
           echo "C:/Program Files (x86)/NSIS" >> "$GITHUB_PATH"
-      - name: Set the version
-        run: |
-          jq --arg v "$VERSION" '.info.productVersion = $v' wails.json > wails.json.tmp
-          mv wails.json.tmp wails.json
-      - name: Build
-        run: |
-          wails build -clean -nsis -platform windows/amd64
-          mkdir -p ../../dist
-          cp "build/bin/CK Karaoke-amd64-installer.exe" \
-            "../../dist/ck-karaoke-$VERSION-windows-amd64-setup.exe"
-          cp build/bin/ck-karaoke.exe "../../dist/ck-karaoke-$VERSION-windows-amd64.exe"
+      - name: Package
+        run: ./package.sh "$VERSION" ../../dist
       - uses: actions/upload-artifact@v7
         with:
           name: windows
@@ -149,20 +140,10 @@ jobs:
           cache-dependency-path: ports/desktop/go.sum
       - name: Install Wails
         run: go install "github.com/wailsapp/wails/v2/cmd/wails@$WAILS_VERSION"
-      - name: Set the version
-        run: |
-          jq --arg v "$VERSION" '.info.productVersion = $v' wails.json > wails.json.tmp
-          mv wails.json.tmp wails.json
       # Unsigned: without a Developer ID, macOS asks the user to confirm the
       # first launch. See ports/desktop/README.md.
-      - name: Build
-        run: |
-          wails build -clean -platform darwin/universal
-          app=$(find build/bin -maxdepth 1 -name '*.app' -print -quit)
-          if [ -z "$app" ]; then echo "no .app bundle in build/bin"; ls -la build/bin; exit 1; fi
-          mkdir -p ../../dist
-          hdiutil create -volname "CK Karaoke" -srcfolder "$app" \
-            -ov -format UDZO "../../dist/ck-karaoke-$VERSION-macos-universal.dmg"
+      - name: Package
+        run: ./package.sh "$VERSION" ../../dist
       - uses: actions/upload-artifact@v7
         with:
           name: macos

@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  WAILS_VERSION: v2.16.0
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name != 'workflow_call' }}
@@ -63,13 +66,11 @@ jobs:
             tags: desktop,production
           - os: macos-latest
             tags: desktop,production
-            # The Wails CLI adds this framework itself; a plain go build
-            # must name it or the link fails on UTType.
-            ldflags: -framework UniformTypeIdentifiers -mmacosx-version-min=10.13
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     defaults:
       run:
+        shell: bash
         working-directory: ports/desktop
     steps:
       - uses: actions/checkout@v7
@@ -86,9 +87,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libgtk-3-dev libwebkit2gtk-4.1-dev
       - run: go vet -tags ${{ matrix.tags }} .
-      - run: go build -tags ${{ matrix.tags }} -o ck-karaoke-ci .
-        env:
-          CGO_LDFLAGS: ${{ matrix.ldflags }}
+      - name: Install Wails
+        run: go install "github.com/wailsapp/wails/v2/cmd/wails@$WAILS_VERSION"
+      - name: Install NSIS
+        if: runner.os == 'Windows'
+        run: |
+          choco install nsis -y --no-progress
+          echo "C:/Program Files (x86)/NSIS" >> "$GITHUB_PATH"
+      # The same packaging the release runs, so a broken installer, bundle or
+      # disk image shows up here rather than on a tag. Nothing is uploaded.
+      - name: Package
+        run: ./package.sh 0.0.0-ci "$RUNNER_TEMP/dist"
 
   android:
     name: Android

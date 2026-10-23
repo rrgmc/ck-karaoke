@@ -34,7 +34,12 @@ on `PATH`. The installer scripts are in `build/windows/installer/`, and
 `build/darwin/Info.plist` adds the macOS privacy strings (without the local
 network one, macOS drops the discovery broadcast).
 
-Releases are built by CI from a version tag; see the repository README.
+`./package.sh <version> <dir>` builds and packages for the host platform
+exactly as a release does: the installer and portable executable on Windows,
+a verified universal disk image on macOS (it also checks the bundle's version,
+identifier and privacy strings), and a tarball on Linux. CI runs it on every
+push; the release workflow runs it on a version tag (see the repository
+README).
 
 The release builds are not code-signed. Windows SmartScreen may warn on first
 run ("More info", then "Run anyway"). On macOS, open the app once with
