@@ -32,8 +32,8 @@ Get the latest version from the
 | macOS 10.13 or later | `ck-karaoke-<version>-macos-universal.dmg` | Drag the app to Applications. Open it the first time with right-click, **Open**. |
 | iPhone and iPad, iOS 15 or later | `ck-karaoke-<version>-ios-unsigned.ipa` | You must sign it before iOS installs it; see [Installing the release IPA](ports/ios/README.md#installing-the-release-ipa). |
 
-The Windows and macOS apps are not signed by Microsoft or Apple, so the system
-warns you the first time you open them. The `SHA256SUMS.txt` file on the releases page lets you check
+The macOS app is signed and notarized by Apple. The Windows app is not signed
+by Microsoft, so Windows warns you the first time you open it. The `SHA256SUMS.txt` file on the releases page lets you check
 that a download is intact.
 
 There is no download for Linux yet. It can be built from source; see

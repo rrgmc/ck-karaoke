@@ -110,9 +110,52 @@ The APK is signed with the release key from these repository secrets:
 | `ANDROID_KEY_PASSWORD` | the key password |
 
 Without them the APK is signed with a throwaway debug key, and the next
-release will not install over it. The Windows and macOS builds are not
-code-signed. The iOS IPA is not signed either, and iOS installs only signed
-apps: see [Installing the release IPA](../ports/ios/README.md#installing-the-release-ipa)
+release will not install over it.
+
+The macOS disk image is signed with a Developer ID certificate and notarized by
+Apple, so macOS opens it without a warning. Notarization means Apple scans the
+app and records that it is safe to run. It uses these secrets:
+
+| Secret | Value |
+|---|---|
+| `MACOS_CERTIFICATE_BASE64` | the Developer ID Application certificate and its private key, as a `.p12` file, base64-encoded |
+| `MACOS_CERTIFICATE_PASSWORD` | the password of the `.p12` file |
+| `MACOS_NOTARY_APPLE_ID` | the Apple ID of the developer account |
+| `MACOS_NOTARY_PASSWORD` | an app-specific password for that Apple ID |
+| `MACOS_NOTARY_TEAM_ID` | the team ID, `5XV6P36QZR` |
+
+To create them:
+
+1. In Keychain Access, open **My Certificates**, select the
+   "Developer ID Application" certificate, and choose **File**, **Export
+   Items**. Save it as `certificate.p12` with a password.
+2. Create an app-specific password at [account.apple.com](https://account.apple.com),
+   under **Sign-In and Security**, **App-Specific Passwords**.
+3. Store the secrets, then delete `certificate.p12`:
+
+   ```bash
+   base64 -i certificate.p12 | gh secret set MACOS_CERTIFICATE_BASE64
+   gh secret set MACOS_CERTIFICATE_PASSWORD
+   gh secret set MACOS_NOTARY_APPLE_ID
+   gh secret set MACOS_NOTARY_PASSWORD
+   gh secret set MACOS_NOTARY_TEAM_ID --body 5XV6P36QZR
+   ```
+
+The release fails if any of them is missing. CI's build on every push is not
+signed.
+
+To sign and notarize a local build, set `MACOS_SIGN_IDENTITY` to the name of
+the certificate in your keychain, and the three `MACOS_NOTARY_*` values, before
+running `ports/desktop/package.sh`:
+
+```bash
+MACOS_SIGN_IDENTITY="Developer ID Application: Rangel Reale (5XV6P36QZR)" \
+MACOS_NOTARY_APPLE_ID=... MACOS_NOTARY_PASSWORD=... MACOS_NOTARY_TEAM_ID=5XV6P36QZR \
+  ./ports/desktop/package.sh 1.2.3 dist
+```
+
+The Windows installer is not code-signed. The iOS IPA is not signed either, and
+iOS installs only signed apps: see [Installing the release IPA](../ports/ios/README.md#installing-the-release-ipa)
 for how to sign it.
 
 ## Screenshots

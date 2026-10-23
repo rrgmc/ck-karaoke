@@ -41,9 +41,14 @@ identifier and privacy strings), and a tarball on Linux. CI runs it on every
 push; the release workflow runs it on a version tag (see
 [docs/BUILDING.md](../../docs/BUILDING.md#continuous-integration-and-releases)).
 
-The release builds are not code-signed. Windows SmartScreen may warn on first
-run ("More info", then "Run anyway"). On macOS, open the app once with
-right-click, Open, or run `xattr -dr com.apple.quarantine "/Applications/CK Karaoke.app"`.
+The macOS release is signed with a Developer ID and notarized; see
+[docs/BUILDING.md](../../docs/BUILDING.md#continuous-integration-and-releases)
+for the secrets this needs. A build without them is not signed: open it once
+with right-click, Open, or run
+`xattr -dr com.apple.quarantine "/Applications/CK Karaoke.app"`.
+
+The Windows installer is not code-signed. Windows SmartScreen may warn on first
+run ("More info", then "Run anyway").
 
 Without the CLI, plain Go works too, minus the icon and the app bundle:
 

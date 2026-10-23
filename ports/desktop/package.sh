@@ -12,6 +12,15 @@
 #
 # Needs the Wails CLI on PATH, NSIS on Windows, and WebKitGTK on Linux; see
 # ports/desktop/README.md.
+#
+# On macOS these variables sign and notarize the app. Without them the app is
+# not signed.
+#
+#   MACOS_SIGN_IDENTITY    a Developer ID Application certificate in the
+#                          keychain, by name or SHA-1 hash
+#   MACOS_NOTARY_APPLE_ID  the Apple ID, an app-specific password for it, and
+#   MACOS_NOTARY_PASSWORD  the team ID, for notarization. Signing without
+#   MACOS_NOTARY_TEAM_ID   them still works, but macOS warns on first launch.
 set -euo pipefail
 
 version=${1:?usage: package.sh <version> <output dir>}
@@ -62,9 +71,40 @@ case "$(uname -s)" in
         archs=$(lipo -archs "$exe")
         case "$archs" in *x86_64*arm64* | *arm64*x86_64*) ;; *) fail "binary is $archs, not universal" ;; esac
 
+        # The hardened runtime and a secure timestamp are what notarization
+        # requires of every executable.
+        if [ -n "${MACOS_SIGN_IDENTITY:-}" ]; then
+            codesign --force --options runtime --timestamp \
+                --sign "$MACOS_SIGN_IDENTITY" "$app"
+            codesign --verify --strict --verbose=2 "$app"
+        fi
+
         dmg="$out/ck-karaoke-$version-macos-universal.dmg"
         hdiutil create -volname "CK Karaoke" -srcfolder "$app" -ov -format UDZO "$dmg"
         hdiutil verify "$dmg"
+
+        if [ -n "${MACOS_SIGN_IDENTITY:-}" ]; then
+            codesign --force --timestamp --sign "$MACOS_SIGN_IDENTITY" "$dmg"
+        fi
+        # Notarizing the disk image covers the app inside it. Stapling attaches
+        # the ticket, so the first launch needs no network to check it.
+        if [ -n "${MACOS_NOTARY_APPLE_ID:-}" ]; then
+            [ -n "${MACOS_SIGN_IDENTITY:-}" ] || fail "notarization needs MACOS_SIGN_IDENTITY"
+            notary=(--apple-id "$MACOS_NOTARY_APPLE_ID"
+                --password "${MACOS_NOTARY_PASSWORD:?MACOS_NOTARY_PASSWORD is not set}"
+                --team-id "${MACOS_NOTARY_TEAM_ID:?MACOS_NOTARY_TEAM_ID is not set}")
+            # notarytool exits 0 for a rejected submission too, so read the
+            # status, and print Apple's log when it is not Accepted.
+            result=$(xcrun notarytool submit "$dmg" --wait --output-format json "${notary[@]}")
+            status=$(plutil -extract status raw - <<<"$result")
+            if [ "$status" != "Accepted" ]; then
+                xcrun notarytool log "$(plutil -extract id raw - <<<"$result")" "${notary[@]}" || true
+                fail "notarization status is $status"
+            fi
+            xcrun stapler staple "$dmg"
+            xcrun stapler validate "$dmg"
+            spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
+        fi
         ;;
 
     Linux)

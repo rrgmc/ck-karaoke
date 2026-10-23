@@ -140,10 +140,43 @@ jobs:
           cache-dependency-path: ports/desktop/go.sum
       - name: Install Wails
         run: go install "github.com/wailsapp/wails/v2/cmd/wails@$WAILS_VERSION"
-      # Unsigned: without a Developer ID, macOS asks the user to confirm the
-      # first launch. See ports/desktop/README.md.
+      # Signed with the Developer ID certificate in the MACOS_* secrets, imported
+      # into a throwaway keychain, and notarized. A release must be both, so a
+      # missing secret fails the job. See docs/BUILDING.md.
+      - name: Import the signing certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$CERTIFICATE_BASE64" ] || [ -z "$CERTIFICATE_PASSWORD" ]; then
+            echo "::error::MACOS_CERTIFICATE_BASE64 and MACOS_CERTIFICATE_PASSWORD must be set"
+            exit 1
+          fi
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          pass=$(openssl rand -hex 16)
+          echo "$CERTIFICATE_BASE64" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$pass" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$pass" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" \
+            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$pass" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/certificate.p12"
+          echo "MACOS_SIGN_IDENTITY=Developer ID Application" >> "$GITHUB_ENV"
       - name: Package
-        run: ./package.sh "$VERSION" ../../dist
+        env:
+          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+          MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+        run: |
+          for name in MACOS_NOTARY_APPLE_ID MACOS_NOTARY_PASSWORD MACOS_NOTARY_TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name must be set"
+              exit 1
+            fi
+          done
+          ./package.sh "$VERSION" ../../dist
       - uses: actions/upload-artifact@v7
         with:
           name: macos
