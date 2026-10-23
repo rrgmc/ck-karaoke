@@ -26,6 +26,7 @@ Requirements: Go, a JDK 17 to 21 (Temurin 21 is tested), Gradle on `PATH` or in
 export JAVA_HOME=/path/to/jdk-21
 ./ports/android/build.sh            # debug APK
 ./ports/android/build.sh release    # release APK; see "Signing" below
+./ports/android/build.sh bundle     # App Bundle for Google Play
 adb install -r ports/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -47,6 +48,43 @@ workflow takes it from repository secrets; see
 The version name and code come from `version/VERSION` (the code is
 `MAJOR×10000 + MINOR×100 + PATCH`). `-PversionName` and `-PversionCode`
 override them.
+
+## Google Play
+
+Google Play takes an Android App Bundle (`.aab`), not an APK. `build.sh bundle`
+writes it to `app/build/outputs/bundle/release/app-release.aab`, signed like the
+release APK, and the release workflow attaches it to each GitHub release.
+
+**Play App Signing.** Play re-signs every app with an app signing key that
+Google keeps. When creating the app in Play Console, choose to use an existing
+key and upload the current release key with the PEPK tool that Play Console
+offers. Then installs from Play and from GitHub share one key and upgrade into
+each other. If Play generates a new key instead, a user who switches source has
+to uninstall first, which deletes the favorites.
+
+**Native library.** Play builds APKs from the bundle for each device. Those
+APKs keep `libckkaraoke.so` compressed, as `useLegacyPackaging` asks, so Android
+still extracts it to disk where it can run. The server's ELF segments are
+aligned at 64 KB, which meets Play's 16 KB page size requirement. To check a
+bundle before uploading it, install the APKs Play would make:
+
+```bash
+bundletool build-apks --bundle app-release.aab --output app.apks --connected-device
+bundletool install-apks --apks app.apks
+```
+
+**Play Console forms.** These answers follow from how the app works:
+
+| Form | Answer |
+|---|---|
+| Privacy policy | [docs/PRIVACY.md](../../docs/PRIVACY.md) on GitHub |
+| Data safety | no data collected, no data shared |
+| Foreground service | `connectedDevice`: keeps the session with the karaoke unit on the local network open while the app is in use; needs a short video of the app controlling a unit |
+| Ads | none |
+| Target audience | adults; not directed at children |
+
+The listing must not suggest an official app: say that CK Karaoke is unofficial
+and not affiliated with the makers of the units.
 
 ## How it runs
 

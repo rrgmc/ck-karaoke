@@ -108,7 +108,7 @@ Binaries are built only for a release. To make one, set the new version in
 `version/VERSION`, commit and push it, then push the matching tag. The tag
 starts the [release workflow](../.github/workflows/release.yml), which checks
 that it matches `version/VERSION`, runs CI, then publishes a GitHub release with
-the Android APK, the Windows installer, the macOS disk image, the Linux `.deb`
+the Android APK and App Bundle, the Windows installer, the macOS disk image, the Linux `.deb`
 package, an unsigned iOS IPA and a `SHA256SUMS.txt`:
 
 ```bash
@@ -119,7 +119,9 @@ git push origin v1.2.3
 The version must be `MAJOR.MINOR.PATCH`, with minor and patch below 100; a
 suffix such as `1.2.3-rc1` publishes a pre-release.
 
-The APK is signed with the release key from these repository secrets:
+The App Bundle (`.aab`) is the file to upload to Google Play; see
+[ports/android/README.md](../ports/android/README.md#google-play). The APK and
+the bundle are signed with the release key from these repository secrets:
 
 | Secret | Value |
 |---|---|
