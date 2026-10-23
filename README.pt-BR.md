@@ -5,7 +5,7 @@
 [English](README.md) | **Português (Brasil)**
 
 O CK Karaoke transforma seu celular ou computador em um controle remoto para o
-seu aparelho de karaokê. Ele funciona com a família Videoke VSK e com
+seu aparelho de karaokê. Ele funciona com a família **Videoke VSK** e com
 aparelhos vendidos com as marcas CooKara e RafKara.
 
 Com ele você pode:
