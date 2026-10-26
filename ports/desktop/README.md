@@ -15,7 +15,7 @@ repeats the RakNet fork `replace` that the library needs.
 Install the Wails CLI once:
 
 ```bash
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.0
 wails doctor   # lists anything missing for this platform
 ```
 
