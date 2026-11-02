@@ -97,6 +97,8 @@ type Client struct {
 	onStatus func(*protocol.Status)
 	queue    *protocol.Queue
 	onQueue  func(*protocol.Queue)
+	// pages joins the reserved list's frames into whole lists.
+	pages protocol.QueueAssembler
 }
 
 // Dial connects to a device and opens a session. address may omit the port.
@@ -210,6 +212,14 @@ func (c *Client) deliverStatus(msg protocol.Message) {
 			fn(m)
 		}
 	case *protocol.Queue:
+		// A long list arrives as several pages. Hand on only whole lists: a
+		// single page would replace the list with part of it.
+		c.mu.Lock()
+		m = c.pages.Add(m)
+		c.mu.Unlock()
+		if m == nil {
+			return
+		}
 		// The device pushes the reserved list unprompted as well as in reply to
 		// Queryorder, so keep every one: it means a caller can have the current
 		// list immediately instead of waiting the ~2s a query takes.

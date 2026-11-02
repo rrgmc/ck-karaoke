@@ -444,6 +444,10 @@ total, start, end, then (end - start) groups of: song id, v1, v2, v3
 `total` is the length of the whole queue; `start` and `end` bound the entries
 in this frame. Each group is one entry as in section 6.5.
 
+A frame holds at most ten entries. A longer queue arrives as consecutive
+frames, `0`–`10`, `10`–`20` and so on, up to `total`; this holds for pushed
+queues as well as replies. `protocol.QueueAssembler` joins them.
+
 ## 8. The song database
 
 The device holds its catalogue as a SQLite file and sends it on request.

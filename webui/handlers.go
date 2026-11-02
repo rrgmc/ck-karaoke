@@ -931,7 +931,7 @@ func (s *Server) describeQueue(ctx context.Context, q *protocol.Queue) queueData
 	}
 
 	for i, e := range q.Entries {
-		entry := queueEntry{Position: i + 1, SongID: e.SongID, By: e.QueuedBy()}
+		entry := queueEntry{Position: q.Start + i + 1, SongID: e.SongID, By: e.QueuedBy()}
 		if id, err := strconv.Atoi(e.SongID); err == nil {
 			if song, ok := titles[id]; ok {
 				entry.Title, entry.Artist = song.Title, song.Artist
