@@ -34,6 +34,7 @@ import (
 	"log/slog"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,6 +64,11 @@ const (
 	// the evening, so it plays in the evening's order.
 	Reroute ForeignPolicy = "reroute"
 )
+
+// pauseShows is how long a pause or resume the feeder sent decides the
+// transport before the position shows it. The unit can apply it one status
+// late, and statuses come every two seconds.
+const pauseShows = 5 * time.Second
 
 // ErrOffline reports that no session with the unit is open.
 var ErrOffline = errors.New("the karaoke unit is not connected")
@@ -151,6 +157,8 @@ type Feeder struct {
 	unit       Unit
 	status     *protocol.Status
 	lastID     string        // the last song id that was not 0
+	lastTitle  string        // the title that came with lastID
+	waits      int           // stale statuses in a row
 	lastPos    time.Duration // the last position that was not a song change
 	stalled    bool
 	playing    *Song
@@ -171,6 +179,7 @@ type Feeder struct {
 type slot struct {
 	entry     uint64
 	number    uint32
+	title     string
 	sent      time.Time
 	confirmed bool // seen in the unit's queue
 	gone      bool // left the unit's queue; its fate shows in the next status
@@ -354,42 +363,81 @@ func (f *Feeder) do(ctx context.Context, fn func(ctx context.Context) error) err
 }
 
 // onStatus reads one status push.
+//
+// A new song shows in three ways: its first status carries a large negative
+// position, its id differs from the last one, or its title differs. The id
+// field cannot always be trusted. It reads 0 from a pause until the next song
+// starts, and the first status after NextSong, or after a song added while the
+// unit was stopped, carries the new title with the previous song's id. So an
+// id is stale when it is the last song's id under another title. A stale
+// status waits for the next one, and after two the song is matched by title.
 func (f *Feeder) onStatus(ctx context.Context, s *protocol.Status) {
 	now := f.now()
 	title := s.CurrentSong
 	id := s.CurrentSongID
 	knownID := id != "" && id != "0"
 	change := s.SongPosition < 0
-	newSong := title != "" && (change || (knownID && id != f.lastID))
-	if knownID {
-		f.lastID = id
+	prevTitle := ""
+	if f.status != nil {
+		prevTitle = f.status.CurrentSong
+	}
+	stale := knownID && id == f.lastID && !strings.EqualFold(title, f.lastTitle)
+
+	newSong, wait := false, false
+	switch {
+	case title == "":
+	case change && strings.EqualFold(title, prevTitle):
+		// The same song from the start: a restart, or the same song again.
+		newSong = true
+	case stale:
+		wait = f.waits < 2
+		newSong = !wait
+	case change, knownID && id != f.lastID:
+		newSong = true
+	case f.playing == nil, !strings.EqualFold(title, f.playing.Title):
+		// Also a song that was already playing, or paused, when the session
+		// opened.
+		newSong = true
+	}
+	if wait {
+		f.waits++
+	} else {
+		f.waits = 0
+	}
+	switch {
+	case stale || !knownID:
+		id = ""
+	case title != "":
+		f.lastID, f.lastTitle = id, title
 	}
 
 	switch {
-	case newSong && f.restarting && f.playing != nil && strconv.FormatUint(uint64(f.playing.Number), 10) == id:
+	case wait:
+		f.log.Debug("song change with a stale id; waiting for the next status", "title", title, "id", s.CurrentSongID)
+	case newSong && f.restarting && f.playing != nil && strings.EqualFold(title, f.playing.Title):
 		// Our own PlayEx of the current song: the same song from the start.
 		f.restarting = false
 		f.playing.Started = now
 		f.cut = false
-	case newSong, title != "" && f.playing == nil:
-		// Also a song that was already playing, or paused, when the session
-		// opened; a paused one reports no id.
+	case newSong:
 		n, _ := strconv.ParseUint(id, 10, 32)
 		f.songChanged(uint32(n), title, now)
 	case title == "" && f.playing != nil:
 		f.songEnded()
 	}
 
-	// Adopted songs that left the unit's queue and did not start now were
-	// removed by whoever queued them.
-	for n, entry := range f.vanished {
-		f.opts.Room.drop(entry)
-		delete(f.vanished, n)
-	}
-	if f.buffered != nil && f.buffered.gone {
-		// Removed by another remote. The evening still holds it, so it goes
-		// back on the unit.
-		f.buffered = nil
+	if !wait {
+		// Adopted songs that left the unit's queue and did not start now were
+		// removed by whoever queued them.
+		for n, entry := range f.vanished {
+			f.opts.Room.drop(entry)
+			delete(f.vanished, n)
+		}
+		if f.buffered != nil && f.buffered.gone {
+			// Removed by another remote. The evening still holds it, so it
+			// goes back on the unit.
+			f.buffered = nil
+		}
 	}
 
 	if !change {
@@ -406,20 +454,27 @@ func (f *Feeder) songChanged(number uint32, title string, now time.Time) {
 		f.songEnded()
 	}
 	song := Song{Number: number, Title: title, Started: now}
+	// By number, or by title when the unit reports no id.
+	is := func(sl *slot) bool {
+		return sl != nil && (number != 0 && sl.number == number || number == 0 && strings.EqualFold(sl.title, title))
+	}
 	var entry uint64
 	found := false
 	switch {
-	case f.pending != nil && f.pending.number == number:
-		entry, found = f.pending.entry, true
+	case is(f.pending):
+		entry, found, song.Number = f.pending.entry, true, f.pending.number
 		f.pending = nil
-	case f.buffered != nil && f.buffered.number == number:
-		entry, found = f.buffered.entry, true
+	case is(f.buffered):
+		entry, found, song.Number = f.buffered.entry, true, f.buffered.number
 		f.buffered = nil
 	default:
-		if e, ok := f.adopted[number]; ok {
-			entry, found = e, true
-			delete(f.adopted, number)
-			delete(f.vanished, number)
+		for n, e := range f.adopted {
+			if n == number || number == 0 && strings.EqualFold(f.entryTitle(e), title) {
+				entry, found, song.Number = e, true, n
+				delete(f.adopted, n)
+				delete(f.vanished, n)
+				break
+			}
 		}
 	}
 	if found {
@@ -432,6 +487,16 @@ func (f *Feeder) songChanged(number uint32, title string, now time.Time) {
 	f.cut = false
 	f.log.Info("song started", "number", number, "title", title, "fromQueue", song.Entry != nil)
 	f.emit(SongStarted{Song: song})
+}
+
+// entryTitle is the title of an evening entry, or empty.
+func (f *Feeder) entryTitle(entry uint64) string {
+	for _, e := range f.opts.Room.Entries() {
+		if e.ID == entry {
+			return e.Title
+		}
+	}
+	return ""
 }
 
 // songEnded records the end of the playing song.
@@ -552,7 +617,7 @@ func (f *Feeder) reconcile(ctx context.Context) {
 		f.retryAt = now.Add(5 * time.Second)
 		return
 	}
-	s := &slot{entry: next.ID, number: next.Number, sent: now}
+	s := &slot{entry: next.ID, number: next.Number, title: next.Title, sent: now}
 	if idle {
 		// The unit starts a song added while it is idle at once.
 		f.pending = s
@@ -668,7 +733,7 @@ func (f *Feeder) Play(ctx context.Context) error {
 			if err := f.unit.Pause(ctx); err != nil {
 				return err
 			}
-			f.pauseWant, f.pauseUntil = false, now.Add(3*time.Second)
+			f.pauseWant, f.pauseUntil = false, now.Add(pauseShows)
 		}
 		f.publishState(now)
 		return nil
@@ -685,7 +750,7 @@ func (f *Feeder) Pause(ctx context.Context) error {
 		if err := f.unit.Pause(ctx); err != nil {
 			return err
 		}
-		f.pauseWant, f.pauseUntil = true, now.Add(3*time.Second)
+		f.pauseWant, f.pauseUntil = true, now.Add(pauseShows)
 		f.publishState(now)
 		return nil
 	})
@@ -722,7 +787,7 @@ func (f *Feeder) Skip(ctx context.Context) error {
 		if err := f.unit.PlayNow(ctx, strconv.FormatUint(uint64(next.Number), 10)); err != nil {
 			return err
 		}
-		f.pending = &slot{entry: next.ID, number: next.Number, sent: f.now()}
+		f.pending = &slot{entry: next.ID, number: next.Number, title: next.Title, sent: f.now()}
 		return nil
 	})
 }

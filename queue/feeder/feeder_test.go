@@ -331,7 +331,11 @@ func TestFeederSkipAndRestart(t *testing.T) {
 	h.waitFor("the next song plays", h.playing(12))
 	assert.Contains(t, h.unit.Log(), "NextSong")
 	assert.NotContains(t, h.unit.Log(), "Skip", "the unit ignores Skip")
+	// The first status after NextSong still carries 11's id; the next one
+	// names 12.
+	h.unit.Advance(time.Second)
 	h.waitFor("12 left the evening", equal(h.evening))
+	assert.Equal(t, []uint32{11, 12}, h.started(), "the stale id is no song of its own")
 	assert.False(t, h.ended()[0].Natural)
 }
 
@@ -357,6 +361,43 @@ func TestFeederInfersPause(t *testing.T) {
 	assert.Contains(t, h.unit.Log(), "Pause", "Play toggles the pause")
 	h.unit.Advance(2 * time.Second)
 	h.waitFor("playing again", func() bool { return h.f.State().Transport == Playing })
+}
+
+// The sequence measured on the real unit: pause, resume, restart, stop and
+// play. After the pause the id reads 0, so the restart is known by its title;
+// the song Play starts first reports the previous song's id.
+func TestFeederTransportSequence(t *testing.T) {
+	h := startFeeder(t, fair.Arrival, nil)
+	h.singer("Ana")
+	h.ask("Ana", 11)
+	h.ask("Ana", 12)
+	h.unit.Advance(0)
+	h.waitFor("the next song waits", equal(h.unitQueue, "12 by Ana"))
+	ctx := context.Background()
+
+	h.unit.Advance(5 * time.Second)
+	require.NoError(t, h.f.Pause(ctx))
+	h.unit.Advance(2 * time.Second)
+	h.unit.Advance(2 * time.Second)
+	require.NoError(t, h.f.Play(ctx))
+	h.unit.Advance(2 * time.Second)
+	require.NoError(t, h.f.Restart(ctx))
+	h.unit.Advance(2 * time.Second)
+	h.waitFor("the restart reaches the state", func() bool { return h.f.State().Position == 2*time.Second })
+	assert.Equal(t, []uint32{11}, h.started(), "a restart is no new song")
+
+	require.NoError(t, h.f.Stop(ctx))
+	h.waitFor("stopped", func() bool { return h.f.State().Transport == Stopped })
+	require.NoError(t, h.f.Play(ctx))
+	h.unit.Advance(time.Second)
+	h.waitFor("Play starts the next song", h.playing(12))
+	h.unit.Advance(2 * time.Second)
+	h.unit.Advance(2 * time.Second)
+	h.waitFor("12 left the evening", equal(h.evening))
+	assert.Equal(t, []uint32{11, 12}, h.started(), "the stale id is no song of its own")
+	for _, e := range h.ended() {
+		assert.False(t, e.Natural)
+	}
 }
 
 // Transpose and tempo are absolute in the API and deltas on the unit.

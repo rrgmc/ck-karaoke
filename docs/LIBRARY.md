@@ -14,6 +14,7 @@ or any of the apps.
 | `webui` | the web UI: handlers, templates, static assets, event stream |
 | `server` | assembles the whole server from a `Config` |
 | `queue/fair` | the queue manager's fair queue: singers, requests and turns |
+| `queue/feeder` | plays a fair queue on the unit, one song ahead |
 
 ## Example
 

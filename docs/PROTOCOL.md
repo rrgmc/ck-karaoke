@@ -430,6 +430,16 @@ open. It has **nineteen** fields:
 
 A blank numeric field means "not applicable", not zero.
 
+**The song change** shows in the first status of a new song: field 2 holds a
+large negative number for that one frame.
+
+**The song id (field 8) lags and blanks.** It reads `0` from a pause until
+another song starts, also through a `PlayEx` that restarts the same song. The
+first status after `NextSong` carries the new title with the previous song's id,
+and so does the first status of a song added while the device is stopped; the
+next status carries the new id. Read an id as the current song's only when it
+changed or comes with that song's title.
+
 **Tempo** is a duration ratio centred on 1000, with one step equal to 1000/30.
 It rises as the song slows: `SetTempo(-1)` takes it to 1034, `SetTempo(+1)` to
 967. To show steps, compute `round((1000 - raw) × 30 / 1000)`. Round rather than
