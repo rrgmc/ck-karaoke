@@ -51,6 +51,13 @@ func (d *Durations) Get(number uint32) uint32 {
 	return d.ms[number]
 }
 
+// Len returns how many lengths are known.
+func (d *Durations) Len() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return len(d.ms)
+}
+
 // Learn records a length from a song that played to its end, and writes the
 // file when anything changed. It reports whether the length was taken.
 func (d *Durations) Learn(number uint32, length time.Duration) (bool, error) {
