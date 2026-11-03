@@ -24,13 +24,10 @@ References to the KaraokeMachine source are relative to that repository.
 | Desktop tray app? | Yes, with a tray library outside Wails. |
 | Android host? | Possible, with the most open questions: multicast, Wi-Fi sleep, foreground service limits and binding to the LAN. |
 
-Three things need tests against a real unit before the design is final (see
-[Blockers and open questions](#blockers-and-open-questions)):
-
-1. how the unit moves from one song to the next when its queue holds only one
-   entry;
-2. how to tell "paused" from "playing", which no status field reports;
-3. whether the unit's range of song ids fits KaraokeMachine's number model.
+The questions that could change the design were tested against a real unit
+(see [Results from a real unit](#results-from-a-real-unit)). Feeding the unit
+one song ahead works without gaps, the song ids fit KaraokeMachine's numbers
+unchanged, and restart and pause can be handled.
 
 There is one hard limit: **the queue manager cannot stop other clients from
 queueing on the unit directly.** It can only notice their entries and adopt them.
@@ -42,8 +39,8 @@ Facts from [PROTOCOL.md](PROTOCOL.md) that shape the design:
 - **No reordering.** `UpOrder` and `DownOrder` are echoed but change nothing
   (section 6.4). The unit can add at the end (`AddOrder`), add at the front
   (`FirstOrder`), remove by song id (`DelOrder`) and play a song now (`PlayEx`).
-- **Removal is by song id**, not by entry. Two entries of the same song are
-  ambiguous.
+- **Removal is by song id**, not by entry. This is unambiguous, because the
+  unit silently refuses a song that is already in its queue.
 - **The queue is visible.** The unit pushes it whenever it changes, ten entries
   per frame (section 7.2). Each entry names the session that queued it.
 - **Attribution comes from the session name** (section 3.4). One session is one
@@ -52,7 +49,7 @@ Facts from [PROTOCOL.md](PROTOCOL.md) that shape the design:
   least five sessions with distinct ids work at once (section 3.2).
 - **Other clients stay possible.** The unit accepts several sessions, and its
   own infrared remote and on-screen menus still work. Nothing locks them out.
-- **Playback status** arrives about every 1.5 seconds: position, current and
+- **Playback status** arrives about every 2 seconds: position, current and
   next title, current song id, key, tempo, volumes (section 7.1). There is no
   pause flag and no song duration.
 - **The catalogue has no durations.** `TableSong` has number, title, artist and
@@ -63,24 +60,23 @@ Facts from [PROTOCOL.md](PROTOCOL.md) that shape the design:
 The queue manager keeps the real queue in its own memory. The unit's queue is
 only a short buffer.
 
-**Proposed approach: keep one song ahead.** While a song plays, the unit's queue
-holds exactly the next song from the queue manager's order. When a new song
-starts (status field 8 changes), the queue manager sends `AddOrder` for the
-following one. When the order changes, only the single buffered entry might need
-a `DelOrder` and a new `AddOrder`.
+**Approach: keep one song ahead.** While a song plays, the unit's queue holds
+exactly the next song from the queue manager's order. When the next song
+starts, the unit pushes an empty queue at once; the queue manager then sends
+`AddOrder` for the following one. When the order changes, only the single
+buffered entry needs a `DelOrder` and a new `AddOrder`.
 
-- Reordering, fairness and removal then cost at most two commands.
+- The real unit starts the buffered song by itself when a song ends, within one
+  status interval (section [Results](#results-from-a-real-unit)).
+- Reordering, fairness and removal cost at most two commands.
 - The unit's own screen still shows the correct "next song" (status field 6).
-- To attribute a song to its singer on the unit's screen, the queue manager can
-  queue each song through a short session named after the singer, with one
-  identity per singer. A single long session for status and control stays open
-  beside it. This needs testing: a session per command adds about 250 ms and
-  uses a slot briefly.
-
-**Alternative: empty buffer.** Queue nothing on the unit and start each song
-with `PlayEx` when the previous one ends. This gives complete control but leaves
-the unit idle between songs and depends on reliably detecting the end of a song.
-It is the fallback if the one-ahead approach misbehaves.
+- When the unit is idle or stopped, `AddOrder` starts the song immediately. So
+  the queue manager adds nothing while a host holds playback, and the first
+  song of an evening starts as soon as it is queued.
+- To show the singer's name on the unit's screen, the queue manager queues each
+  song through a short session named after the singer, with one identity per
+  singer. This works and takes 0.3 to 1 second per song. A single long session
+  for status and control stays open beside it.
 
 **Foreign entries.** Songs queued by another client or the unit's remote appear
 in the pushed queue under a different name. The queue manager cannot prevent
@@ -132,18 +128,19 @@ microphones, wallpapers or the admin routes.
 
 | KM Remote expects | This unit gives | Mapping |
 |---|---|---|
-| Song number: a decimal string from 1 to 9,999,999, read as `bank × 1000 + slot` | `SongIndex`, an integer (for example 19535) | Use the `SongIndex` as the number if every id fits the range. Report one synthetic package. **Needs checking against a real catalogue.** |
+| Song number: a decimal string from 1 to 9,999,999 | `SongIndex`, unique, 1001 to 20440 on the tested unit | Use the `SongIndex` as the number unchanged. KaraokeMachine reads a number as `bank × 1000 + slot`, but it accepts any number in range and KM Remote never splits it. Report one synthetic package. |
 | `kind`: `midi`, `video`, `cdg`, `ultrastar` or `lrc` | nothing | Send `midi`; an unknown kind also maps to `Unknown` without error. |
-| `duration_ms` (required) | nothing | Send `0`. Wait-time estimates (`ahead_ms`) then show nothing useful. A measured duration could be stored after each song is played once. |
+| `duration_ms` (required) | nothing | Send `0` until known. The last position before a song ends gives its length, so the queue manager can store each song's duration after it plays once and fill `ahead_ms` from that. |
 | `artist`, `language` | `SingerName`, `LanType` via `TableLan` | Direct. |
-| `transport`: `idle`, `playing`, `paused`, `stopped` | no pause flag | Infer: a song id with a moving position is `playing`; a stalled position is `paused`; no song id is `idle`. **Needs checking.** |
+| `transport`: `idle`, `playing`, `paused`, `stopped` | no pause flag | Infer: an empty current title is `idle`; a position that has not moved between two status frames is `paused`; otherwise `playing`. The queue manager also knows when it sent `Pause` itself. The song id field is not usable for this: it reads `0` from a pause until the next song. |
 | `position_ms` | status field 2 | Direct. |
 | `transpose` (absolute, ±6) | `SetKey` takes a delta; status field 17 reports the absolute key | Send the difference from the reported key. |
 | `tempo_ratio` (0.75 to 1.25) | `SetTempo` takes a delta in steps of 1000/30; status field 18 | Convert ratio to steps and send the difference. |
 | `music_volume` (0.0 to 1.0) | `SetVolume`, 0 to 100 on a 13-step grid | Scale and snap. |
 | `melody_enabled` | `SetMelody` toggles; no status reports it | Track it locally. It drifts if anyone else toggles it. Or report melody as unavailable. |
-| `transport/restart` | no command | `PlayEx` with the current song id, if the unit restarts that way. Otherwise refuse with a 409 code. |
-| `transport/play`, `pause`, `stop`, `skip` | `Pause` (toggle), `Stop`, `NextSong`, `Skip` | Play and pause need the inferred state to decide whether to toggle. |
+| `transport/restart` | no command | `PlayEx` with the current song id restarts it from the start. The queue manager must remember the id, because a pause clears the id field. |
+| `transport/skip` | `NextSong` | `NextSong` starts the buffered song. `Skip` has no visible effect on the tested unit. With nothing buffered, the queue manager sends `PlayEx` with its next song instead. |
+| `transport/play`, `pause`, `stop` | `Pause` (toggle), `Stop` | Play and pause need the inferred state to decide whether to toggle. After `Stop`, `NextSong` does nothing with an empty unit queue, so play starts the next song with `PlayEx`. |
 
 Capabilities KM Remote does not negotiate are carried as flags in the state
 (`transpose_available`, `tempo_available`, `melody_available`). Sending `false`
@@ -253,27 +250,54 @@ rules out an all-evening server.
 
 | # | Item | Severity | How to resolve |
 |---|---|---|---|
-| 1 | The unit cannot reorder; the design depends on feeding one song ahead. How does the unit behave at the end of a song when its queue holds one entry, and when the queue is empty? | High | Test against a unit with `AddOrder`, `DelOrder` and `NextSong`, which are all in the "used" command table. |
+| 1 | The unit cannot reorder; the design depends on feeding one song ahead. | Resolved | Tested: the buffered song starts by itself at the end of a song. |
 | 2 | Other clients and the unit's own remote can still queue songs. | Medium (cannot be removed) | Adopt or re-route foreign entries; document it. |
-| 3 | No pause flag in the status. | Medium | Infer from the position; test pause, stop and idle. |
-| 4 | Do all song ids fit 1 to 9,999,999, and does KM Remote accept them with one synthetic package? | Medium | Check `max(SongIndex)` on real catalogues; run KM Remote against a stub. |
-| 5 | No song durations, so no wait estimates. | Low | Send 0; optionally learn durations from playback. |
+| 3 | No pause flag in the status. | Low | Infer from a stalled position and from the queue manager's own commands. |
+| 4 | Do all song ids fit KaraokeMachine's numbers? | Resolved | Tested: 1001 to 20440, unique; KaraokeMachine accepts any number from 1 to 9,999,999. Not yet run against KM Remote itself. |
+| 5 | No song durations, so no wait estimates at first. | Low | Learn each duration from playback. |
 | 6 | Melody state is not reported. | Low | Track locally or report melody unavailable. |
-| 7 | Restart has no command. | Low | Test `PlayEx` with the current id; otherwise refuse. |
-| 8 | Per-singer names on the unit's screen need a session per singer. | Low | Test short sessions per `AddOrder`; otherwise use one name. |
+| 7 | Restart has no command. | Resolved | Tested: `PlayEx` with the current id restarts the song. |
+| 8 | Per-singer names on the unit's screen need a session per singer. | Resolved | Tested: a short session per song works. |
 | 9 | The API port must be on the LAN, unlike every current CK Karaoke port. | Medium (security) | Implement access codes; keep configuration on loopback. |
 | 10 | KaraokeMachine's API may change. | Low | Pin a version; add contract tests from recorded responses. |
 | 11 | Android: service type, Play policy, sleep and multicast. | Medium | Prototype on the Galaxy S23 after the desktop version works. |
+| 12 | The tests used one unit model. | Low | Repeat the probe on other models when available. |
 
-None of these is a blocker to starting. Items 1, 3, 4 and 7 can be settled in
-one session against a real unit with a small test program, before any API work.
+None of the open items blocks starting.
+
+## Results from a real unit
+
+Tested on 2026-11-03 against a RafKara `MK8513-BR-B`, database id
+`d91c983b52ce486f24c53af1430f21e0`, catalogue of 11,999 songs, with
+`internal/cmd/qmprobe`. That program runs a list of steps and logs every
+status and queue push.
+
+| Test | Result |
+|---|---|
+| `AddOrder` while idle (nothing played since power-on) | The song starts at once and does not appear in the queue. |
+| `AddOrder` after `Stop` or after the last song ended | The same: the song starts at once. |
+| End of a song with one song queued | The queued song starts within one status interval (2 s). The unit pushes an empty queue as it starts. |
+| End of a song with an empty queue | The unit stops: current title empty, position 0, song id still the last song's. Nothing starts. |
+| `NextSong` with a song queued | The queued song starts within 2 s. |
+| `NextSong` with an empty queue, after `Stop` | Nothing happens. |
+| `Skip` during a song (at 3 s and at 90 s) | No visible effect: same song, position keeps moving. |
+| `Pause`, then `Pause` again | The position freezes, then moves on. While paused the song id field reads `0`, and it stays `0` after resuming until another song starts. Titles are unchanged. |
+| `PlayEx` with the current song id | The song restarts from position 0. |
+| `Stop` | Current title empty, position 0, song id unchanged. |
+| `FirstOrder` with one song queued | The new song goes in front of it. |
+| `DelOrder` | Removes the entry; the rest keep their order. |
+| `AddOrder` of a song already in the queue, from another session | Silently refused: echoed, but no entry appears. |
+| Short session named after a singer, one `AddOrder`, close | Works; the entry shows that name. Each takes 0.3 to 1 s. |
+| `Queryorder` | The reply arrives with the next status push, up to 2 s later. |
+| Status interval | About 2 s. |
+| Song id range | 1001 to 20440, no duplicates. |
+| First status after a song change | The position field holds a large negative number for one frame. Ignore it. |
 
 ## Suggested order of work
 
-1. A test program against a real unit for items 1, 3, 4 and 7.
-2. The fair queue as a Go package, ported with the Rust tests.
-3. The unit feeder on top of `client`.
-4. The KaraokeMachine API, checked against recorded responses, then against KM
+1. The fair queue as a Go package, ported with the Rust tests.
+2. The unit feeder on top of `client`.
+3. The KaraokeMachine API, checked against recorded responses, then against KM
    Remote on desktop, Android and iOS.
-5. The desktop tray app.
-6. The Android host.
+4. The desktop tray app.
+5. The Android host.
