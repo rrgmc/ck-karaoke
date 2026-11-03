@@ -50,6 +50,17 @@ permite conferir se um download está íntegro.
 Em outras distribuições Linux, compile o aplicativo a partir do código-fonte;
 veja [docs/BUILDING.md](docs/BUILDING.md) (em inglês).
 
+A mesma página tem o **gerenciador de fila**, um servidor separado que mantém
+uma fila de músicas justa e deixa o KM Remote, do KaraokeMachine, controlar o
+aparelho (veja [docs/QUEUE-MANAGER.md](docs/QUEUE-MANAGER.md), em inglês). Ele
+fica na bandeja do sistema:
+
+| Plataforma | Arquivo | Observações |
+|---|---|---|
+| Windows 10 ou 11 | `ck-queue-manager-<versão>-windows-amd64-setup.exe` | O instalador cria uma entrada no menu Iniciar e libera o firewall em redes privadas para os celulares. Se o SmartScreen avisar, escolha **Mais informações** e depois **Executar assim mesmo**. |
+| macOS 11 ou superior | `ck-queue-manager-<versão>-macos-universal.dmg` | Arraste o aplicativo para Aplicativos. Ele aparece na barra de menus, não no Dock. Permita que ele encontre dispositivos na rede local. |
+| Linux | `ck-queue-manager-<versão>-linux-amd64.deb` | Instale com `sudo apt install ./ck-queue-manager-<versão>-linux-amd64.deb`. A área de trabalho precisa de uma bandeja (no GNOME, a extensão AppIndicator). |
+
 ## Primeiros passos
 
 1. Ligue o aparelho de karaokê e conecte-o à sua rede Wi-Fi.

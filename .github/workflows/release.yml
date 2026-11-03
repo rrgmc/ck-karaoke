@@ -235,6 +235,83 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  # The queue manager's tray app. ports/queue-desktop/package.sh makes one file
+  # per platform; macOS signs and notarizes it with the same secrets as the
+  # CK Karaoke disk image.
+  queue-desktop:
+    name: Queue manager (${{ matrix.os }})
+    needs: [ci, version]
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: queue-windows
+          - os: macos-latest
+            artifact: queue-macos
+          - os: ubuntu-24.04
+            artifact: queue-linux
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ports/queue-desktop
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ports/queue-desktop/go.mod
+          cache-dependency-path: ports/queue-desktop/go.sum
+      - name: Install NSIS
+        if: runner.os == 'Windows'
+        run: |
+          choco install nsis -y --no-progress
+          echo "C:/Program Files (x86)/NSIS" >> "$GITHUB_PATH"
+      # The Developer ID certificate the CK Karaoke disk image is signed with.
+      - name: Import the signing certificate
+        if: runner.os == 'macOS'
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$CERTIFICATE_BASE64" ] || [ -z "$CERTIFICATE_PASSWORD" ]; then
+            echo "::error::MACOS_CERTIFICATE_BASE64 and MACOS_CERTIFICATE_PASSWORD must be set"
+            exit 1
+          fi
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          pass=$(openssl rand -hex 16)
+          echo "$CERTIFICATE_BASE64" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$pass" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$pass" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" \
+            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$pass" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/certificate.p12"
+          echo "MACOS_SIGN_IDENTITY=Developer ID Application" >> "$GITHUB_ENV"
+      - name: Package
+        env:
+          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+          MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            for name in MACOS_NOTARY_APPLE_ID MACOS_NOTARY_PASSWORD MACOS_NOTARY_TEAM_ID; do
+              if [ -z "${!name}" ]; then
+                echo "::error::$name must be set"
+                exit 1
+              fi
+            done
+          fi
+          ./package.sh ../../dist "$VERSION"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/*
+          if-no-files-found: error
+
   ios:
     name: iOS IPA (unsigned)
     needs: [ci, version]
@@ -261,7 +338,7 @@ jobs:
 
   publish:
     name: Publish
-    needs: [version, android, windows, macos, linux, ios]
+    needs: [version, android, windows, macos, linux, queue-desktop, ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write

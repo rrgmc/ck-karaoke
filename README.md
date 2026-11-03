@@ -45,6 +45,16 @@ that a download is intact.
 On other Linux distributions, build the app from source; see
 [docs/BUILDING.md](docs/BUILDING.md).
 
+The same page has the **queue manager**, a separate server that keeps a fair
+song queue and lets KaraokeMachine's KM Remote control the unit (see
+[docs/QUEUE-MANAGER.md](docs/QUEUE-MANAGER.md)). It runs in the system tray:
+
+| Platform | File | Notes |
+|---|---|---|
+| Windows 10 or 11 | `ck-queue-manager-<version>-windows-amd64-setup.exe` | The installer adds a Start menu entry and lets phones on private networks through the firewall. If SmartScreen warns you, choose **More info**, then **Run anyway**. |
+| macOS 11 or later | `ck-queue-manager-<version>-macos-universal.dmg` | Drag the app to Applications. It appears in the menu bar, not the Dock. Allow it to find devices on your local network. |
+| Linux | `ck-queue-manager-<version>-linux-amd64.deb` | Install it with `sudo apt install ./ck-queue-manager-<version>-linux-amd64.deb`. The desktop needs a tray (on GNOME, the AppIndicator extension). |
+
 ## Getting started
 
 1. Turn on the karaoke unit and connect it to your Wi-Fi network.

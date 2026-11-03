@@ -77,6 +77,7 @@ task check            # gofmt check, vet (library and desktop) and tests
 task server -- -v     # the debug server
 task android:install  # build the debug APK and install it over adb
 task desktop:package  # package the desktop app into dist/ like a release
+task queue-desktop:package  # package the queue manager's tray app the same way
 ```
 
 Without go-task, the plain commands are:
@@ -113,7 +114,9 @@ refuses direct pushes), then tag the merged commit and push the tag. The tag
 starts the [release workflow](../.github/workflows/release.yml), which checks
 that it matches `version/VERSION`, runs CI, then publishes a GitHub release with
 the Android APK and App Bundle, the Windows installer, the macOS disk image, the Linux `.deb`
-package, an unsigned iOS IPA and a `SHA256SUMS.txt`:
+package, an unsigned iOS IPA, the queue manager's tray app for Windows (installer),
+macOS (disk image, signed and notarized like the app) and Linux (`.deb`), and
+a `SHA256SUMS.txt`:
 
 ```bash
 git tag v1.2.3

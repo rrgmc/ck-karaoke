@@ -74,11 +74,10 @@ tasks:
     cmds:
       - go vet .
 
-  queue-desktop:build:
-    desc: Build the queue manager's tray app into dist/
-    dir: ports/queue-desktop
+  queue-desktop:package:
+    desc: Package the queue manager's tray app into dist/ the way a release does
     cmds:
-      - go build {{if eq OS "windows"}}-ldflags=-H=windowsgui {{end}}-o ../../{{.DIST}}/ck-queue-manager-tray{{exeExt}} .
+      - ./ports/queue-desktop/package.sh {{.DIST}}
 
   server:
     desc: Run the debug server (pass flags after --, for example task server -- -v)
