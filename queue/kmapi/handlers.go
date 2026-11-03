@@ -112,7 +112,13 @@ func (s *Server) serve(h handler) http.HandlerFunc {
 }
 
 // Handler returns the API's routes.
-func (s *Server) Handler() http.Handler {
+func (s *Server) Handler() http.Handler { return s.authorize(s.routes()) }
+
+// TrustedHandler returns the API's routes with no access check, for a page
+// served on loopback to the operator.
+func (s *Server) TrustedHandler() http.Handler { return s.routes() }
+
+func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 	route := func(pattern string, h handler) { mux.Handle(pattern, s.serve(h)) }
 
@@ -158,7 +164,7 @@ func (s *Server) Handler() http.Handler {
 	route("/api/", func(r *http.Request) (int, any, error) {
 		return 0, nil, &apiError{http.StatusNotFound, "unknown_endpoint", "no endpoint " + r.URL.Path}
 	})
-	return s.authorize(mux)
+	return mux
 }
 
 // authorize lets a request through when the room level, or the bearer token's,

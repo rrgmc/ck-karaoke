@@ -36,6 +36,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rrgmc/ck-karaoke/protocol"
@@ -152,6 +153,9 @@ type Feeder struct {
 	mu     sync.Mutex
 	state  State
 	singer map[uint64]protocol.Identity
+	// reconnect ends the session, so the next one finds the unit again.
+	reconnect chan struct{}
+	foreign   atomic.Value // ForeignPolicy
 
 	// Everything below belongs to the run loop's goroutine.
 	unit       Unit
@@ -211,16 +215,35 @@ func New(opts Options) *Feeder {
 		id := protocol.NewIdentity()
 		opts.Identity = &id
 	}
-	return &Feeder{
-		opts:     opts,
-		log:      opts.Logger,
-		now:      opts.Now,
-		cmds:     make(chan command),
-		singer:   map[uint64]protocol.Identity{},
-		adopted:  map[uint32]uint64{},
-		vanished: map[uint32]uint64{},
-		held:     opts.Held,
-		state:    State{Transport: Idle, Held: opts.Held},
+	f := &Feeder{
+		opts:      opts,
+		log:       opts.Logger,
+		now:       opts.Now,
+		cmds:      make(chan command),
+		reconnect: make(chan struct{}, 1),
+		singer:    map[uint64]protocol.Identity{},
+		adopted:   map[uint32]uint64{},
+		vanished:  map[uint32]uint64{},
+		held:      opts.Held,
+		state:     State{Transport: Idle, Held: opts.Held},
+	}
+	f.foreign.Store(opts.Foreign)
+	return f
+}
+
+// Foreign returns the policy for songs queued on the unit by anyone else.
+func (f *Feeder) Foreign() ForeignPolicy { return f.foreign.Load().(ForeignPolicy) }
+
+// SetForeign changes the policy for songs queued on the unit by anyone else.
+// Songs already adopted stay adopted.
+func (f *Feeder) SetForeign(p ForeignPolicy) { f.foreign.Store(p) }
+
+// Reconnect ends the session with the unit; the feeder then connects again
+// and finds the unit afresh.
+func (f *Feeder) Reconnect() {
+	select {
+	case f.reconnect <- struct{}{}:
+	default:
 	}
 }
 
@@ -340,6 +363,9 @@ func (f *Feeder) serve(ctx context.Context, unit Unit, changed <-chan struct{}) 
 		case <-changed:
 		case c := <-f.cmds:
 			c.reply <- c.fn(ctx)
+		case <-f.reconnect:
+			f.log.Info("reconnecting to the karaoke unit")
+			return
 		case <-tick.C:
 		}
 		f.reconcile(ctx)
@@ -533,7 +559,7 @@ func (f *Feeder) onQueue(ctx context.Context, q *protocol.Queue) {
 			f.opts.Room.place(entry, i)
 			continue
 		}
-		switch f.opts.Foreign {
+		switch f.Foreign() {
 		case Reroute:
 			if err := f.unit.RemoveFromQueue(ctx, e.SongID); err != nil {
 				f.log.Warn("removing a foreign song from the unit", "number", n, "error", err)
@@ -647,8 +673,14 @@ func (f *Feeder) queueSong(ctx context.Context, e fair.Entry) error {
 	}
 	id, ok := f.singer[*e.Seat]
 	name := protocol.CleanName(e.Singer)
-	if name == "" {
+	if strings.TrimSpace(e.Singer) == "" {
+		// A singer with no name is known by number, as KM Remote shows it.
 		name = "Singer"
+		f.opts.Room.View(func(ev *fair.Evening, _ time.Time) {
+			if seat, ok := ev.Seats().Get(*e.Seat); ok && seat.Guest != 0 {
+				name = fmt.Sprintf("Guest %d", seat.Guest)
+			}
+		})
 	}
 	if !ok || id.Name != name {
 		if !ok {
