@@ -145,12 +145,15 @@ jobs:
           go-version-file: ports/queue-desktop/go.mod
           cache-dependency-path: ports/queue-desktop/go.sum
       - run: go vet .
-      - name: Build
-        if: runner.os != 'Windows'
-        run: go build -o "$RUNNER_TEMP/ck-queue-manager-tray" .
-      - name: Build
+      - name: Install NSIS
         if: runner.os == 'Windows'
-        run: go build -ldflags=-H=windowsgui -o "$RUNNER_TEMP/ck-queue-manager-tray.exe" .
+        run: |
+          choco install nsis -y --no-progress
+          echo "C:/Program Files (x86)/NSIS" >> "$GITHUB_PATH"
+      # The same packaging the release runs, unsigned, so a broken installer,
+      # bundle or package shows up here rather than on a tag.
+      - name: Package
+        run: ./package.sh "$RUNNER_TEMP/dist"
 
   android:
     name: Android
