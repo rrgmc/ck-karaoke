@@ -407,6 +407,23 @@ func TestFeederTransportSequence(t *testing.T) {
 	}
 }
 
+// A singer with no name is queued on the unit by number.
+func TestFeederNamesAnUnnamedSingerByNumber(t *testing.T) {
+	h := startFeeder(t, fair.Arrival, nil)
+	var seat uint64
+	h.room.Do(func(e *fair.Evening, now time.Time) {
+		issued, err := e.Register("phone", nil, "token-guest", fair.SeatRules{})
+		require.NoError(t, err)
+		seat = issued.Seat.ID
+		_, err = e.Request(seat, fair.ByToken("token-guest"), fair.RequestedSong{Number: 11, Title: "SONG 11"},
+			fair.DefaultRequestRules, now)
+		require.NoError(t, err)
+	})
+	h.unit.Advance(0)
+	h.waitFor("the song starts", h.playing(11))
+	assert.Contains(t, h.unit.Log(), "AddOrder 11 as Guest 1")
+}
+
 // Transpose and tempo are absolute in the API and deltas on the unit.
 func TestFeederSendsControlsAsDeltas(t *testing.T) {
 	h := startFeeder(t, fair.Arrival, nil)
