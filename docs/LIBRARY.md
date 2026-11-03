@@ -13,6 +13,7 @@ or any of the apps.
 | `favorites/xmlbackup` | every folder as an XML backup file |
 | `webui` | the web UI: handlers, templates, static assets, event stream |
 | `server` | assembles the whole server from a `Config` |
+| `queue/fair` | the queue manager's fair queue: singers, requests and turns |
 
 ## Example
 
