@@ -64,17 +64,21 @@ type target struct {
 	width, height int
 	scale         float64 // artwork scale about the centre
 	rgba          bool    // write 32-bit RGBA instead of 24-bit RGB
+	ico           bool    // wrap the PNG in an ICO file
 }
 
 var targets = []target{
-	{"ports/ios/CKKaraoke/Assets.xcassets/AppIcon.appiconset/icon-1024.png", 1024, 1024, 1.2, false},
-	{"ports/desktop/build/appicon.png", 1024, 1024, 1.2, false},
-	{"webui/static/icon-180.png", 180, 180, 1.2, false},
-	{"webui/static/icon-192.png", 192, 192, 1.2, false},
-	{"webui/static/icon-512.png", 512, 512, 1.2, false},
+	{"ports/ios/CKKaraoke/Assets.xcassets/AppIcon.appiconset/icon-1024.png", 1024, 1024, 1.2, false, false},
+	{"ports/desktop/build/appicon.png", 1024, 1024, 1.2, false, false},
+	{"webui/static/icon-180.png", 180, 180, 1.2, false, false},
+	{"webui/static/icon-192.png", 192, 192, 1.2, false, false},
+	{"webui/static/icon-512.png", 512, 512, 1.2, false, false},
 	// Google Play asks for 32-bit PNGs: the app icon and the feature graphic.
-	{"ports/android/play/icon-512.png", 512, 512, 1.2, true},
-	{"ports/android/play/feature-graphic.png", 1024, 500, 1.1, true},
+	{"ports/android/play/icon-512.png", 512, 512, 1.2, true, false},
+	{"ports/android/play/feature-graphic.png", 1024, 500, 1.1, true, false},
+	// The queue manager's tray icon: Windows wants an ICO, the others a PNG.
+	{"ports/queue-desktop/icon.png", 64, 64, 1.2, false, false},
+	{"ports/queue-desktop/icon.ico", 64, 64, 1.2, false, true},
 }
 
 func main() {
@@ -98,10 +102,38 @@ func write(t target) error {
 	defer f.Close()
 	// Fully opaque: an iOS app icon may not have transparency.
 	img := render(t.width, t.height, t.scale)
-	if t.rgba {
+	switch {
+	case t.rgba:
 		return encodeRGBA(f, img)
+	case t.ico:
+		return encodeICO(f, img)
 	}
 	return png.Encode(f, img)
+}
+
+// encodeICO writes an ICO file holding one PNG image, which Windows reads
+// since Vista.
+func encodeICO(w io.Writer, img image.Image) error {
+	var body bytes.Buffer
+	if err := png.Encode(&body, img); err != nil {
+		return err
+	}
+	size := img.Bounds().Dx()
+	if size >= 256 {
+		size = 0 // 0 means 256 in an ICO directory entry
+	}
+	header := []any{
+		uint16(0), uint16(1), uint16(1), // reserved, type icon, one image
+		uint8(size), uint8(size), uint8(0), uint8(0), // width, height, palette, reserved
+		uint16(1), uint16(32), uint32(body.Len()), uint32(6 + 16), // planes, bits, bytes, offset
+	}
+	for _, v := range header {
+		if err := binary.Write(w, binary.LittleEndian, v); err != nil {
+			return err
+		}
+	}
+	_, err := w.Write(body.Bytes())
+	return err
 }
 
 // samples per axis, for anti-aliasing.

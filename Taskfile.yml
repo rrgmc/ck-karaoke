@@ -63,6 +63,23 @@ tasks:
       - task: vet
       - task: test
 
+  queue:
+    desc: Run the queue manager (pass flags after --, for example task queue -- -v)
+    cmds:
+      - go run ./cmd/ck-queue-manager {{.CLI_ARGS}}
+
+  queue-desktop:vet:
+    desc: Vet the queue manager's tray app
+    dir: ports/queue-desktop
+    cmds:
+      - go vet .
+
+  queue-desktop:build:
+    desc: Build the queue manager's tray app into dist/
+    dir: ports/queue-desktop
+    cmds:
+      - go build {{if eq OS "windows"}}-ldflags=-H=windowsgui {{end}}-o ../../{{.DIST}}/ck-queue-manager-tray{{exeExt}} .
+
   server:
     desc: Run the debug server (pass flags after --, for example task server -- -v)
     cmds:

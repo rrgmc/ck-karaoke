@@ -52,7 +52,9 @@ jobs:
           GOOS: android
           GOARCH: arm64
           CGO_ENABLED: "0"
-        run: go build -o /dev/null ./cmd/ck-karaoke-server
+        run: |
+          go build -o /dev/null ./cmd/ck-karaoke-server
+          go build -o /dev/null ./cmd/ck-queue-manager
 
   desktop:
     name: Desktop (${{ matrix.os }})
@@ -122,6 +124,33 @@ jobs:
       # disk image shows up here rather than on a tag. Nothing is uploaded.
       - name: Package
         run: ./package.sh "$RUNNER_TEMP/dist"
+
+  # The queue manager's tray app: its own module, with fyne.io/systray. The
+  # tray library needs cgo on macOS; on Linux and Windows it is pure Go.
+  queue-desktop:
+    name: Queue manager tray (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ports/queue-desktop
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ports/queue-desktop/go.mod
+          cache-dependency-path: ports/queue-desktop/go.sum
+      - run: go vet .
+      - name: Build
+        if: runner.os != 'Windows'
+        run: go build -o "$RUNNER_TEMP/ck-queue-manager-tray" .
+      - name: Build
+        if: runner.os == 'Windows'
+        run: go build -ldflags=-H=windowsgui -o "$RUNNER_TEMP/ck-queue-manager-tray.exe" .
 
   android:
     name: Android
