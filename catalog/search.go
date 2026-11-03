@@ -333,6 +333,33 @@ func (d *DB) Songs(ctx context.Context, ids []int) (map[int]Song, error) {
 	return out, rows.Err()
 }
 
+// SongsAfter returns up to limit songs whose id is greater than after, in id
+// order. It pages through the whole catalogue by keyset: pass the last id of
+// one page as after for the next.
+func (d *DB) SongsAfter(ctx context.Context, after, limit int) ([]Song, error) {
+	rows, err := d.sql.QueryContext(ctx, `
+		select s.SongIndex, s.SongName, s.SingerName, s.LanType,
+		       coalesce(l.LanName_EG, '')
+		from TableSong s
+		left join TableLan l on l.LanType = s.LanType
+		where s.SongIndex > ?
+		order by s.SongIndex
+		limit ?`, after, limit)
+	if err != nil {
+		return nil, fmt.Errorf("listing songs: %w", err)
+	}
+	defer rows.Close()
+	var out []Song
+	for rows.Next() {
+		var s Song
+		if err := rows.Scan(&s.ID, &s.Title, &s.Artist, &s.LanType, &s.Language); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 // Languages lists the languages that actually have songs, most populous first.
 func (d *DB) Languages(ctx context.Context) ([]Language, error) {
 	rows, err := d.sql.QueryContext(ctx, `
