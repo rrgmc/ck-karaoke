@@ -292,6 +292,9 @@ status and queue push.
 | Status interval | About 2 s. |
 | Song id range | 1001 to 20440, no duplicates. |
 | First status after a song change | The position field holds a large negative number for one frame. Ignore it. |
+| First status after `NextSong` | New title, previous song's id. The next status has the new id. |
+| First status of a song added while stopped | New title, previous song's id, no negative position. The next status has the new id. |
+| `PlayEx` of the current song after a pause | Restarts it; the song id field stays `0`. |
 
 ## Suggested order of work
 

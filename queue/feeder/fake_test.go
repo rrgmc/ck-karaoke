@@ -20,7 +20,9 @@ type fakeUnit struct {
 	length   time.Duration
 	cur      uint32
 	title    string
-	idField  string
+	idField  string // what the status reports
+	lastID   string // the id of the last song started
+	stopped  bool
 	pos      time.Duration
 	paused   bool
 	queue    []fakeEntry
@@ -104,7 +106,30 @@ func (u *fakeUnit) queueLocked() push {
 // marks a song change, then the queue.
 func (u *fakeUnit) startLocked(number uint32) []push {
 	u.cur, u.title, u.idField, u.pos, u.paused = number, fmt.Sprintf("SONG %d", number), strconv.Itoa(int(number)), 0, false
+	u.lastID, u.stopped = u.idField, false
 	return []push{u.statusLocked(-1580327258), u.queueLocked()}
+}
+
+// startStaleLocked starts a song as NextSong does: the change status carries
+// the new title but the previous song's id.
+func (u *fakeUnit) startStaleLocked(number uint32) []push {
+	old := u.lastID
+	ps := u.startLocked(number)
+	u.idField = old
+	ps[0] = u.statusLocked(-1580327258)
+	u.idField = strconv.Itoa(int(number))
+	return ps
+}
+
+// startAfterStopLocked starts a song added while the unit is stopped: its
+// first status has no change marker and the previous song's id.
+func (u *fakeUnit) startAfterStopLocked(number uint32) []push {
+	old := u.lastID
+	ps := u.startLocked(number)
+	u.idField = old
+	ps[0] = u.statusLocked(0)
+	u.idField = strconv.Itoa(int(number))
+	return ps
 }
 
 // Advance plays for d and reports a status, starting the next song when one
@@ -176,6 +201,8 @@ func (s *fakeSession) Reserve(_ context.Context, id string) error {
 	u.record("AddOrder " + id + " as " + s.name)
 	var ps []push
 	switch {
+	case u.title == "" && u.stopped:
+		ps = u.startAfterStopLocked(uint32(n))
 	case u.title == "":
 		ps = u.startLocked(uint32(n))
 	case slices.ContainsFunc(u.queue, func(e fakeEntry) bool { return e.number == uint32(n) }):
@@ -206,7 +233,13 @@ func (s *fakeSession) PlayNow(_ context.Context, id string) error {
 	u := s.u
 	u.mu.Lock()
 	u.record("PlayEx " + id)
+	noID := u.title != "" && u.cur == uint32(n) && u.idField == "0"
 	ps := u.startLocked(uint32(n))
+	if noID {
+		// Playing the current song again after a pause keeps the id at 0.
+		u.idField = "0"
+		ps[0] = u.statusLocked(-1580327258)
+	}
 	u.mu.Unlock()
 	u.deliver(ps)
 	return nil
@@ -220,7 +253,7 @@ func (s *fakeSession) NextSong(context.Context) error {
 	if len(u.queue) > 0 {
 		next := u.queue[0]
 		u.queue = u.queue[1:]
-		ps = u.startLocked(next.number)
+		ps = u.startStaleLocked(next.number)
 	}
 	u.mu.Unlock()
 	u.deliver(ps)
@@ -241,7 +274,7 @@ func (s *fakeSession) Stop(context.Context) error {
 	u := s.u
 	u.mu.Lock()
 	u.record("Stop")
-	u.title, u.pos, u.paused = "", 0, false
+	u.title, u.pos, u.paused, u.stopped = "", 0, false, true
 	ps := []push{u.statusLocked(0)}
 	u.mu.Unlock()
 	u.deliver(ps)
