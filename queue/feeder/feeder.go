@@ -278,20 +278,20 @@ func (f *Feeder) drain(ctx context.Context) {
 
 // serve runs one session until it drops or ctx is cancelled.
 func (f *Feeder) serve(ctx context.Context, unit Unit, changed <-chan struct{}) {
-	statuses := make(chan *protocol.Status, 64)
-	queues := make(chan *protocol.Queue, 16)
-	unit.OnStatus(func(s *protocol.Status) {
+	// Statuses and queues share one channel, so they are read in the order the
+	// unit sent them. Read apart, a queue push that shows the buffered song
+	// gone could be handled before an older status, which would take the song
+	// for removed rather than started.
+	pushes := make(chan any, 64)
+	push := func(p any) {
 		select {
-		case statuses <- s:
+		case pushes <- p:
 		default:
+			f.log.Warn("the feeder fell behind the unit; a push was dropped")
 		}
-	})
-	unit.OnQueue(func(q *protocol.Queue) {
-		select {
-		case queues <- q:
-		default:
-		}
-	})
+	}
+	unit.OnStatus(func(s *protocol.Status) { push(s) })
+	unit.OnQueue(func(q *protocol.Queue) { push(q) })
 	f.unit = unit
 	f.setConnected(true)
 	f.log.Info("connected to the karaoke unit")
@@ -329,11 +329,14 @@ func (f *Feeder) serve(ctx context.Context, unit Unit, changed <-chan struct{}) 
 		case <-silence.C:
 			f.log.Warn("no status from the unit; reconnecting", "after", f.opts.Silence)
 			return
-		case s := <-statuses:
-			silence.Reset(f.opts.Silence)
-			f.onStatus(ctx, s)
-		case q := <-queues:
-			f.onQueue(ctx, q)
+		case p := <-pushes:
+			switch p := p.(type) {
+			case *protocol.Status:
+				silence.Reset(f.opts.Silence)
+				f.onStatus(ctx, p)
+			case *protocol.Queue:
+				f.onQueue(ctx, p)
+			}
 		case <-changed:
 		case c := <-f.cmds:
 			c.reply <- c.fn(ctx)

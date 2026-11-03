@@ -64,7 +64,11 @@ func startFeeder(t *testing.T, order fair.Order, configure func(*Options)) *harn
 
 func (h *harness) waitFor(what string, cond func() bool) {
 	h.t.Helper()
-	require.Eventually(h.t, cond, 2*time.Second, 5*time.Millisecond, what)
+	if !assert.Eventually(h.t, cond, 2*time.Second, 5*time.Millisecond, what) {
+		n, title := h.unit.Current()
+		h.t.Fatalf("waiting for %s: unit plays %d %q, holds %v, evening %v, started %v, commands %v",
+			what, n, title, h.unitQueue(), h.evening(), h.started(), h.unit.Log())
+	}
 }
 
 func (h *harness) singer(name string) uint64 {
@@ -298,8 +302,11 @@ func TestFeederHoldsAfterStop(t *testing.T) {
 	require.NoError(t, h.f.Stop(ctx))
 	h.waitFor("the unit stops", h.playing(0))
 	assert.Empty(t, h.unitQueue(), "the buffered song came off the unit")
-	assert.Equal(t, Stopped, h.f.State().Transport)
-	assert.True(t, h.f.State().Held)
+	// The unit's own report of the stop reaches the feeder a moment later.
+	h.waitFor("the feeder sees the stop", func() bool {
+		st := h.f.State()
+		return st.Transport == Stopped && st.Held && len(h.ended()) == 1
+	})
 	h.unit.Advance(time.Second)
 	assert.Equal(t, []uint32{12}, h.evening(), "nothing started")
 	assert.False(t, h.ended()[0].Natural)
@@ -335,7 +342,7 @@ func TestFeederSkipAndRestart(t *testing.T) {
 	// names 12.
 	h.unit.Advance(time.Second)
 	h.waitFor("12 left the evening", equal(h.evening))
-	assert.Equal(t, []uint32{11, 12}, h.started(), "the stale id is no song of its own")
+	h.waitFor("the stale id is no song of its own", equal(h.started, 11, 12))
 	assert.False(t, h.ended()[0].Natural)
 }
 
@@ -394,7 +401,7 @@ func TestFeederTransportSequence(t *testing.T) {
 	h.unit.Advance(2 * time.Second)
 	h.unit.Advance(2 * time.Second)
 	h.waitFor("12 left the evening", equal(h.evening))
-	assert.Equal(t, []uint32{11, 12}, h.started(), "the stale id is no song of its own")
+	h.waitFor("the stale id is no song of its own", equal(h.started, 11, 12))
 	for _, e := range h.ended() {
 		assert.False(t, e.Natural)
 	}
