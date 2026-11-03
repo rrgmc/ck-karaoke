@@ -139,6 +139,9 @@ deletes its favorites. Make a backup before you uninstall.
 - [docs/PROTOCOL.md](docs/PROTOCOL.md): the device protocol.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the server and the apps fit
   together.
+- [docs/QUEUE-MANAGER.md](docs/QUEUE-MANAGER.md): the queue manager, a server
+  that keeps a fair song queue and lets KaraokeMachine's KM Remote control the
+  unit.
 
 ## Author
 

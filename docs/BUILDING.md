@@ -20,9 +20,12 @@ webui/                 the web UI: handlers, templates, static assets, event str
 i18n/                  translations: language matching and the pt-BR catalogue
 server/                assembles the whole server from a Config
 cmd/ck-karaoke-server/ debug server for the command line (also the Android binary)
+queue/                 the queue manager: fair queue, unit feeder, KaraokeMachine API, assembly
+cmd/ck-queue-manager/  the queue manager for the command line
 ports/android/         Android app (Kotlin)
 ports/ios/             iOS app (Swift) and its Go bridge
 ports/desktop/         Windows, macOS and Linux app (Wails v2, separate Go module)
+ports/queue-desktop/   the queue manager in the system tray (separate Go module)
 assets/icon/           icon source
 internal/cmd/genicon/  renders the icon rasters
 docs/                  protocol specification, architecture notes, this file
@@ -190,3 +193,5 @@ connected to a real unit, captured in a 390×844 phone viewport at 2× scale.
 - [PROTOCOL.md](PROTOCOL.md): the device protocol.
 - [ARCHITECTURE.md](ARCHITECTURE.md): how the server and the ports fit together,
   and the design rules that keep them working.
+- [QUEUE-MANAGER.md](QUEUE-MANAGER.md): the queue manager, which serves
+  KaraokeMachine's API for KM Remote.

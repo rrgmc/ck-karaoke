@@ -155,6 +155,9 @@ A documentação para desenvolvedores está em inglês.
 - [docs/PROTOCOL.md](docs/PROTOCOL.md): o protocolo do aparelho.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): como o servidor e os
   aplicativos se encaixam.
+- [docs/QUEUE-MANAGER.md](docs/QUEUE-MANAGER.md): o gerenciador de fila, um
+  servidor que mantém uma fila de músicas justa e deixa o KM Remote, do
+  KaraokeMachine, controlar o aparelho (em inglês).
 
 ## Autor
 

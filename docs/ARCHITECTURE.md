@@ -32,6 +32,9 @@ ports/android   ports/ios   ports/desktop   cmd/ck-karaoke-server
   long-lived device session in `webui.Device`.
 - `server` assembles everything from a `server.Config`.
 - `i18n` holds the translations that `webui` and `ports/desktop` use.
+- `queue/...` is a second, separate server: the queue manager, which owns the
+  unit's queue and serves KaraokeMachine's API. It shares `protocol`, `client`
+  and `catalog` and nothing else; see [QUEUE-MANAGER.md](QUEUE-MANAGER.md).
 
 ## Translations
 
