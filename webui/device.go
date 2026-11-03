@@ -125,6 +125,14 @@ func (d *Device) waitResume(ctx context.Context) bool {
 	}
 }
 
+// OnStatus registers a callback for the state the device pushes, replacing
+// the one given to NewDevice.
+func (d *Device) OnStatus(fn func(*protocol.Status)) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.onStatus = fn
+}
+
 // OnQueue registers a callback for reserved-list updates.
 func (d *Device) OnQueue(fn func(*protocol.Queue)) {
 	d.mu.Lock()

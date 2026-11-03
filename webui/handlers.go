@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/rrgmc/ck-karaoke/catalog"
-	"github.com/rrgmc/ck-karaoke/client"
 	"github.com/rrgmc/ck-karaoke/favorites"
 	"github.com/rrgmc/ck-karaoke/i18n"
 	"github.com/rrgmc/ck-karaoke/protocol"
@@ -342,22 +341,22 @@ type bannerData struct {
 	Reason     string
 }
 
-func (s *Server) playerData(st *protocol.Status) playerData {
+func (s *Server) playerData(st *Status) playerData {
 	d := playerData{Online: s.dev.Online()}
 	if st == nil {
 		return d
 	}
-	d.Title, d.Artist, d.SongID = st.CurrentSong, "", st.CurrentSongID
-	d.Next = st.NextSong
-	d.Position = formatDuration(st.SongPosition)
-	d.Key, d.Tempo, d.Volume, d.Mic, d.Echo = st.Key, st.Tempo, st.MusicVolume, st.MicVolume, st.Echo
+	d.Title, d.Artist, d.SongID = st.Title, "", st.SongID
+	d.Next = st.Next
+	d.Position = formatDuration(st.Position)
+	d.Key, d.Tempo, d.Volume, d.Mic, d.Echo = st.Key, st.Tempo, st.Volume, st.Mic, st.Echo
 	d.Lyrics = st.Lyrics
-	d.HasSong = st.CurrentSong != ""
+	d.HasSong = st.Title != ""
 
-	// The status frame carries the song name but not the artist, so fill it in
-	// from the catalogue.
-	if s.songs != nil && st.CurrentSongID != "" {
-		if id, err := strconv.Atoi(st.CurrentSongID); err == nil {
+	// The status carries the song name but not the artist, so fill it in from
+	// the catalogue.
+	if s.songs != nil && st.SongID != "" {
+		if id, err := strconv.Atoi(st.SongID); err == nil {
 			if song, err := s.songs.Song(context.Background(), id); err == nil {
 				d.Artist = song.Artist
 				if d.Title == "" {
@@ -874,7 +873,7 @@ func (s *Server) cachedQueue(ctx context.Context) queueData {
 	if !s.dev.Online() {
 		return queueData{Offline: true}
 	}
-	q := s.dev.LastQueue()
+	q := s.dev.Queue()
 	if q == nil {
 		return queueData{Pending: true}
 	}
@@ -893,11 +892,7 @@ func (s *Server) refreshQueue() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		err := s.dev.Do(func(c *client.Client) error {
-			_, err := c.Queue(ctx, 0, 50)
-			return err
-		})
-		if err != nil {
+		if err := s.dev.RefreshQueue(ctx); err != nil {
 			s.logger.Debug("queue refresh failed", "error", err)
 			return
 		}
@@ -906,7 +901,7 @@ func (s *Server) refreshQueue() {
 }
 
 // PublishQueue pushes a new reserved list to every connected browser.
-func (s *Server) PublishQueue(q *protocol.Queue) {
+func (s *Server) PublishQueue(q *Queue) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -914,9 +909,9 @@ func (s *Server) PublishQueue(q *protocol.Queue) {
 	s.publish(eventQueueCount, "_queuecount.html", q.Total)
 }
 
-// describeQueue joins the device's song ids against the catalogue, since the
-// reserved list carries nothing but numbers.
-func (s *Server) describeQueue(ctx context.Context, q *protocol.Queue) queueData {
+// describeQueue joins the queue's song ids against the catalogue, since the
+// unit's reserved list carries nothing but numbers.
+func (s *Server) describeQueue(ctx context.Context, q *Queue) queueData {
 	out := queueData{Total: q.Total}
 
 	ids := make([]int, 0, len(q.Entries))
@@ -931,7 +926,7 @@ func (s *Server) describeQueue(ctx context.Context, q *protocol.Queue) queueData
 	}
 
 	for i, e := range q.Entries {
-		entry := queueEntry{Position: q.Start + i + 1, SongID: e.SongID, By: e.QueuedBy()}
+		entry := queueEntry{Position: q.Start + i + 1, SongID: e.SongID, By: e.By}
 		if id, err := strconv.Atoi(e.SongID); err == nil {
 			if song, ok := titles[id]; ok {
 				entry.Title, entry.Artist = song.Title, song.Artist
@@ -972,44 +967,11 @@ func (s *Server) control(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := deviceCtx()
 	defer cancel()
 
-	err := s.dev.Do(func(c *client.Client) error {
-		switch action {
-		case "pause":
-			return c.Pause(ctx)
-		case "stop":
-			return c.Stop(ctx)
-		case "next":
-			return c.NextSong(ctx)
-		case "skip":
-			return c.Skip(ctx)
-		case "repeat":
-			return c.Repeat(ctx)
-		case "key":
-			return c.SetKey(ctx, amount)
-		case "tempo":
-			return c.SetTempo(ctx, amount)
-		case "reset-key":
-			return c.ResetKey(ctx)
-		case "reset-tempo":
-			return c.ResetTempo(ctx)
-		case "volume":
-			return c.SetVolume(ctx, amount)
-		case "mic":
-			return c.SetMicVolume(ctx, atoiDefault(r.FormValue("mic"), 1), amount)
-		case "reverb":
-			return c.SetReverb(ctx, amount)
-		case "melody":
-			return c.SetMelody(ctx)
-		default:
-			return fmt.Errorf("unknown action %q", action)
-		}
-	})
-	// A missing echo is not a failure the user should see. The command was sent;
-	// the device acknowledges most of them but not always, and it ignores key
-	// and tempo outright when nothing is playing. Returning an error here left
-	// the button looking dead, because htmx does not swap on a non-2xx response.
-	// Only a genuinely broken connection is worth reporting.
-	if err != nil && !isEchoTimeout(err) {
+	err := s.dev.Control(ctx, action, amount, atoiDefault(r.FormValue("mic"), 1))
+	// A missing echo is not a failure the user should see: returning an error
+	// here left the button looking dead, because htmx does not swap on a non-2xx
+	// response. Only a genuinely broken connection is worth reporting.
+	if err != nil && !errors.Is(err, ErrNotAcknowledged) {
 		s.fail(w, r, err)
 		return
 	}
@@ -1020,19 +982,6 @@ func (s *Server) control(w http.ResponseWriter, r *http.Request) {
 	// Give the device a moment to report the new state before re-rendering.
 	time.Sleep(150 * time.Millisecond)
 	s.fragment(w, r, "_player.html", s.playerData(s.dev.Status()))
-}
-
-// isEchoTimeout reports whether the device simply never acknowledged a command,
-// as opposed to the connection being down.
-func isEchoTimeout(err error) bool {
-	if err == nil {
-		return false
-	}
-	// interactiveTimeout is shorter than the client's own echo timer, so in
-	// practice the deadline is what fires; match it directly rather than relying
-	// on the wording that carries it.
-	return errors.Is(err, context.DeadlineExceeded) ||
-		strings.Contains(err.Error(), "timed out waiting for echo")
 }
 
 // songAction queues or plays a song.
@@ -1047,25 +996,12 @@ func (s *Server) songAction(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := deviceCtx()
 	defer cancel()
 
-	err := s.dev.Do(func(c *client.Client) error {
-		switch action {
-		case "reserve":
-			return c.Reserve(ctx, id)
-		case "reserve-top":
-			return c.ReserveFirst(ctx, id)
-		case "play":
-			return c.PlayNow(ctx, id)
-		case "remove":
-			return c.RemoveFromQueue(ctx, id)
-		default:
-			return fmt.Errorf("unknown action %q", action)
-		}
-	})
+	err := s.dev.SongAction(ctx, action, id)
 
 	// Same reasoning as the transport controls: a late echo must not leave the
 	// button stuck. It is reported honestly though — the row says "sent" rather
 	// than "queued", because without the acknowledgement we do not know.
-	if err != nil && !isEchoTimeout(err) {
+	if err != nil && !errors.Is(err, ErrNotAcknowledged) {
 		s.fail(w, r, err)
 		withToast(w, toastBad, errorText(lang, err))
 		return

@@ -213,24 +213,16 @@ func Run(ctx context.Context, cfg Config) error {
 	logger.Info("song catalogue ready",
 		"file", songs.Path(), "songs", info.Songs, "artists", info.Singers, "version", info.DBVersion)
 
-	// The server is built first so the device's status callback can publish into
-	// it from the moment the session opens.
-	var srv *webui.Server
-	dev := webui.NewDevice(device, identity, logger, func(st *protocol.Status) {
-		if srv != nil {
-			srv.PublishStatus(st)
-		}
-	})
-	srv, err = webui.New(dev, songs, favs, logger, webui.Options{
+	// webui.New registers its callbacks on the device, and the session opens
+	// only when dev.Run starts below, so no update is missed.
+	dev := webui.NewDevice(device, identity, logger, nil)
+	srv, err := webui.New(webui.UnitBackend(dev), songs, favs, logger, webui.Options{
 		AllowFolderDelete: cfg.AllowFolderDelete,
 		SaveFile:          cfg.SaveFile,
 	})
 	if err != nil {
 		return err
 	}
-	srv.WatchConnection(dev)
-	srv.WatchQueue(dev)
-
 	if cfg.OnDevice != nil {
 		cfg.OnDevice(dev)
 	}
