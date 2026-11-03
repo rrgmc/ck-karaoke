@@ -404,6 +404,9 @@ func TestFeederTransportSequence(t *testing.T) {
 func TestFeederSendsControlsAsDeltas(t *testing.T) {
 	h := startFeeder(t, fair.Arrival, nil)
 	h.unit.Advance(0)
+	// The controls are deltas from the reported values, so they wait for the
+	// first status.
+	h.waitFor("the first status", func() bool { return h.f.State().Volume == 50 })
 	ctx := context.Background()
 	require.NoError(t, h.f.SetTranspose(ctx, 2))
 	h.unit.Advance(0)
