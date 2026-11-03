@@ -65,6 +65,12 @@ go run ./cmd/ck-queue-manager -v
   are kept, and each one changes `catalog_version`.
 - A song the evening did not hold (played from the unit's own remote) is
   reported with `origin.kind = "file"`.
+- `/discover` sends `features` with `demo`, `song_book` and `web_control`
+  false, so KM Remote leaves those controls out. The state carries
+  `player_online: false` while the unit is not connected, and a command that
+  needs the unit answers 409 `player_offline`. KM Remote reads these from
+  KaraokeMachine's [PR 198](https://github.com/rrgmc/karaokemachine/pull/198)
+  on; an older KM Remote ignores them.
 - Songs queued on the unit by anyone else are adopted as songs with no singer,
   at the place the unit plays them, or, with the reroute policy, taken off the
   unit and added to the end of the evening.

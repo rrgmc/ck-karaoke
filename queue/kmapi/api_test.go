@@ -220,6 +220,26 @@ func TestTransport(t *testing.T) {
 	assert.Contains(t, string(b), "unknown_endpoint")
 }
 
+// While the unit is away the server still answers, and says the player is
+// what is missing.
+func TestPlayerOffline(t *testing.T) {
+	r := newRig(t, Config{Room: Control})
+	r.player.mu.Lock()
+	r.player.state = feeder.State{Connected: false}
+	r.player.mu.Unlock()
+
+	var st stateDTO
+	r.ok(200, "GET", "/state", "", nil, &st)
+	assert.False(t, st.PlayerOnline)
+	status, b := r.do("POST", "/transport/play", "", nil)
+	assert.Equal(t, 409, status)
+	assert.Contains(t, string(b), `"player_offline"`)
+
+	var d discoveryDTO
+	r.ok(200, "GET", "/discover", "", nil, &d)
+	assert.Equal(t, featuresDTO{}, d.Features, "no demo, no song book, no web control page")
+}
+
 // The stream sends the state at once, then the state on its ticker and the
 // queue and requests after each change.
 func TestEventStream(t *testing.T) {

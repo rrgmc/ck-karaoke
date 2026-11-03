@@ -70,7 +70,7 @@ func mapError(err error) *apiError {
 	case errors.Is(err, fair.ErrWrongToken):
 		return &apiError{http.StatusForbidden, "forbidden", err.Error()}
 	case errors.Is(err, feeder.ErrOffline):
-		return conflict("unavailable", err.Error())
+		return conflict("player_offline", err.Error())
 	}
 	return &apiError{http.StatusInternalServerError, "internal", err.Error()}
 }
@@ -234,6 +234,8 @@ func (s *Server) discover(r *http.Request) (int, any, error) {
 	d := discoveryDTO{
 		V: 1, ID: s.opts.ID, Name: cfg.Name, App: App, Version: s.opts.Version, API: "/api/v1",
 		Port: uint16(s.opts.Port), URLs: []string{}, SongCount: &info.Songs, CatalogVersion: &version,
+		// No demo, no song book, and the root page only says what this is.
+		Features: featuresDTO{},
 	}
 	for _, ip := range s.opts.Addrs() {
 		d.URLs = append(d.URLs, fmt.Sprintf("http://%s:%d", ip, s.opts.Port))
@@ -651,7 +653,7 @@ func (s *Server) transport(verb string) handler {
 		ctx := r.Context()
 		st := s.opts.Player.State()
 		if !st.Connected {
-			return 0, nil, conflict("no_sound", "the karaoke unit is not connected")
+			return 0, nil, conflict("player_offline", "the karaoke unit is not connected")
 		}
 		var err error
 		switch verb {
