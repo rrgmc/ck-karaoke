@@ -736,6 +736,28 @@ func TestEvening(t *testing.T) {
 	}
 }
 
+// Start is not in KaraokeMachine: it starts an entry that is not at the front.
+func TestEveningStart(t *testing.T) {
+	now := time.Now()
+	e := NewEvening(Turns)
+	ana := newSinger(t, e, "Ana")
+	beto := newSinger(t, e, "Beto")
+	ask(t, e, ana, 11, now)
+	second := ask(t, e, beto, 21, now)
+	next := ask(t, e, beto, 22, now)
+
+	started, ok := e.Start(*second.Entry, now)
+	require.True(t, ok)
+	assert.Equal(t, uint32(21), started.Number)
+	assert.Equal(t, []uint32{11, 22}, numbers(e), "his next song goes in behind")
+	assert.Equal(t, Played, stateOf(t, e, second.ID, now))
+	assert.Equal(t, Queued, stateOf(t, e, next.ID, now))
+	assert.Equal(t, []Sung{{21, seatPtr(beto.seat)}}, e.Sung())
+
+	_, ok = e.Start(9999, now)
+	assert.False(t, ok)
+}
+
 func TestStore(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
 	dir := t.TempDir()

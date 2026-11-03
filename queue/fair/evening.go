@@ -359,6 +359,21 @@ func (e *Evening) Pop(now time.Time) (Entry, bool) {
 	return entry, true
 }
 
+// Start takes an entry out wherever it stands, because it is starting. It is
+// Pop for an entry that need not be at the front: the unit may start the song
+// it holds while somebody moves another one ahead of it. This is an addition to
+// the KaraokeMachine rule, which only ever starts the front entry.
+func (e *Evening) Start(id uint64, now time.Time) (Entry, bool) {
+	entry, ok := e.queue.Remove(id)
+	if !ok {
+		return Entry{}, false
+	}
+	e.sung = append(e.sung, Sung{Number: entry.Number, Seat: cloneID(entry.Seat)})
+	e.entryLeft(entry.ID, Played, now)
+	e.settle(now)
+	return entry, true
+}
+
 // Remove removes an entry, for a caller at the control level. Its request reads
 // Declined, and its singer's next request goes in.
 func (e *Evening) Remove(id uint64, now time.Time) (Entry, bool) {
