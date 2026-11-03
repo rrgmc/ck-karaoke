@@ -18,7 +18,6 @@ import (
 	"github.com/rrgmc/ck-karaoke/client"
 	"github.com/rrgmc/ck-karaoke/favorites"
 	"github.com/rrgmc/ck-karaoke/i18n"
-	"github.com/rrgmc/ck-karaoke/protocol"
 )
 
 //go:embed templates/*.html
@@ -29,7 +28,7 @@ var staticFS embed.FS
 
 // Server is the web UI.
 type Server struct {
-	dev    *Device
+	dev    Backend
 	songs  *catalog.DB
 	favs   *favorites.DB
 	logger *slog.Logger
@@ -78,8 +77,9 @@ type Options struct {
 	SaveFile func(name string, data []byte) (string, error)
 }
 
-// New builds a Server. The Device must be run separately.
-func New(dev *Device, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger, opts Options) (*Server, error) {
+// New builds a Server and registers its callbacks on the backend. The backend
+// must be run separately.
+func New(dev Backend, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger, opts Options) (*Server, error) {
 	byLang := map[i18n.Lang]*template.Template{}
 	for _, lang := range i18n.Supported {
 		tmpl, err := parseTemplates(lang)
@@ -98,6 +98,11 @@ func New(dev *Device, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger
 	if songs != nil {
 		srv.defaultLan = songs.LanTypeNamed(context.Background(), DefaultLanguage)
 	}
+	if dev != nil {
+		dev.OnStatus(srv.PublishStatus)
+		dev.OnQueue(srv.PublishQueue)
+		srv.watchConnection(dev)
+	}
 	return srv, nil
 }
 
@@ -115,8 +120,8 @@ func (s *Server) BeginShutdown() {
 // AllowFolderDelete reports whether the delete control should be offered.
 func (s *Server) AllowFolderDelete() bool { return s.allowFolderDelete }
 
-// PublishStatus pushes new device state to every connected browser. Wire it to
-// the Device's status callback.
+// PublishStatus pushes new playback state to every connected browser. New
+// wires it to the backend's status callback.
 //
 // Nothing is rendered when nobody is subscribed. The device pushes state about
 // every 1.5s and this is not a cheap callback — playerData looks the song up in
@@ -128,22 +133,16 @@ func (s *Server) AllowFolderDelete() bool { return s.allowFolderDelete }
 // This says nothing about a phone whose screen is off. A paused WebView holds
 // its stream open and still counts here; what stops the work there is the app
 // giving the session up, in ServerService.appBackgrounded.
-func (s *Server) PublishStatus(st *protocol.Status) {
+func (s *Server) PublishStatus(st *Status) {
 	if s.hub.count() == 0 {
 		return
 	}
 	s.publish(eventPlayer, "_player.html", s.playerData(st))
 }
 
-// WatchConnection wires the device's up/down transitions to notifications, so a
-// dropped session announces itself instead of quietly failing every button.
-// WatchQueue wires reserved-list updates — whether asked for or pushed by the
-// device — to the browsers.
-func (s *Server) WatchQueue(dev *Device) {
-	dev.OnQueue(s.PublishQueue)
-}
-
-func (s *Server) WatchConnection(dev *Device) {
+// watchConnection wires the backend's up/down transitions to notifications, so
+// a dropped session announces itself instead of quietly failing every button.
+func (s *Server) watchConnection(dev Backend) {
 	dev.OnConnection(func(online bool, reason error) {
 		// The banner is part of the page shell, so without this it only changed
 		// on a full reload — it would sit there saying "unreachable" long after
@@ -314,7 +313,7 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request, name string, data 
 	data.Online = s.dev.Online()
 	data.DeviceAddr = s.dev.Addr()
 	data.OfflineReason = offlineReason(s.dev.LastError())
-	if q := s.dev.LastQueue(); q != nil {
+	if q := s.dev.Queue(); q != nil {
 		data.QueueCount = q.Total
 	}
 	if s.songs != nil {

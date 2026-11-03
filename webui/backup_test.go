@@ -88,7 +88,7 @@ func backupServer(t *testing.T) *Server {
 	return &Server{
 		favs:   favs,
 		songs:  catalogue(t),
-		dev:    NewDevice("127.0.0.1:0", protocol.Identity{}, logger, nil),
+		dev:    UnitBackend(NewDevice("127.0.0.1:0", protocol.Identity{}, logger, nil)),
 		tmpl:   templates(t),
 		logger: logger,
 	}
