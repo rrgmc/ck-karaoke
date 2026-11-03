@@ -76,6 +76,9 @@ type stateDTO struct {
 	PositionMS uint32         `json:"position_ms"`
 	QueueLen   int            `json:"queue_len"`
 	Settings   settingsDTO    `json:"settings"`
+	// PlayerOnline is false while the unit is not connected, so a remote
+	// says the player is away rather than the server.
+	PlayerOnline bool `json:"player_online"`
 }
 
 type queueEntryDTO struct {
@@ -230,6 +233,18 @@ type discoveryDTO struct {
 	SongCount      *int    `json:"song_count"`
 	CatalogVersion *uint64 `json:"catalog_version"`
 	DebugEnabled   bool    `json:"debug_enabled"`
+	// Features lists the optional parts of the API a remote may offer. A
+	// remote that predates it reads every flag as true.
+	Features featuresDTO `json:"features"`
+}
+
+type featuresDTO struct {
+	// Demo: POST /demo/start plays a song of the server's choosing.
+	Demo bool `json:"demo"`
+	// SongBook: GET /songs/book.pdf answers with a song book.
+	SongBook bool `json:"song_book"`
+	// WebControl: the server's own address serves a page to control it.
+	WebControl bool `json:"web_control"`
 }
 
 type songDTO struct {

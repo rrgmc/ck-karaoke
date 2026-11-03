@@ -245,7 +245,8 @@ func (s *Server) publishSingers() {
 func (s *Server) stateDTO(ctx context.Context) stateDTO {
 	st := s.opts.Player.State()
 	out := stateDTO{
-		Transport: transportDTO(feeder.Idle),
+		Transport:    transportDTO(feeder.Idle),
+		PlayerOnline: st.Connected,
 		Settings: settingsDTO{
 			Transpose:   st.Key,
 			TempoRatio:  feeder.TempoRatio(st.TempoSteps),
