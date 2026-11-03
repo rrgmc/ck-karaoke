@@ -1,0 +1,1 @@
+{"v":1,"id":"00112233aabbccdd","name":"Living Room","app":"karaokemachine","version":"1.3.0","api":"/api/v1","factory_password":false,"port":8177,"urls":["http://192.168.1.42:8177"],"reachable":true,"problem":null,"song_count":5,"catalog_version":8589934594,"debug_enabled":false}

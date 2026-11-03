@@ -15,6 +15,7 @@ or any of the apps.
 | `server` | assembles the whole server from a `Config` |
 | `queue/fair` | the queue manager's fair queue: singers, requests and turns |
 | `queue/feeder` | plays a fair queue on the unit, one song ahead |
+| `queue/kmapi` | KaraokeMachine's HTTP API and mDNS announcement, for KM Remote |
 
 ## Example
 

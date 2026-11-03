@@ -1,0 +1,19 @@
+# Reads the golden files of queue/kmapi with KaraokeMachine's own types, the
+# way KM Remote reads the queue manager's answers. Not part of the Go build.
+#
+# The path below finds a KaraokeMachine checkout beside this repository's main
+# checkout. From a worktree, or with the checkout elsewhere, change it or run:
+#
+#   cargo run --manifest-path queue/kmapi/testdata/kmcheck/Cargo.toml -- queue/kmapi/testdata/golden
+[package]
+name = "kmcheck"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+km-api = { path = "../../../../../karaokemachine/crates/machine/km-api" }
+serde = "1"
+serde_json = "1"
+
+[workspace]
