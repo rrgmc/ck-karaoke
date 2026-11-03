@@ -439,6 +439,11 @@ func (f *Feeder) onStatus(ctx context.Context, s *protocol.Status) {
 	case title != "":
 		f.lastID, f.lastTitle = id, title
 	}
+	if change || newSong || wait || title != prevTitle {
+		f.log.Debug("unit status", "title", title, "id", s.CurrentSongID, "pos", s.SongPosition,
+			"change", change, "newSong", newSong, "stale", stale, "wait", wait,
+			"buffered", f.slotNumber(f.buffered), "pending", f.slotNumber(f.pending))
+	}
 
 	switch {
 	case wait:
@@ -518,6 +523,14 @@ func (f *Feeder) songChanged(number uint32, title string, now time.Time) {
 	f.emit(SongStarted{Song: song})
 }
 
+// slotNumber is a slot's song number for the log, or 0 for none.
+func (f *Feeder) slotNumber(s *slot) uint32 {
+	if s == nil {
+		return 0
+	}
+	return s.number
+}
+
 // entryTitle is the title of an evening entry, or empty.
 func (f *Feeder) entryTitle(entry uint64) string {
 	for _, e := range f.opts.Room.Entries() {
@@ -539,6 +552,13 @@ func (f *Feeder) songEnded() {
 
 // onQueue reads one push of the unit's queue.
 func (f *Feeder) onQueue(ctx context.Context, q *protocol.Queue) {
+	if f.log.Enabled(ctx, slog.LevelDebug) {
+		var songs []string
+		for _, e := range q.Entries {
+			songs = append(songs, e.SongID)
+		}
+		f.log.Debug("unit queue", "songs", songs, "buffered", f.slotNumber(f.buffered))
+	}
 	inUnit := map[uint32]bool{}
 	for i, e := range q.Entries {
 		n64, err := strconv.ParseUint(e.SongID, 10, 32)

@@ -28,6 +28,16 @@ type harness struct {
 	seats  map[string]uint64
 }
 
+// testLog sends the feeder's log to the test's, which go test shows only for
+// a test that fails. The feeder has stopped before a test's cleanup returns,
+// so nothing logs after the test ends.
+type testLog struct{ t *testing.T }
+
+func (l *testLog) Write(p []byte) (int, error) {
+	l.t.Log(strings.TrimRight(string(p), "\n"))
+	return len(p), nil
+}
+
 func startFeeder(t *testing.T, order fair.Order, configure func(*Options)) *harness {
 	t.Helper()
 	h := &harness{t: t, unit: newFakeUnit(), seats: map[string]uint64{}}
@@ -37,7 +47,7 @@ func startFeeder(t *testing.T, order fair.Order, configure func(*Options)) *harn
 	id := protocol.Identity{ClientID: protocol.RandomClientID(), Name: "QM"}
 	opts := Options{
 		Dialer: h.unit, Room: h.room, Identity: &id, Retry: 10 * time.Millisecond,
-		Logger: slog.New(slog.DiscardHandler),
+		Logger: slog.New(slog.NewTextHandler(&testLog{t: t}, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		OnEvent: func(e Event) {
 			h.mu.Lock()
 			defer h.mu.Unlock()
