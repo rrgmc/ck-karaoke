@@ -19,6 +19,7 @@ what CI checks for the Go code). The plain commands:
 go build ./... && go vet ./... && go test ./...
 gofmt -l .
 go run ./cmd/ck-karaoke-server -v            # debug server on :8080
+go run ./cmd/ck-queue-manager -v             # queue manager: API on :8177, page on 127.0.0.1:8176
 go run ./internal/cmd/genicon                # re-render icon rasters
 ```
 
@@ -111,7 +112,14 @@ Still to check:
   `EnsureFolder` are the only writes they use. Do not add delete paths to them.
 - **Keep the QR and XML formats compatible**; existing codes and backup files
   must keep importing.
-- **Bind the app ports to loopback.** The server is unauthenticated.
+- **Bind the app ports to loopback.** The server is unauthenticated. The one
+  exception is the queue manager's API (port 8177), which phones must reach;
+  its access codes and tokens protect it, and its configuration page stays on
+  loopback. See [docs/QUEUE-MANAGER.md](docs/QUEUE-MANAGER.md).
+- **Change `queue/kmapi`'s JSON only with the contract check.** KM Remote
+  breaks silently on a missing field or a wrong type. Regenerate the goldens
+  with `go test ./queue/kmapi -update` and read them with
+  `queue/kmapi/testdata/kmcheck`.
 - **Commands that change stored state or reach external services** (YouTube,
   recording, UploadPic, AddBarrage, Cheer, or any command not in the "used"
   table of `protocol/command.go`): confirm with the user before sending one to a

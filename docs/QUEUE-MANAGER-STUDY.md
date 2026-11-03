@@ -1,6 +1,10 @@
 # Queue manager: viability study
 
-Status: study only. Nothing described here is built.
+Status: implemented on the desktop, up to step 4 of the
+[order of work](#suggested-order-of-work): the fair queue, the unit feeder, the
+KaraokeMachine API, the command with its configuration page, and the tray app.
+The Android host is not built; see [What is left for Android](#what-is-left-for-android).
+How the result works is in [QUEUE-MANAGER.md](QUEUE-MANAGER.md).
 
 This document evaluates a separate server app, called the **queue manager**
 here. It is the only program that holds a session with the karaoke unit. Remote
@@ -304,3 +308,30 @@ status and queue push.
    Remote on desktop, Android and iOS.
 4. The desktop tray app.
 5. The Android host.
+
+Steps 1 to 4 are done. KM Remote 1.24.2 (desktop) was run against the queue
+manager on the unit above: two phones, Turns order, the Host tab, moving a
+song, skip, pause and stop. KM Remote on Android and iOS has not been tried.
+
+## What is left for Android
+
+`cmd/ck-queue-manager` cross-compiles for Android (CI checks it), and
+`manager.Run` is the only entry point a wrapper needs. The wrapper itself is
+not written. It needs:
+
+- **A foreground service type that runs all evening.** `dataSync` is limited to 6
+  hours a day on Android 15, so `specialUse`, with the justification Google Play
+  asks for. Unlike CK Karaoke's service, no background countdown may stop it.
+- **A `WifiLock` and a partial wake lock** while the server runs, so phones can
+  reach it with the screen off.
+- **mDNS from the Kotlin side.** Register `_karaokemachine._tcp` with
+  `NsdManager` and the TXT records `kmapi.Announcement.TXT` lists, and hold a
+  `MulticastLock`. `manager.Config` needs a new field to skip its own
+  announcement.
+  The broadcast that finds the unit also needs the `MulticastLock`.
+- **Binding to the LAN on port 8177**, which an unprivileged app may do. The
+  configuration page stays on loopback and opens in the app's web view.
+- **A way to stop it from the notification**, which cancels the context so the
+  unit session closes before the process exits.
+- **A test on the Galaxy S23** against the unit, with KM Remote on another
+  phone, including a long evening with the screen off.

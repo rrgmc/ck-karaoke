@@ -1,0 +1,70 @@
+# Queue manager
+
+The queue manager is a server that holds the only session with the karaoke
+unit. It keeps the song queue, with an optional fair order, and feeds the unit
+one song ahead. It serves KaraokeMachine's HTTP API, so KM Remote connects to
+it unchanged. Its own page is for configuration and for the operator; people
+queue songs with KM Remote.
+
+The design and the measurements behind it are in
+[QUEUE-MANAGER-STUDY.md](QUEUE-MANAGER-STUDY.md).
+
+## Running it
+
+```bash
+go run ./cmd/ck-queue-manager -v
+```
+
+- The API listens on port 8177 on every interface. The iOS remote finds a
+  machine only on that port.
+- The configuration and operator page listens on `127.0.0.1:8176` only.
+- The data directory defaults to `CK Karaoke Queue Manager` in the user
+  configuration directory. It holds `song.db` (downloaded from the unit on a
+  first start), `settings.json`, the learned song lengths, the server's id and
+  the token secret, and, when kept, the evening.
+- `ports/queue-desktop` is the same server in the system tray.
+
+## Layers
+
+| Package | Role |
+|---|---|
+| `queue/fair` | KaraokeMachine's evening, ported: singers, requests, Arrival and Turns order, operator actions, the JSON store. Pure state. |
+| `queue/feeder` | Plays the evening on the unit: one long session for status and control, a short session per song named after its singer, one song buffered on the unit. |
+| `queue/kmapi` | KaraokeMachine's `/api/v1`, the WebSocket events and the `_karaokemachine._tcp` mDNS announcement. |
+| `queue/manager` | `Run(ctx, Config)`: finds the unit, opens the catalogue, wires the three together, serves both ports. |
+| `cmd/ck-queue-manager` | The command line. |
+| `ports/queue-desktop` | The tray app; its own module. |
+
+## Rules
+
+- **The evening is the queue; the unit holds one song.** Every change goes
+  through `fair.Evening` behind `feeder.Room`. The feeder never decides the
+  order; it only mirrors the head of the evening onto the unit.
+- **The unit's song id is not trusted on its own.** It reads 0 after a pause,
+  and the first status after `NextSong`, or after a song added while stopped,
+  carries the previous id. The feeder accepts an id only when it changed or
+  comes with that song's title (PROTOCOL.md, section 7.1).
+- **The unit is found by model and database id**, never by its DHCP address.
+  The last address is tried first.
+- **The API is on the LAN, and the codes protect it.** Access levels, codes and
+  bearer tokens follow KaraokeMachine. The room level defaults to `request`. A
+  token is an HMAC over its level, expiry and that level's code, so changing a
+  code ends its tokens. The configuration page is loopback only and acts as the
+  host without a code.
+- **The JSON shapes are KaraokeMachine's.** `queue/kmapi/testdata/golden` pins
+  every response and event, and `queue/kmapi/testdata/kmcheck` reads them with
+  KaraokeMachine's own Rust types. A missing field or a wrong type breaks KM
+  Remote with no error, so change the goldens only with that check.
+- **Run returns after the unit session has closed**, as `server.Run` does.
+
+## Mapping the unit onto the API
+
+- Song numbers are the unit's `SongIndex`, as strings, in one package `ck`.
+- `kind` is `midi`. `melody_available` is false.
+- `duration_ms` is 0 until the song has played to its end once; learned lengths
+  are kept, and each one changes `catalog_version`.
+- A song the evening did not hold (played from the unit's own remote) is
+  reported with `origin.kind = "file"`.
+- Songs queued on the unit by anyone else are adopted as songs with no singer,
+  at the place the unit plays them, or, with the reroute policy, taken off the
+  unit and added to the end of the evening.
