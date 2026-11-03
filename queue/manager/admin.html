@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Queue Manager</title>
+<style>
+:root {
+  --bg: #f6f7f9; --card: #fff; --text: #1c2330; --muted: #5d6675; --line: #dde1e7;
+  --accent: #1f6fd1; --accent-text: #fff; --ok: #1d8a4a; --bad: #c0392b; --warn: #b7791f;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14171c; --card: #1d2128; --text: #e6e9ee; --muted: #9aa3b2; --line: #2e343d;
+    --accent: #4b93ec; --accent-text: #0b1220; --ok: #43c07a; --bad: #ef6b5b; --warn: #e0a64a; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, sans-serif; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--card); }
+header h1 { font-size: 18px; margin: 0; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); display: inline-block; margin-right: 6px; }
+.dot.on { background: var(--ok); }
+nav { display: flex; gap: 4px; margin-left: auto; }
+nav button { background: none; color: var(--muted); border: 1px solid transparent; }
+nav button.active { color: var(--text); border-color: var(--line); background: var(--bg); }
+main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+section h2 { font-size: 15px; margin: 0 0 10px; }
+.muted { color: var(--muted); }
+button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.danger { color: var(--bad); }
+button.small { padding: 2px 8px; font-size: 13px; }
+button:disabled { opacity: .5; cursor: default; }
+input, select { font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; }
+td.actions { white-space: nowrap; text-align: right; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+label.row { flex-wrap: nowrap; align-items: baseline; margin-bottom: 6px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.now-title { font-size: 20px; font-weight: 600; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+.bar > div { height: 100%; background: var(--accent); width: 0; }
+.notice { border-left: 3px solid var(--warn); padding: 8px 12px; background: var(--bg); margin-bottom: 10px; }
+label.field { display: grid; gap: 4px; margin-bottom: 10px; }
+label.field span { font-size: 13px; color: var(--muted); }
+.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 6px; display: none; max-width: calc(100% - 32px); }
+.hidden { display: none; }
+@media (max-width: 600px) { th.opt, td.opt { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="name">Queue Manager</h1>
+  <span><span id="dot" class="dot"></span><span id="conn">Unit not connected</span></span>
+  <nav>
+    <button id="tab-op" class="active" onclick="showTab('op')">Operator</button>
+    <button id="tab-cfg" onclick="showTab('cfg')">Configuration</button>
+  </nav>
+</header>
+
+<main id="op">
+  <section>
+    <div id="hold" class="notice hidden">
+      Playback is held: the evening was kept from the last run, or a host pressed Stop. Nothing starts until Play.
+      <button class="small" onclick="api('POST','/transport/play')">Play</button>
+      <button class="small danger" onclick="newEvening()">New evening</button>
+    </div>
+    <div class="muted" id="np-label">Now playing</div>
+    <div class="now-title" id="np-title">Nothing</div>
+    <div class="muted" id="np-sub"></div>
+    <div class="bar"><div id="np-bar"></div></div>
+    <div class="row">
+      <button onclick="api('POST','/transport/play')">Play</button>
+      <button onclick="api('POST','/transport/pause')">Pause</button>
+      <button onclick="api('POST','/transport/restart')">Restart</button>
+      <button onclick="api('POST','/transport/skip')">Skip</button>
+      <button class="danger" onclick="api('POST','/transport/stop')">Stop</button>
+      <span class="muted" style="margin-left:auto">Key</span>
+      <button class="small" onclick="setKey(-1)">−</button><span id="key">0</span><button class="small" onclick="setKey(1)">+</button>
+      <span class="muted">Volume</span>
+      <input type="range" id="vol" min="0" max="12" step="1" onchange="setVolume(this.value)">
+    </div>
+  </section>
+
+  <div class="grid2">
+    <section>
+      <h2>Queue <span class="muted" id="q-count"></span></h2>
+      <table><thead><tr><th>#</th><th>Song</th><th>Singer</th><th class="opt">Length</th><th></th></tr></thead>
+        <tbody id="queue"></tbody></table>
+      <div class="row" style="margin-top:10px">
+        <input id="add-number" placeholder="Song number" inputmode="numeric" size="10">
+        <button onclick="addSong()">Add with no singer</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Waiting <span class="muted" id="w-count"></span></h2>
+      <p class="muted" style="margin-top:0">Requests that wait for their singer's turn.</p>
+      <table><thead><tr><th>Singer</th><th>Song</th><th></th></tr></thead><tbody id="waiting"></tbody></table>
+      <div class="row" style="margin-top:12px">
+        <label class="row"><input type="checkbox" id="accepting" onchange="setAccepting(this.checked)"> Phones may ask for songs</label>
+        <button class="danger" style="margin-left:auto" onclick="newEvening()">New evening</button>
+      </div>
+    </section>
+  </div>
+
+  <section>
+    <h2>Singers <span class="muted" id="s-count"></span></h2>
+    <table><thead><tr><th>Singer</th><th class="opt">Phone</th><th class="opt">Sung</th><th>Ask for</th><th></th></tr></thead>
+      <tbody id="singers"></tbody></table>
+    <div class="row" style="margin-top:10px">
+      <input id="new-singer" placeholder="Name (empty for a guest)" size="22">
+      <button onclick="createSinger()">Add a singer with no phone</button>
+    </div>
+  </section>
+</main>
+
+<main id="cfg" class="hidden">
+  <section>
+    <h2>Status</h2>
+    <table><tbody id="status"></tbody></table>
+  </section>
+  <form id="settings" onsubmit="saveSettings(event)">
+    <div class="grid2">
+      <section>
+        <h2>Karaoke unit</h2>
+        <p class="muted" style="margin-top:0">The unit is found by model and database id, because its address changes. Empty fields match any unit.</p>
+        <label class="field"><span>Model</span><input name="model"></label>
+        <label class="field"><span>Database id</span><input name="database_id"></label>
+        <div class="row"><button type="button" onclick="findUnits()">Find units on the network</button></div>
+        <table><tbody id="units"></tbody></table>
+      </section>
+      <section>
+        <h2>Announced as</h2>
+        <label class="field"><span>Name remotes list this server as</span><input name="name" maxlength="63" required></label>
+        <h2>Songs queued on the unit by anyone else</h2>
+        <label class="row"><input type="radio" name="foreign" value="adopt"> Show them in the queue and let them play where the unit put them</label>
+        <label class="row"><input type="radio" name="foreign" value="reroute"> Take them off the unit and add them to the end of the queue</label>
+      </section>
+      <section>
+        <h2>Order and limits</h2>
+        <label class="row"><input type="radio" name="order" value="arrival"> Arrival: every song goes to the end as it is asked for</label>
+        <label class="row"><input type="radio" name="order" value="turns"> Turns: one song per singer in the queue at a time</label>
+        <label class="field" style="margin-top:10px"><span>Songs one singer may have waiting</span><input name="max_waiting" type="number" min="0" max="1000"></label>
+        <label class="field"><span>Singers one phone may hold (0 is no limit)</span><input name="max_per_device" type="number" min="0" max="1000"></label>
+        <label class="row"><input type="checkbox" name="name_required"> Every singer gives a name</label>
+        <label class="row"><input type="checkbox" name="keep_evening"> Keep the evening across a restart (playback then waits for Play)</label>
+      </section>
+      <section>
+        <h2>Access</h2>
+        <label class="field"><span>What everybody may do without a code</span>
+          <select name="room">
+            <option value="view">View only</option>
+            <option value="request">Ask for songs as a singer</option>
+            <option value="queue">Also add songs and change key, tempo and volume</option>
+            <option value="control">Also skip, stop and reorder</option>
+          </select></label>
+        <p class="muted">A code raises a phone's level. Empty means not set; at least 4 characters.</p>
+        <label class="field"><span>Queue code</span><input name="queue_code" autocomplete="off"></label>
+        <label class="field"><span>Control code</span><input name="control_code" autocomplete="off"></label>
+        <label class="field"><span>Host code (the Host tab in KM Remote)</span><input name="host_code" autocomplete="off"></label>
+      </section>
+    </div>
+    <div class="row"><button class="primary" type="submit">Save settings</button><span class="muted" id="saved"></span></div>
+  </form>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let state = null, singers = [], requests = null, queue = null;
+
+function showTab(t) {
+  for (const n of ["op", "cfg"]) {
+    $(n).classList.toggle("hidden", n !== t);
+    $("tab-" + n).classList.toggle("active", n === t);
+  }
+  if (t === "cfg") { loadSettings(); loadStatus(); }
+}
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.style.display = "block";
+  clearTimeout(t.timer); t.timer = setTimeout(() => t.style.display = "none", 4000);
+}
+
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body !== undefined) { opts.body = JSON.stringify(body); opts.headers["Content-Type"] = "application/json"; }
+  const r = await fetch("/api/v1" + path, opts);
+  const data = await r.json().catch(() => null);
+  if (!r.ok) { toast(data && data.message ? data.message : r.status + " " + r.statusText); throw new Error(path); }
+  return data;
+}
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function mmss(ms) { if (!ms) return ""; const s = Math.round(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+function singerName(id) {
+  const s = singers.find(x => x.id === id);
+  if (!s) return "—";
+  return s.name ?? ("Guest " + s.guest);
+}
+
+function renderState(st) {
+  state = st;
+  const np = st.now_playing;
+  $("np-title").textContent = np ? np.title : "Nothing";
+  $("np-sub").textContent = np ? [np.artist, np.singer && ("sung by " + np.singer), st.transport].filter(Boolean).join(" · ") : st.transport;
+  $("np-bar").style.width = np && np.duration_ms ? Math.min(100, 100 * st.position_ms / np.duration_ms) + "%" : "0";
+  $("key").textContent = st.settings.transpose;
+  if (document.activeElement !== $("vol")) $("vol").value = Math.round(st.settings.music_volume * 12);
+}
+
+function renderQueue(q) {
+  queue = q;
+  $("q-count").textContent = "(" + q.len + ")";
+  $("queue").innerHTML = q.entries.map((e, i) => `<tr>
+    <td>${i + 1}</td>
+    <td>${esc(e.title)} <span class="muted">${esc(e.artist ?? "")} #${e.number}</span></td>
+    <td>${e.seat === null ? '<span class="muted">no singer</span>' : esc(e.singer ?? singerName(e.seat))}</td>
+    <td class="opt">${mmss(e.duration_ms)}</td>
+    <td class="actions">
+      <button class="small" title="Play next" onclick="move(${e.id},0)" ${i === 0 ? "disabled" : ""}>⤒</button>
+      <button class="small" title="Up" onclick="move(${e.id},${i - 1})" ${i === 0 ? "disabled" : ""}>↑</button>
+      <button class="small" title="Down" onclick="move(${e.id},${i + 1})" ${i === q.entries.length - 1 ? "disabled" : ""}>↓</button>
+      <button class="small danger" title="Remove" onclick="api('DELETE','/queue/${e.id}')">✕</button>
+    </td></tr>`).join("") || '<tr><td colspan="5" class="muted">The queue is empty.</td></tr>';
+}
+
+function renderRequests(r) {
+  requests = r;
+  $("accepting").checked = r.accepting;
+  const waiting = r.requests.filter(x => x.state === "waiting");
+  $("w-count").textContent = "(" + waiting.length + ")";
+  $("waiting").innerHTML = waiting.map(x => `<tr>
+    <td>${esc(singerName(x.singer))}</td>
+    <td>${esc(x.title)} <span class="muted">#${x.number}</span></td>
+    <td class="actions">
+      <button class="small" onclick="api('POST','/requests/${x.id}/accept',{next:true})">Next</button>
+      <button class="small" onclick="api('POST','/requests/${x.id}/accept',{next:false})">Accept</button>
+      <button class="small danger" onclick="api('POST','/requests/${x.id}/decline')">Decline</button>
+    </td></tr>`).join("") || '<tr><td colspan="3" class="muted">Nothing waits.</td></tr>';
+  renderSingers();
+}
+
+function renderSingers() {
+  $("s-count").textContent = "(" + singers.length + ")";
+  const sung = id => requests ? requests.sung.filter(s => s.singer === id).length : 0;
+  // A redraw must not wipe a number somebody is typing.
+  const typed = {};
+  for (const el of document.querySelectorAll('[id^="ask-"]')) typed[el.id] = el.value;
+  const focused = document.activeElement && document.activeElement.id;
+  $("singers").innerHTML = singers.map(s => `<tr>
+    <td>${esc(s.name ?? ("Guest " + s.guest))}</td>
+    <td class="opt">${s.phone ? "yes" : '<span class="muted">no</span>'}</td>
+    <td class="opt">${sung(s.id)}</td>
+    <td><input size="7" placeholder="number" inputmode="numeric" id="ask-${s.id}"><button class="small" onclick="askFor(${s.id})">Add</button></td>
+    <td class="actions">
+      ${singers.length > 1 ? `<select class="small" onchange="merge(${s.id}, this.value)"><option value="">Merge into…</option>${singers.filter(o => o.id !== s.id).map(o => `<option value="${o.id}">${esc(o.name ?? ("Guest " + o.guest))}</option>`).join("")}</select>` : ""}
+      ${s.name ? `<button class="small" title="Let the next phone that gives this name take the seat" onclick="api('POST','/singers/${s.id}/reissue').then(refreshSingers)">Free seat</button>` : ""}
+      <button class="small danger" onclick="removeSinger(${s.id})">Remove</button>
+    </td></tr>`).join("") || '<tr><td colspan="5" class="muted">Nobody has registered yet.</td></tr>';
+  for (const [id, v] of Object.entries(typed)) if ($(id)) $(id).value = v;
+  if (focused && focused.startsWith("ask-") && $(focused)) $(focused).focus();
+}
+
+async function refreshSingers() { singers = (await api("GET", "/singers")).singers; renderSingers(); }
+async function refreshAll() {
+  const [st, q, r, s] = await Promise.all([api("GET", "/state"), api("GET", "/queue"), api("GET", "/requests"), api("GET", "/singers")]);
+  singers = s.singers; renderState(st); renderQueue(q); renderRequests(r);
+}
+
+function move(id, to) { api("POST", "/queue/" + id + "/move", { to_index: to }); }
+function setKey(d) { api("PUT", "/settings", { transpose: Math.max(-6, Math.min(6, state.settings.transpose + d)) }); }
+function setVolume(step) { api("PUT", "/settings", { music_volume: step / 12 }); }
+function setAccepting(on) { api("PUT", "/requests/accepting", { accepting: on }); }
+function addSong() {
+  const n = $("add-number").value.trim();
+  if (n) api("POST", "/queue", { number: n }).then(() => $("add-number").value = "");
+}
+function askFor(id) {
+  const n = $("ask-" + id).value.trim();
+  if (n) api("POST", "/singers/" + id + "/requests", { number: n }).then(() => { if ($("ask-" + id)) $("ask-" + id).value = ""; });
+}
+function createSinger() {
+  const name = $("new-singer").value.trim();
+  api("POST", "/singers/hosted", { name: name || null }).then(() => { $("new-singer").value = ""; refreshSingers(); });
+}
+function removeSinger(id) {
+  if (confirm("Remove " + singerName(id) + " and every song of theirs?")) api("DELETE", "/singers/" + id).then(refreshSingers);
+}
+function merge(from, into) {
+  if (into && confirm("Merge " + singerName(from) + " into " + singerName(+into) + "?"))
+    api("POST", "/singers/" + from + "/merge", { into: +into }).then(refreshSingers);
+}
+function newEvening() {
+  if (confirm("Start a new evening? The queue, the requests and every singer go.")) api("POST", "/evening/reset").then(refreshAll);
+}
+
+// The event stream: the state four times a second, and a refresh after
+// each change of the queue, the requests or the singers.
+function connect() {
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/v1/events");
+  ws.onmessage = ev => {
+    const e = JSON.parse(ev.data);
+    switch (e.event) {
+      case "state": renderState(e.state); break;
+      case "queue_changed": renderQueue(e.queue); break;
+      case "requests_changed": renderRequests(e.requests); break;
+      case "singers_changed": singers = e.singers.singers; renderSingers(); if (queue) renderQueue(queue); break;
+      case "desync": refreshAll(); break;
+    }
+  };
+  ws.onopen = () => refreshAll();
+  ws.onclose = () => setTimeout(connect, 2000);
+}
+
+async function pollStatus() {
+  try {
+    const s = await (await fetch("/admin/status")).json();
+    $("dot").classList.toggle("on", s.connected);
+    $("conn").textContent = s.connected ? "Unit connected" + (s.unit_addr ? " at " + s.unit_addr.replace(/:\d+$/, "") : "") : "Unit not connected";
+    $("hold").classList.toggle("hidden", !s.held && !s.waiting_for_host);
+    $("name").textContent = s.announced;
+    if (!$("cfg").classList.contains("hidden")) renderStatus(s);
+  } catch (_) {
+    $("dot").classList.remove("on"); $("conn").textContent = "The queue manager is not answering";
+  }
+}
+
+function renderStatus(s) {
+  const rows = [
+    ["Version", s.version], ["Running since", new Date(s.started).toLocaleString()],
+    ["Remotes connect to", s.urls.join(", ") || "no network address"], ["Announced over mDNS as", s.announced + " (" + s.service_type + ")"],
+    ["Server id", s.id], ["Karaoke unit", s.connected ? "connected at " + s.unit_addr : "not connected"],
+    ["Catalogue", s.songs + " songs, " + s.lengths + " lengths learned"], ["Evening", s.evening],
+  ];
+  $("status").innerHTML = rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("");
+}
+async function loadStatus() { renderStatus(await (await fetch("/admin/status")).json()); }
+
+async function loadSettings() {
+  const s = await (await fetch("/admin/settings")).json();
+  const f = $("settings");
+  f.model.value = s.unit.model; f.database_id.value = s.unit.database_id;
+  f.name.value = s.name; f.max_waiting.value = s.max_waiting; f.max_per_device.value = s.max_per_device;
+  f.name_required.checked = s.name_required; f.keep_evening.checked = s.keep_evening; f.room.value = s.room;
+  f.queue_code.value = s.queue_code; f.control_code.value = s.control_code; f.host_code.value = s.host_code;
+  for (const r of f.order) r.checked = r.value === s.order;
+  for (const r of f.foreign) r.checked = r.value === s.foreign;
+}
+
+async function saveSettings(ev) {
+  ev.preventDefault();
+  const f = $("settings");
+  const body = {
+    unit: { model: f.model.value.trim(), database_id: f.database_id.value.trim(), addr: "" },
+    name: f.name.value.trim(), order: f.order.value, max_waiting: +f.max_waiting.value,
+    name_required: f.name_required.checked, max_per_device: +f.max_per_device.value, room: f.room.value,
+    queue_code: f.queue_code.value.trim(), control_code: f.control_code.value.trim(), host_code: f.host_code.value.trim(),
+    foreign: f.foreign.value, keep_evening: f.keep_evening.checked,
+  };
+  const r = await fetch("/admin/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await r.json();
+  if (!r.ok) { toast(data.error); return; }
+  $("saved").textContent = "Saved " + new Date().toLocaleTimeString();
+  loadStatus();
+}
+
+async function findUnits() {
+  $("units").innerHTML = '<tr><td class="muted">Looking…</td></tr>';
+  const r = await (await fetch("/admin/units")).json();
+  $("units").innerHTML = r.units.map(u => `<tr><td>${esc(u.product)} ${esc(u.model)}<br><span class="muted">${esc(u.database_id)} · ${esc(u.addr)}</span></td>
+    <td class="actions"><button type="button" class="small" onclick="useUnit('${esc(u.model)}','${esc(u.database_id)}')">Use</button></td></tr>`).join("")
+    || `<tr><td class="muted">No unit answered.${r.error ? " " + esc(r.error) : ""}</td></tr>`;
+}
+function useUnit(model, db) { const f = $("settings"); f.model.value = model; f.database_id.value = db; toast("Save the settings to switch to this unit."); }
+
+connect();
+pollStatus();
+setInterval(pollStatus, 3000);
+</script>
+</body>
+</html>

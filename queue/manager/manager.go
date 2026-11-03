@@ -173,7 +173,7 @@ func (m *Manager) run(ctx context.Context) error {
 		apiLn.Close()
 		return fmt.Errorf("listening on %s: %w", m.cfg.AdminListen, err)
 	}
-	apiSrv := &http.Server{Handler: m.api.Handler(), ReadHeaderTimeout: 10 * time.Second}
+	apiSrv := &http.Server{Handler: m.apiHandler(), ReadHeaderTimeout: 10 * time.Second}
 	adminSrv := &http.Server{Handler: m.adminHandler(), ReadHeaderTimeout: 10 * time.Second}
 
 	var wg sync.WaitGroup

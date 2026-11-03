@@ -50,6 +50,9 @@ func (d *unitDialer) locate(ctx context.Context) (string, error) {
 		dev, err := client.Ping(pctx, last)
 		cancel()
 		if err == nil && d.matches(*dev) {
+			d.mu.Lock()
+			d.addr = dev.Addr
+			d.mu.Unlock()
 			return dev.Addr, nil
 		}
 	}
