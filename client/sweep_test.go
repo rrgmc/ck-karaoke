@@ -119,3 +119,34 @@ func TestIPUintRoundTrip(t *testing.T) {
 		assert.Equal(t, s, uint32ToIP4(ip4ToUint(net.ParseIP(s))).String())
 	}
 }
+
+func TestParseNetworksKeepsTheHostAddress(t *testing.T) {
+	nets, err := ParseNetworks("192.168.68.54/22, 10.0.0.7/24")
+	require.NoError(t, err)
+	require.Len(t, nets, 2)
+	assert.Equal(t, "192.168.68.54", nets[0].IP.String(), "the host's own address, not the network's")
+	assert.Equal(t, "192.168.68.54/22", nets[0].String())
+	assert.Equal(t, "10.0.0.7/24", nets[1].String())
+}
+
+func TestParseNetworksAcceptsEmpty(t *testing.T) {
+	nets, err := ParseNetworks("")
+	require.NoError(t, err)
+	assert.Empty(t, nets)
+}
+
+func TestParseNetworksRejectsAnAddressWithoutPrefix(t *testing.T) {
+	_, err := ParseNetworks("192.168.1.20")
+	assert.Error(t, err)
+}
+
+func TestNetworkHostsWalksOutwardsAndListsEachOnce(t *testing.T) {
+	nets, err := ParseNetworks("192.168.68.54/22,192.168.68.54/22")
+	require.NoError(t, err)
+	hosts := NetworkHosts(nets)
+
+	// 1022 usable addresses on a /22, less our own, each listed once.
+	assert.Len(t, hosts, 1021)
+	require.NotEmpty(t, hosts)
+	assert.Equal(t, subnetHosts(nets[0])[0].String(), hosts[0].String(), "nearest first")
+}

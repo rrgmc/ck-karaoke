@@ -1,11 +1,13 @@
 package com.rrgmc.ckkaraoke
 
 import android.content.Context
+import android.net.ConnectivityManager
 import android.os.Build
 import android.util.Log
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
+import java.net.Inet4Address
 import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
@@ -72,6 +74,17 @@ object Server {
         if (!deviceAddress.isNullOrBlank()) {
             args += listOf("-addr", deviceAddress)
         }
+        if (BuildConfig.BACKEND == "queue") {
+            // The queue manager is found by trying its port on every host of
+            // the network, as on iOS. mDNS cannot work from the server here: an
+            // app may not list the network interfaces, so Go finds none to
+            // join. For the same reason the server is told the network.
+            args += "-sweep"
+            val nets = localNetworks(context)
+            if (nets.isNotEmpty()) {
+                args += listOf("-sweep-net", nets)
+            }
+        }
 
         Log.i(TAG, "starting: ${args.joinToString(" ")}")
         val started = try {
@@ -115,6 +128,19 @@ object Server {
         val env = builder.environment()
         env["CK_TZ"] = zone.id
         env["CK_TZ_OFFSET"] = (zone.getOffset(System.currentTimeMillis()) / 1000).toString()
+    }
+
+    /**
+     * The IPv4 networks of the active network, as "address/prefix" separated
+     * by commas, for `-sweep-net`. Empty if there is no active network.
+     */
+    private fun localNetworks(context: Context): String {
+        val cm = context.getSystemService(ConnectivityManager::class.java) ?: return ""
+        val network = cm.activeNetwork ?: return ""
+        val link = cm.getLinkProperties(network) ?: return ""
+        return link.linkAddresses
+            .filter { it.address is Inet4Address }
+            .joinToString(",") { "${it.address.hostAddress}/${it.prefixLength}" }
     }
 
     private fun readOutput(p: Process) {

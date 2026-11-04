@@ -108,8 +108,14 @@ type Config struct {
 
 	// QueueSweep finds a queue manager by trying port 8177 on every local
 	// host rather than by mDNS. iOS sets it: mDNS from Go needs an entitlement
-	// there. Only BackendQueue reads it.
+	// there. Android sets it too: Go cannot list the interfaces there, and
+	// mDNS has none to join. Only BackendQueue reads it.
 	QueueSweep bool
+
+	// SweepNetworks are the networks QueueSweep walks, each this machine's
+	// address and mask. Empty means the networks of this machine's interfaces.
+	// Android passes its network, because Go cannot list the interfaces there.
+	SweepNetworks []*net.IPNet
 
 	// Searching is called each time a search finds nothing and WaitForDevice
 	// starts another one, so a caller can say what the wait is for.

@@ -77,9 +77,12 @@ backup.
 The queue backend:
 
 - **finds the queue manager** at the remembered address first, then by mDNS
-  (`_karaokemachine._tcp`). On iOS it sweeps port 8177 on the local subnets
-  instead (`remote.Sweep`), because mDNS from Go needs the multicast
-  entitlement. It accepts only a server that answers `/api/v1/ck/catalog`.
+  (`_karaokemachine._tcp`). On the phones it sweeps port 8177 on the local
+  subnets instead (`remote.SweepNetworks`). On iOS, mDNS from Go needs the
+  multicast entitlement. On Android, an app may not list the network
+  interfaces, so Go has none to join; the app passes its network's address and
+  prefix with `-sweep-net`. It accepts only a server that answers
+  `/api/v1/ck/catalog`.
 - **downloads the catalogue** from the queue manager as the unit's raw
   `song.db`, only when its SHA-256 differs from the local file, and checks it
   with `catalog.Verify` before moving it into place.
@@ -89,7 +92,7 @@ The queue backend:
   reinstall.
 
 Android passes `-backend queue` from `BuildConfig.BACKEND`, and the queue
-flavor holds a multicast lock for mDNS. iOS sets `CKBackend` in each target's
+flavor adds `-sweep` and `-sweep-net`. iOS sets `CKBackend` in each target's
 Info.plist, and `Server.swift` passes it to the bridge as `CK_BACKEND`.
 
 ## Translations

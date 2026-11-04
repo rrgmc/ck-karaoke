@@ -45,7 +45,8 @@ Then open the printed URL on any phone or computer on the same network.
 | Flag | Meaning |
 |---|---|
 | `-backend` | `unit` (the default) drives the karaoke unit; `queue` drives a CK Queue Manager, as CK Queue Remote does |
-| `-sweep` | with `-backend queue`, find the queue manager by port 8177, as the iOS app does, instead of by mDNS |
+| `-sweep` | with `-backend queue`, find the queue manager by port 8177, as the phone apps do, instead of by mDNS |
+| `-sweep-net` | with `-sweep`, the networks to walk, comma-separated, each this machine's address and prefix such as `192.168.1.20/24`; this machine's interfaces if empty |
 | `-addr` | device address, or the queue manager's with `-backend queue`; found on the network if empty |
 | `-listen` | address to serve on (default `:8080`) |
 | `-data` | directory for the databases (default `data/` beside the binary, or `data-queue/` with `-backend queue`) |

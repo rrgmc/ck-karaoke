@@ -27,9 +27,25 @@ const (
 // Apple grants only on request. Unicast needs nothing beyond the local network
 // prompt. It is also why the queue manager must listen on 8177.
 func Sweep(ctx context.Context, timeout time.Duration) ([]Found, error) {
-	hosts, err := client.LocalHosts()
-	if err != nil {
-		return nil, err
+	return SweepNetworks(ctx, timeout, nil)
+}
+
+// SweepNetworks is Sweep over the given networks, each written as this
+// machine's address and mask. With none, it walks this machine's interfaces as
+// Sweep does.
+//
+// Android needs the networks passed in: an app there may not list the
+// interfaces, so Go finds none, but the app can read its own network's address
+// and prefix from the system.
+func SweepNetworks(ctx context.Context, timeout time.Duration, nets []*net.IPNet) ([]Found, error) {
+	var hosts []net.IP
+	if len(nets) > 0 {
+		hosts = client.NetworkHosts(nets)
+	} else {
+		var err error
+		if hosts, err = client.LocalHosts(); err != nil {
+			return nil, err
+		}
 	}
 	// LocalHosts leaves this machine out, which is right for the unit. A queue
 	// manager may run on this machine, though, so it is tried first.
