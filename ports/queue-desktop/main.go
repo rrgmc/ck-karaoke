@@ -1,11 +1,16 @@
 // Command ck-queue-manager-tray runs the CK Karaoke queue manager from the
-// system tray, with Open configuration, Start/Stop and Quit.
+// system tray, with Open configuration, Start/Stop and Quit. Open
+// configuration shows the configuration page in a window of its own, a Wails
+// web view, run by the same executable with -window.
 //
 // It is its own module, like ports/desktop, so that the library does not depend
-// on a tray library. Build it on Windows with -ldflags=-H=windowsgui, so that
-// no console window opens; it then logs to queue-manager.log in its data
-// directory.
+// on a tray or web view library. Wails needs the desktop and production build
+// tags, and webkit2_41 on Linux. Build it on Windows with -ldflags=-H=windowsgui,
+// so that no console window opens; it then logs to queue-manager.log in its
+// data directory.
 package main
+
+//go:generate go run ./internal/winres
 
 import (
 	"context"
@@ -38,15 +43,29 @@ var iconICO []byte
 func main() {
 	data := flag.String("data", "", "data directory; defaults to the user configuration directory")
 	listen := flag.String("listen", "", "address to serve the KaraokeMachine API on; defaults to :8177")
+	window := flag.Bool(windowFlag, false, "show the configuration page at the URL argument in a window, instead of the tray; the tray app starts it")
 	flag.Parse()
 	dir, err := dataDir(*data)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
-	logger, closeLog := openLog(dir)
+	if *window {
+		// The tray app takes the window's output into its own log.
+		logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+		err := errNoURL
+		if url := flag.Arg(0); url != "" {
+			err = runWindow(url, dir, logger)
+		}
+		if err != nil {
+			logger.Error("the configuration window failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+	logger, logOut, closeLog := openLog(dir)
 	defer closeLog()
-	svc := &service{dir: dir, listen: *listen, log: logger}
+	svc := &service{dir: dir, listen: *listen, log: logger, logOut: logOut}
 	systray.Run(svc.ready, svc.stop)
 }
 
@@ -63,12 +82,14 @@ func dataDir(dir string) (string, error) {
 
 // openLog logs to stderr and to queue-manager.log, since a tray app built for
 // the Windows GUI subsystem has no console.
-func openLog(dir string) (*slog.Logger, func()) {
+// The writer is the log's, for the window process's output.
+func openLog(dir string) (*slog.Logger, io.Writer, func()) {
 	f, err := os.OpenFile(filepath.Join(dir, "queue-manager.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
-		return slog.New(slog.NewTextHandler(os.Stderr, nil)), func() {}
+		return slog.New(slog.NewTextHandler(os.Stderr, nil)), os.Stderr, func() {}
 	}
-	return slog.New(slog.NewTextHandler(io.MultiWriter(os.Stderr, f), nil)), func() { f.Close() }
+	out := io.MultiWriter(os.Stderr, f)
+	return slog.New(slog.NewTextHandler(out, nil)), out, func() { f.Close() }
 }
 
 // service runs one queue manager at a time.
@@ -76,6 +97,7 @@ type service struct {
 	dir    string
 	listen string
 	log    *slog.Logger
+	logOut io.Writer
 
 	mu     sync.Mutex
 	cancel context.CancelFunc
@@ -96,7 +118,7 @@ func (s *service) ready() {
 	s.status = systray.AddMenuItem("Starting…", "")
 	s.status.Disable()
 	systray.AddSeparator()
-	open := systray.AddMenuItem("Open configuration", "Open the configuration page in the browser")
+	open := systray.AddMenuItem("Open configuration", "Open the configuration page in a window")
 	s.toggle = systray.AddMenuItem("Stop", "Stop or start the queue manager")
 	systray.AddSeparator()
 	quit := systray.AddMenuItem("Quit", "Stop the queue manager and quit")
@@ -200,6 +222,12 @@ func (s *service) openPage() {
 		url = "http://" + manager.DefaultAdminListen + "/"
 	}
 	s.mu.Unlock()
+	s.openWindow(url)
+}
+
+// openBrowser opens url in the default browser, for when the window cannot
+// run.
+func (s *service) openBrowser(url string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":

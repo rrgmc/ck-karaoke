@@ -13,7 +13,9 @@
 #   macOS    ck-queue-manager-<version>-macos-universal.dmg
 #   Linux    ck-queue-manager-<version>-linux-amd64.deb
 #
-# Needs Go; NSIS on Windows; on macOS also Xcode's command line tools (cgo, lipo, iconutil).
+# Needs Go; NSIS on Windows; on macOS also Xcode's command line tools (cgo, lipo,
+# iconutil); on Linux a C compiler and the GTK 3 and WebKitGTK 4.1 development
+# packages, for the configuration window.
 #
 # On macOS the same variables as ports/desktop/package.sh sign and notarize
 # the app. Without them the app is not signed.
@@ -36,6 +38,9 @@ numeric=${version%%-*}
 
 fail() { echo "package.sh: $*" >&2; exit 1; }
 
+# The configuration window is a Wails web view, which needs these tags.
+tags=desktop,production
+
 build=$(mktemp -d)
 trap 'rm -rf "$build"' EXIT
 
@@ -43,7 +48,7 @@ case "$(uname -s)" in
     MINGW* | MSYS* | CYGWIN*)
         # The GUI subsystem, so no console window opens beside the tray icon.
         exe="$build/ck-queue-manager-tray.exe"
-        GOOS=windows GOARCH=amd64 go build -trimpath -ldflags=-H=windowsgui -o "$exe" .
+        GOOS=windows GOARCH=amd64 go build -trimpath -tags "$tags" -ldflags=-H=windowsgui -o "$exe" .
         # An NSIS installer, as for the CK Karaoke app; see installer.nsi.
         makensis=$(command -v makensis || echo "/c/Program Files (x86)/NSIS/makensis.exe")
         [ -x "$makensis" ] || fail "makensis not found; install NSIS"
@@ -54,10 +59,10 @@ case "$(uname -s)" in
         ;;
 
     Darwin)
-        # fyne.io/systray needs cgo on macOS, so each architecture is built
-        # natively and the two are joined.
+        # fyne.io/systray and Wails need cgo on macOS, so each architecture
+        # is built natively and the two are joined.
         for arch in arm64 amd64; do
-            CGO_ENABLED=1 GOOS=darwin GOARCH=$arch go build -trimpath -o "$build/tray-$arch" .
+            CGO_ENABLED=1 GOOS=darwin GOARCH=$arch go build -trimpath -tags "$tags" -o "$build/tray-$arch" .
         done
         app="$build/CK Queue Manager.app"
         install -d "$app/Contents/MacOS" "$app/Contents/Resources"
@@ -75,7 +80,9 @@ case "$(uname -s)" in
         done
         iconutil -c icns "$iconset" -o "$app/Contents/Resources/icon.icns"
 
-        # LSUIElement keeps it out of the Dock: it lives in the menu bar. The
+        # LSUIElement keeps the tray out of the Dock: it lives in the menu
+        # bar. The configuration window's process makes itself a regular app,
+        # so the window has a Dock icon and a menu bar while it is open. The
         # local network string is what macOS shows before the app may find
         # the unit and serve the phones; NSBonjourServices names the service
         # it announces.
@@ -137,10 +144,16 @@ EOF
         ;;
 
     Linux)
-        # Pure Go on Linux (the tray talks D-Bus), so the binary is static and
-        # the package needs no libraries.
+        # The tray talks D-Bus in pure Go, but the configuration window links
+        # GTK and WebKitGTK through cgo.
         exe="$build/ck-queue-manager-tray"
-        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "$exe" .
+        CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -trimpath -tags "$tags,webkit2_41" -o "$exe" .
+
+        # As in ports/desktop/package.sh: the library names without Ubuntu
+        # 24.04's t64 suffix, which the renamed packages provide, and the
+        # newest glibc symbol version the binary links against.
+        glibc=$(objdump -T "$exe" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -V | tail -n 1)
+        [ -n "$glibc" ] || fail "no glibc symbol versions in $exe"
 
         # Debian sorts "~" before anything, so 1.2.3~rc1 comes before 1.2.3.
         debversion=${version/-/\~}
@@ -156,6 +169,7 @@ Name=CK Queue Manager
 Comment=Fair song queue for compatible karaoke units, controlled from KM Remote
 Exec=ck-queue-manager-tray
 Icon=ck-queue-manager
+StartupWMClass=ck-queue-manager
 Terminal=false
 Categories=AudioVideo;Audio;
 EOF
@@ -165,6 +179,7 @@ Version: $debversion
 Architecture: amd64
 Maintainer: Rangel Reale <realerangel@gmail.com>
 Installed-Size: $(du -sk --exclude=DEBIAN "$root" | cut -f1)
+Depends: libc6 (>= $glibc), libgtk-3-0, libwebkit2gtk-4.1-0
 Section: sound
 Priority: optional
 Homepage: https://github.com/rrgmc/ck-karaoke

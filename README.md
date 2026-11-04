@@ -47,7 +47,8 @@ On other Linux distributions, build the app from source; see
 
 The same page has the **queue manager**, a separate server that keeps a fair
 song queue and lets KaraokeMachine's KM Remote control the unit (see
-[docs/QUEUE-MANAGER.md](docs/QUEUE-MANAGER.md)). It runs in the system tray:
+[docs/QUEUE-MANAGER.md](docs/QUEUE-MANAGER.md)). It runs in the system tray, and
+**Open configuration** in its menu shows the configuration page in a window:
 
 | Platform | File | Notes |
 |---|---|---|
