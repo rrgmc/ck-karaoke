@@ -68,9 +68,15 @@ type Config struct {
 
 // Options configures a Server.
 type Options struct {
-	Room      *feeder.Room
-	Player    Player
-	Catalog   Catalog
+	Room    *feeder.Room
+	Player  Player
+	Catalog Catalog
+	// CatalogFile is the song database Catalog reads, served whole to CK
+	// Queue Remote. Empty leaves those routes answering 404.
+	CatalogFile string
+	// Unit reports the model and database id of the unit the catalogue came
+	// from, for CK Queue Remote. Optional.
+	Unit      func() (model, databaseID string)
 	Durations *feeder.Durations
 	// ID names this server to remotes: 16 hex characters, kept across
 	// restarts.
@@ -105,6 +111,11 @@ type Server struct {
 	waitingForHost bool
 	lastCommand    string // the transport command a song end may be answering
 	songCache      catalog.Song
+
+	catalogHash sync.Once
+	catalogSum  string
+	catalogSize int64
+	catalogErr  error
 }
 
 // New returns a server. Call Run to start its events, and serve Handler.

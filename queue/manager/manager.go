@@ -159,8 +159,13 @@ func (m *Manager) run(ctx context.Context) error {
 		},
 	})
 	m.api = kmapi.New(kmapi.Options{
-		Room: m.room, Player: m.feeder, Catalog: m.catalog, Durations: m.durations,
-		ID: id, Port: portOf(m.cfg.Listen), Secret: []byte(secret), Evening: word, WaitingForHost: held,
+		Room: m.room, Player: m.feeder, Catalog: m.catalog, CatalogFile: m.catalog.Path(),
+		Unit: func() (string, string) {
+			u := m.Settings().Unit
+			return u.Model, u.DatabaseID
+		},
+		Durations: m.durations,
+		ID:        id, Port: portOf(m.cfg.Listen), Secret: []byte(secret), Evening: word, WaitingForHost: held,
 		Version: version.Version, Config: set.API(), Logger: m.log,
 	})
 
