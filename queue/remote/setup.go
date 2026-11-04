@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/rrgmc/ck-karaoke/queue/kmapi/wire"
 	"github.com/rrgmc/ck-karaoke/queue/kmclient"
 	"github.com/rrgmc/ck-karaoke/webui"
 )
@@ -71,7 +72,7 @@ func (b *Backend) SetupInfo(ctx context.Context) webui.SetupInfo {
 // EnterCode logs in with an access code and keeps the token.
 func (b *Backend) EnterCode(ctx context.Context, code string) error {
 	b.identify(ctx)
-	_, err := b.client.Login(ctx, code)
+	grant, err := b.client.Login(ctx, code)
 	var e *kmclient.Error
 	switch {
 	case errors.Is(err, kmclient.ErrUnauthorized),
@@ -80,12 +81,18 @@ func (b *Backend) EnterCode(ctx context.Context, code string) error {
 	case err != nil:
 		return wrap(err)
 	}
+	b.mu.Lock()
+	b.level = grant.Access
+	b.mu.Unlock()
 	return b.saveToken()
 }
 
 // ForgetCode drops the token, here and in the file.
 func (b *Backend) ForgetCode() error {
 	b.client.SetToken("")
+	b.mu.Lock()
+	b.level = wire.LevelView
+	b.mu.Unlock()
 	return b.saveToken()
 }
 

@@ -275,6 +275,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /mine/name", s.setName)
 	mux.HandleFunc("POST /mine/{id}/withdraw", s.withdraw)
 
+	mux.HandleFunc("GET /host", s.hostPage)
+	mux.HandleFunc("GET /fragment/host", s.hostFragment)
+	mux.HandleFunc("POST /host/{action}", s.hostAction)
+
 	mux.HandleFunc("GET /setup", s.setupPage)
 	mux.HandleFunc("POST /setup/code", s.enterCode)
 	mux.HandleFunc("POST /setup/forget", s.forgetCode)
@@ -353,6 +357,7 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request, name string, data 
 	data.AppName = s.appName
 	_, data.HasSetup = s.setup()
 	data.Caps = s.caps()
+	_, data.HasHost = s.host()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Language", data.Lang.Tag())
@@ -429,6 +434,8 @@ func navFor(path string) string {
 		return "setup"
 	case strings.HasPrefix(path, "/mine"):
 		return "mine"
+	case strings.HasPrefix(path, "/host"):
+		return "host"
 	default:
 		return "browse"
 	}

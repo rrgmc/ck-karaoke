@@ -1,0 +1,74 @@
+{{/* The host's page: requests waiting for a decision, whether phones may
+     request, the singers, and a new evening. Every action answers with this
+     whole block. */}}
+{{define "_host.html"}}
+{{if .View.Err}}
+<div class="alert alert-warning py-2">{{t "The queue manager is not answering."}}</div>
+{{else}}
+{{with .Error}}<p class="text-danger small">{{.}}</p>{{end}}
+
+<section>
+  <h3 class="h6 mt-3">{{t "Waiting for you"}}</h3>
+  {{if .Waiting}}
+  <ul class="song-list">
+    {{range .Waiting}}
+    <li class="song-row">
+      <div class="song-name">{{if .Title}}{{.Title}}{{else}}{{t "Song %s" .SongID}}{{end}}</div>
+      <div class="song-line">
+        <div class="song-sub">{{.Artist}}{{if .Singer}} <span class="queued-by">{{.Singer}}</span>{{end}}</div>
+        <div class="song-actions">
+          <button class="btn btn-primary icon-btn" title="{{t "Accept"}}" aria-label="{{t "Accept"}}"
+                  hx-post="/host/accept" hx-vals='{"id":"{{.ID}}"}' hx-target="#host">✓</button>
+          <button class="btn btn-outline-primary icon-btn" title="{{t "Accept and play next"}}" aria-label="{{t "Accept and play next"}}"
+                  hx-post="/host/accept-next" hx-vals='{"id":"{{.ID}}"}' hx-target="#host">↑</button>
+          <button class="btn btn-outline-danger icon-btn" title="{{t "Decline"}}" aria-label="{{t "Decline"}}"
+                  hx-post="/host/decline" hx-vals='{"id":"{{.ID}}"}' hx-target="#host">✕</button>
+        </div>
+      </div>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="text-secondary">{{t "No requests are waiting."}}</p>
+  {{end}}
+</section>
+
+<section>
+  <h3 class="h6 mt-3">{{t "Requests"}}</h3>
+  {{if .View.Accepting}}
+  <p>{{t "Phones can request songs."}}
+    <button class="btn btn-sm btn-outline-secondary ms-2" hx-post="/host/close" hx-target="#host">{{t "Pause requests"}}</button></p>
+  {{else}}
+  <p>{{t "Requests are paused."}}
+    <button class="btn btn-sm btn-primary ms-2" hx-post="/host/open" hx-target="#host">{{t "Open requests"}}</button></p>
+  {{end}}
+</section>
+
+<section>
+  <h3 class="h6 mt-3">{{t "Singers"}}</h3>
+  {{if .View.Singers}}
+  <ul class="song-list">
+    {{range .View.Singers}}
+    <li class="queue-row">
+      <span class="song-name">{{if .Name}}{{.Name}}{{else}}{{t "No name yet"}}{{end}}</span>
+      <span class="song-sub">{{if .Phone}}{{t "phone"}}{{else}}{{t "added by the host"}}{{end}}</span>
+      <button class="btn btn-sm btn-outline-danger" hx-post="/host/remove-singer" hx-vals='{"id":"{{.ID}}"}' hx-target="#host"
+              hx-confirm="{{t "Remove %s and their waiting songs?" (or .Name (t "this singer"))}}">{{t "Remove"}}</button>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="text-secondary">{{t "No singers yet."}}</p>
+  {{end}}
+  <form class="d-flex gap-2 mt-2" hx-post="/host/add-singer" hx-target="#host" autocomplete="off">
+    <input class="form-control" name="value" maxlength="40" placeholder="{{t "Singer without a phone"}}" aria-label="{{t "Singer without a phone"}}">
+    <button class="btn btn-outline-primary" type="submit">{{t "Add"}}</button>
+  </form>
+</section>
+
+<section class="mt-4">
+  <button class="btn btn-outline-danger" hx-post="/host/reset" hx-target="#host"
+          hx-confirm="{{t "Start a new evening? The queue, the requests and the singers are cleared."}}">{{t "New evening"}}</button>
+</section>
+{{end}}
+{{end}}

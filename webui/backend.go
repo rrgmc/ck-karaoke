@@ -96,6 +96,46 @@ type MyRequest struct {
 // before they request a song.
 var ErrNameRequired = errors.New("the singer needs a name")
 
+// Host is what the host runs the evening with, on the Host page.
+type Host interface {
+	// HostAllowed reports whether this app holds the host level, so the
+	// tab bar offers the Host page. It must not wait on the network.
+	HostAllowed() bool
+	// HostView reads the requests waiting for the host and the singers.
+	HostView(ctx context.Context) HostView
+	// HostAction runs one of the host's actions:
+	//   - "accept", "accept-next", "decline": a waiting request, by id;
+	//   - "open", "close": requests from phones;
+	//   - "add-singer": a singer with no phone, named value;
+	//   - "remove-singer": a singer, by id;
+	//   - "reset": a new evening.
+	HostAction(ctx context.Context, action, id, value string) error
+}
+
+// HostView is what the Host page shows.
+type HostView struct {
+	Accepting bool
+	Waiting   []HostRequest
+	Singers   []HostSinger
+	// Err is why the rest could not be read, or nil.
+	Err error
+}
+
+// HostRequest is a request waiting for the host.
+type HostRequest struct {
+	ID     string
+	SongID string
+	Singer string
+}
+
+// HostSinger is one of the evening's singers.
+type HostSinger struct {
+	ID   string
+	Name string
+	// Phone is false for a singer the host added.
+	Phone bool
+}
+
 // ErrRequestsClosed reports that the host has paused requests.
 var ErrRequestsClosed = errors.New("requests are closed")
 
