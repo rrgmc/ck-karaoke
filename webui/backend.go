@@ -43,6 +43,19 @@ type Backend interface {
 // pages treat it as done, and say so.
 var ErrNotAcknowledged = errors.New("command not acknowledged")
 
+// Errors a backend that is not the unit reports, so the pages can word them.
+var (
+	// ErrQueueManager: the queue manager does not answer.
+	ErrQueueManager = errors.New("the queue manager is unreachable")
+	// ErrAway: the queue manager answers, but the karaoke unit is not
+	// connected to it.
+	ErrAway = errors.New("the karaoke unit is not connected to the queue manager")
+	// ErrNeedsCode: the action needs an access code, or a better one.
+	ErrNeedsCode = errors.New("this needs an access code")
+	// ErrUnsupported: the backend has no such action.
+	ErrUnsupported = errors.New("not available here")
+)
+
 // Status is the playback state the Now page shows.
 type Status struct {
 	Title    string
