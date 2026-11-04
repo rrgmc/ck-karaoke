@@ -26,6 +26,7 @@ import (
 	"github.com/rrgmc/ck-karaoke/catalog"
 	"github.com/rrgmc/ck-karaoke/queue/fair"
 	"github.com/rrgmc/ck-karaoke/queue/feeder"
+	"github.com/rrgmc/ck-karaoke/queue/kmapi/wire"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files")
@@ -187,14 +188,14 @@ func (r *rig) ok(status int, method, path, token string, body any, out any) []by
 	return b
 }
 
-func (r *rig) register(name string) singerIssuedDTO {
-	var out singerIssuedDTO
+func (r *rig) register(name string) wire.SingerIssued {
+	var out wire.SingerIssued
 	r.ok(201, "POST", "/singers", "", map[string]any{"device": "device-" + name, "name": name}, &out)
 	return out
 }
 
-func (r *rig) ask(who singerIssuedDTO, number string) requestDTO {
-	var out requestDTO
+func (r *rig) ask(who wire.SingerIssued, number string) wire.Request {
+	var out wire.Request
 	r.ok(201, "POST", "/requests", "", map[string]any{"singer": who.Singer.ID, "token": who.Token, "number": number}, &out)
 	return out
 }
@@ -215,7 +216,7 @@ func golden(t *testing.T, name string, b []byte) {
 
 // An evening with two singers in turns, Ana's first song playing, Beto's and
 // a song with no singer queued, and Ana's second waiting.
-func busyEvening(t *testing.T) (*rig, singerIssuedDTO, singerIssuedDTO) {
+func busyEvening(t *testing.T) (*rig, wire.SingerIssued, wire.SingerIssued) {
 	r := newRig(t, Config{Name: "Living Room", Room: Request, Codes: Codes{Queue: "1111", Control: "2222", Host: "3333"}})
 	ana := r.register("Ana")
 	beto := r.register("Beto")
@@ -272,7 +273,7 @@ func TestGoldenResponses(t *testing.T) {
 
 func (r *rig) login(code string) string {
 	r.t.Helper()
-	var g accessGrantDTO
+	var g wire.AccessGrant
 	r.ok(200, "POST", "/login", "", map[string]any{"password": code}, &g)
 	return g.Token
 }
@@ -285,11 +286,11 @@ func TestGoldenEvents(t *testing.T) {
 		name string
 		ev   event
 	}{
-		{"event_state.json", event{"event": "state", "state": r.srv.stateDTO(context.Background())}},
+		{"event_state.json", event{"event": "state", "state": r.srv.state(context.Background())}},
 		{"event_song_started.json", event{"event": "song_started", "now_playing": r.srv.nowPlaying(context.Background(), st.Song)}},
 		{"event_song_ended.json", event{"event": "song_ended", "reason": "skipped"}},
-		{"event_singers_changed.json", event{"event": "singers_changed", "singers": r.srv.singersDTO()}},
-		{"event_settings_changed.json", event{"event": "settings_changed", "settings": r.srv.stateDTO(context.Background()).Settings}},
+		{"event_singers_changed.json", event{"event": "singers_changed", "singers": r.srv.singers()}},
+		{"event_settings_changed.json", event{"event": "settings_changed", "settings": r.srv.state(context.Background()).Settings}},
 		{"event_desync.json", event{"event": "desync", "skipped": 3}},
 	}
 	q, rs := r.srv.queueAndRequests()

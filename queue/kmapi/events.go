@@ -88,7 +88,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 		return conn.Write(wctx, websocket.MessageText, b) == nil
 	}
-	first, _ := json.Marshal(event{"event": "state", "state": s.stateDTO(ctx)})
+	first, _ := json.Marshal(event{"event": "state", "state": s.state(ctx)})
 	if !write(first) {
 		return
 	}

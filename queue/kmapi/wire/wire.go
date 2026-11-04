@@ -1,12 +1,78 @@
-package kmapi
-
-import "strconv"
-
-// The wire types of KaraokeMachine's API (crates/machine/km-api/src/dto.rs).
+// Package wire holds the JSON types of KaraokeMachine's API
+// (crates/machine/km-api/src/dto.rs), shared by the queue manager's server
+// and the remote's client.
+//
 // KM Remote deserialises these with serde, so a missing required field or a
 // wrong type fails the whole response without an error the person sees. Every
 // Rust Option is a pointer here and is written as null, never left out, unless
-// the Rust side skips it. The golden files in testdata pin the shapes.
+// the Rust side skips it. The golden files in queue/kmapi/testdata pin the
+// shapes.
+package wire
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
+)
+
+// ErrNotNumber reports a song number that is not a string of digits from 1
+// to 9,999,999.
+var ErrNotNumber = errors.New("not a song number")
+
+// Level is an access level. The levels are ordered: a caller may do whatever
+// its level or a lower one allows.
+type Level int
+
+const (
+	// LevelView reads the catalogue, the queue and the state.
+	LevelView Level = iota
+	// LevelRequest registers a singer, names one, asks for a song and withdraws one.
+	LevelRequest
+	// LevelQueue adds a song with no singer and changes key, tempo and volume.
+	LevelQueue
+	// LevelControl interrupts: transport, moving or removing any entry, clearing.
+	LevelControl
+	// LevelHost runs the night: accepts and declines requests, acts for a singer,
+	// creates, removes and merges singers, opens and closes requests, starts
+	// a new evening.
+	LevelHost
+	// LevelAdmin is never granted by the queue manager; it has no admin routes.
+	LevelAdmin
+)
+
+var levelNames = []string{"view", "request", "queue", "control", "host", "admin"}
+
+func (l Level) String() string {
+	if l < 0 || int(l) >= len(levelNames) {
+		return "view"
+	}
+	return levelNames[l]
+}
+
+// ParseLevel reads a level's name.
+func ParseLevel(s string) (Level, error) {
+	for i, n := range levelNames {
+		if n == s {
+			return Level(i), nil
+		}
+	}
+	return LevelView, fmt.Errorf("unknown access level %q", s)
+}
+
+// MarshalJSON writes the level's name.
+func (l Level) MarshalJSON() ([]byte, error) { return json.Marshal(l.String()) }
+
+// UnmarshalJSON reads a level's name.
+func (l *Level) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	v, err := ParseLevel(s)
+	*l = v
+	return err
+}
 
 // Number is a song number. It travels as a JSON string of digits.
 type Number uint32
@@ -20,41 +86,41 @@ func (n Number) MarshalJSON() ([]byte, error) {
 func (n *Number) UnmarshalJSON(b []byte) error {
 	s, err := strconv.Unquote(string(b))
 	if err != nil {
-		return errNotNumber
+		return ErrNotNumber
 	}
 	v, err := strconv.ParseUint(s, 10, 32)
 	if err != nil || v == 0 || v > 9_999_999 {
-		return errNotNumber
+		return ErrNotNumber
 	}
 	*n = Number(v)
 	return nil
 }
 
-type transportDTO string
+type Transport string
 
-type originDTO struct {
+type Origin struct {
 	Kind    string  `json:"kind"`
 	Number  *Number `json:"number,omitempty"`
 	EntryID *uint64 `json:"entry_id,omitempty"`
 	Path    *string `json:"path,omitempty"`
 }
 
-type nowPlayingDTO struct {
-	Origin             originDTO `json:"origin"`
-	Title              string    `json:"title"`
-	Artist             *string   `json:"artist"`
-	Language           *string   `json:"language"`
-	Singer             *string   `json:"singer"`
-	Kind               string    `json:"kind"`
-	DurationMS         uint32    `json:"duration_ms"`
-	MelodyChannel      *uint8    `json:"melody_channel"`
-	MelodyAvailable    bool      `json:"melody_available"`
-	TransposeAvailable bool      `json:"transpose_available"`
-	TempoAvailable     bool      `json:"tempo_available"`
-	HasLyrics          bool      `json:"has_lyrics"`
+type NowPlaying struct {
+	Origin             Origin  `json:"origin"`
+	Title              string  `json:"title"`
+	Artist             *string `json:"artist"`
+	Language           *string `json:"language"`
+	Singer             *string `json:"singer"`
+	Kind               string  `json:"kind"`
+	DurationMS         uint32  `json:"duration_ms"`
+	MelodyChannel      *uint8  `json:"melody_channel"`
+	MelodyAvailable    bool    `json:"melody_available"`
+	TransposeAvailable bool    `json:"transpose_available"`
+	TempoAvailable     bool    `json:"tempo_available"`
+	HasLyrics          bool    `json:"has_lyrics"`
 }
 
-type settingsDTO struct {
+type Settings struct {
 	Transpose     int     `json:"transpose"`
 	TempoRatio    float64 `json:"tempo_ratio"`
 	MelodyEnabled bool    `json:"melody_enabled"`
@@ -62,7 +128,7 @@ type settingsDTO struct {
 	LyricOffsetMS int     `json:"lyric_offset_ms"`
 }
 
-type settingsPatchDTO struct {
+type SettingsPatch struct {
 	Transpose     *int     `json:"transpose"`
 	TempoRatio    *float64 `json:"tempo_ratio"`
 	MelodyEnabled *bool    `json:"melody_enabled"`
@@ -70,18 +136,18 @@ type settingsPatchDTO struct {
 	LyricOffsetMS *int     `json:"lyric_offset_ms"`
 }
 
-type stateDTO struct {
-	Transport  transportDTO   `json:"transport"`
-	NowPlaying *nowPlayingDTO `json:"now_playing"`
-	PositionMS uint32         `json:"position_ms"`
-	QueueLen   int            `json:"queue_len"`
-	Settings   settingsDTO    `json:"settings"`
+type State struct {
+	Transport  Transport   `json:"transport"`
+	NowPlaying *NowPlaying `json:"now_playing"`
+	PositionMS uint32      `json:"position_ms"`
+	QueueLen   int         `json:"queue_len"`
+	Settings   Settings    `json:"settings"`
 	// PlayerOnline is false while the unit is not connected, so a remote
 	// says the player is away rather than the server.
 	PlayerOnline bool `json:"player_online"`
 }
 
-type queueEntryDTO struct {
+type QueueEntry struct {
 	ID         uint64  `json:"id"`
 	Position   int     `json:"position"`
 	Number     Number  `json:"number"`
@@ -93,65 +159,65 @@ type queueEntryDTO struct {
 	Seat       *uint64 `json:"seat"`
 }
 
-type queueDTO struct {
-	Entries  []queueEntryDTO `json:"entries"`
-	Len      int             `json:"len"`
-	Capacity int             `json:"capacity"`
+type Queue struct {
+	Entries  []QueueEntry `json:"entries"`
+	Len      int          `json:"len"`
+	Capacity int          `json:"capacity"`
 }
 
-type addToQueueRequest struct {
+type AddToQueue struct {
 	Number Number `json:"number"`
 }
 
-type addedToQueueDTO struct {
+type AddedToQueue struct {
 	EntryID  uint64  `json:"entry_id"`
 	Position int     `json:"position"`
 	Title    string  `json:"title"`
 	Artist   *string `json:"artist"`
 }
 
-type moveRequest struct {
+type Move struct {
 	ToIndex int `json:"to_index"`
 }
 
-type singerDTO struct {
+type Singer struct {
 	ID    uint64  `json:"id"`
 	Name  *string `json:"name"`
 	Guest *uint32 `json:"guest"`
 	Phone bool    `json:"phone"`
 }
 
-type singersDTO struct {
-	Singers  []singerDTO `json:"singers"`
-	Capacity int         `json:"capacity"`
-	Evening  string      `json:"evening"`
+type Singers struct {
+	Singers  []Singer `json:"singers"`
+	Capacity int      `json:"capacity"`
+	Evening  string   `json:"evening"`
 }
 
-type registerSingerRequest struct {
+type RegisterSinger struct {
 	Device string  `json:"device"`
 	Name   *string `json:"name"`
 }
 
-type singerIssuedDTO struct {
-	Singer  singerDTO `json:"singer"`
-	Token   string    `json:"token"`
-	Evening string    `json:"evening"`
+type SingerIssued struct {
+	Singer  Singer `json:"singer"`
+	Token   string `json:"token"`
+	Evening string `json:"evening"`
 }
 
-type renameSingerRequest struct {
+type RenameSinger struct {
 	Token string `json:"token"`
 	Name  string `json:"name"`
 }
 
-type createSingerRequest struct {
+type CreateSinger struct {
 	Name *string `json:"name"`
 }
 
-type mergeSingerRequest struct {
+type MergeSinger struct {
 	Into uint64 `json:"into"`
 }
 
-type requestDTO struct {
+type Request struct {
 	ID         uint64  `json:"id"`
 	Singer     uint64  `json:"singer"`
 	Number     Number  `json:"number"`
@@ -163,52 +229,52 @@ type requestDTO struct {
 	Position   *int    `json:"position"`
 }
 
-type sungDTO struct {
+type Sung struct {
 	Number Number  `json:"number"`
 	Singer *uint64 `json:"singer"`
 }
 
-type requestsDTO struct {
-	Requests       []requestDTO `json:"requests"`
-	Capacity       int          `json:"capacity"`
-	Accepting      bool         `json:"accepting"`
-	Sung           []sungDTO    `json:"sung"`
-	WaitingForHost bool         `json:"waiting_for_host"`
+type Requests struct {
+	Requests       []Request `json:"requests"`
+	Capacity       int       `json:"capacity"`
+	Accepting      bool      `json:"accepting"`
+	Sung           []Sung    `json:"sung"`
+	WaitingForHost bool      `json:"waiting_for_host"`
 }
 
-type addRequest struct {
+type AddRequest struct {
 	Singer uint64 `json:"singer"`
 	Token  string `json:"token"`
 	Number Number `json:"number"`
 }
 
-type addSingerRequest struct {
+type AddSingerRequest struct {
 	Number Number `json:"number"`
 }
 
-type withdrawRequest struct {
+type Withdraw struct {
 	Token string `json:"token"`
 }
 
-type acceptRequest struct {
+type Accept struct {
 	Next bool `json:"next"`
 }
 
-type acceptingRequest struct {
+type Accepting struct {
 	Accepting bool `json:"accepting"`
 }
 
-type loginRequest struct {
+type Login struct {
 	Password string `json:"password"`
 }
 
-type accessGrantDTO struct {
+type AccessGrant struct {
 	Token         string `json:"token"`
 	ExpiresInSecs uint64 `json:"expires_in_secs"`
 	Access        Level  `json:"access"`
 }
 
-type accessDTO struct {
+type Access struct {
 	Access      Level `json:"access"`
 	Room        Level `json:"room"`
 	QueueCode   bool  `json:"queue_code"`
@@ -216,7 +282,7 @@ type accessDTO struct {
 	HostCode    bool  `json:"host_code"`
 }
 
-type discoveryDTO struct {
+type Discovery struct {
 	V               uint32   `json:"v"`
 	ID              string   `json:"id"`
 	Name            string   `json:"name"`
@@ -235,10 +301,10 @@ type discoveryDTO struct {
 	DebugEnabled   bool    `json:"debug_enabled"`
 	// Features lists the optional parts of the API a remote may offer. A
 	// remote that predates it reads every flag as true.
-	Features featuresDTO `json:"features"`
+	Features Features `json:"features"`
 }
 
-type featuresDTO struct {
+type Features struct {
 	// Demo: POST /demo/start plays a song of the server's choosing.
 	Demo bool `json:"demo"`
 	// SongBook: GET /songs/book.pdf answers with a song book.
@@ -247,7 +313,7 @@ type featuresDTO struct {
 	WebControl bool `json:"web_control"`
 }
 
-type songDTO struct {
+type Song struct {
 	Number           Number  `json:"number"`
 	Title            string  `json:"title"`
 	Artist           *string `json:"artist"`
@@ -260,7 +326,7 @@ type songDTO struct {
 	PackageID        string  `json:"package_id"`
 }
 
-type packageDTO struct {
+type Package struct {
 	ID          string   `json:"id"`
 	Name        string   `json:"name"`
 	Version     string   `json:"version"`
@@ -272,18 +338,18 @@ type packageDTO struct {
 	FlagNames   []string `json:"flag_names"`
 }
 
-type packagesDTO struct {
-	Packages  []packageDTO `json:"packages"`
-	SongCount int          `json:"song_count"`
+type Packages struct {
+	Packages  []Package `json:"packages"`
+	SongCount int       `json:"song_count"`
 }
 
-type errorDTO struct {
+type Error struct {
 	Error   string `json:"error"`
 	Message string `json:"message"`
 }
 
-// optString is a Rust Option<String>: nil for an empty string.
-func optString(s string) *string {
+// OptString is a Rust Option<String>: nil for an empty string.
+func OptString(s string) *string {
 	if s == "" {
 		return nil
 	}

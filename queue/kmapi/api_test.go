@@ -14,14 +14,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/rrgmc/ck-karaoke/queue/feeder"
+	"github.com/rrgmc/ck-karaoke/queue/kmapi/wire"
 )
 
 func TestAccessLevels(t *testing.T) {
 	r := newRig(t, Config{Room: Request, Codes: Codes{Queue: "1111", Control: "2222", Host: "3333"}})
 
-	var a accessDTO
+	var a wire.Access
 	r.ok(200, "GET", "/access", "", nil, &a)
-	assert.Equal(t, accessDTO{Access: Request, Room: Request, QueueCode: true, ControlCode: true, HostCode: true}, a)
+	assert.Equal(t, wire.Access{Access: Request, Room: Request, QueueCode: true, ControlCode: true, HostCode: true}, a)
 
 	tests := []struct {
 		name   string
@@ -47,7 +48,7 @@ func TestAccessLevels(t *testing.T) {
 			status, b := r.do(tt.method, tt.path, tt.token, tt.body)
 			assert.Equal(t, tt.status, status, string(b))
 			if status >= 400 && tt.path != "/events" {
-				var e errorDTO
+				var e wire.Error
 				require.NoError(t, json.Unmarshal(b, &e))
 				assert.NotEmpty(t, e.Error)
 			}
@@ -62,7 +63,7 @@ func TestAccessLevels(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	r := newRig(t, Config{Room: Request, Codes: Codes{Control: "2222"}})
-	var g accessGrantDTO
+	var g wire.AccessGrant
 	r.ok(200, "POST", "/login", "", map[string]any{"password": " 2222 "}, &g)
 	assert.Equal(t, Control, g.Access)
 	assert.Equal(t, uint64(12*60*60), g.ExpiresInSecs)
@@ -102,7 +103,7 @@ func TestExportPagesByNumber(t *testing.T) {
 		sc := bufio.NewScanner(resp.Body)
 		n := 0
 		for sc.Scan() {
-			var s songDTO
+			var s wire.Song
 			require.NoError(t, json.Unmarshal(sc.Bytes(), &s))
 			numbers = append(numbers, strings.Trim(string(must(json.Marshal(s.Number))), `"`))
 			n++
@@ -118,10 +119,10 @@ func TestExportPagesByNumber(t *testing.T) {
 	status, _ := r.do("GET", "/songs/export?after=abc", "", nil)
 	assert.Equal(t, 400, status)
 
-	var d discoveryDTO
+	var d wire.Discovery
 	r.ok(200, "GET", "/discover", "", nil, &d)
 	_, _ = r.srv.opts.Durations.Learn(1001, time.Minute)
-	var d2 discoveryDTO
+	var d2 wire.Discovery
 	r.ok(200, "GET", "/discover", "", nil, &d2)
 	assert.NotEqual(t, *d.CatalogVersion, *d2.CatalogVersion, "a learned length changes the version")
 }
@@ -148,11 +149,11 @@ func TestRequestsThroughTheAPI(t *testing.T) {
 	assert.Nil(t, second.EntryID)
 	r.ask(beto, "6541")
 
-	var q queueDTO
+	var q wire.Queue
 	r.ok(200, "GET", "/queue", "", nil, &q)
 	require.Len(t, q.Entries, 2)
-	assert.Equal(t, Number(1001), q.Entries[0].Number)
-	assert.Equal(t, Number(6541), q.Entries[1].Number, "Beto's turn comes before Ana's second")
+	assert.Equal(t, wire.Number(1001), q.Entries[0].Number)
+	assert.Equal(t, wire.Number(6541), q.Entries[1].Number, "Beto's turn comes before Ana's second")
 
 	status, b := r.do("POST", "/singers", "", map[string]any{"device": "other", "name": " ana "})
 	assert.Equal(t, 409, status)
@@ -165,16 +166,16 @@ func TestRequestsThroughTheAPI(t *testing.T) {
 	assert.Equal(t, 400, status, "a number is a string: %s", b)
 
 	host := r.login("3333")
-	var accepted requestDTO
+	var accepted wire.Request
 	r.ok(200, "POST", "/requests/"+itoa(second.ID)+"/accept", host, map[string]any{"next": true}, &accepted)
 	assert.Equal(t, "queued", accepted.State)
 	require.NotNil(t, accepted.Position)
 	assert.Equal(t, 0, *accepted.Position)
 
-	var rs requestsDTO
+	var rs wire.Requests
 	r.ok(200, "POST", "/evening/reset", host, nil, &rs)
 	assert.Empty(t, rs.Requests)
-	var singers singersDTO
+	var singers wire.Singers
 	r.ok(200, "GET", "/singers", "", nil, &singers)
 	assert.Empty(t, singers.Singers)
 	assert.NotEqual(t, ana.Evening, singers.Evening, "a new evening has a new word")
@@ -228,16 +229,16 @@ func TestPlayerOffline(t *testing.T) {
 	r.player.state = feeder.State{Connected: false}
 	r.player.mu.Unlock()
 
-	var st stateDTO
+	var st wire.State
 	r.ok(200, "GET", "/state", "", nil, &st)
 	assert.False(t, st.PlayerOnline)
 	status, b := r.do("POST", "/transport/play", "", nil)
 	assert.Equal(t, 409, status)
 	assert.Contains(t, string(b), `"player_offline"`)
 
-	var d discoveryDTO
+	var d wire.Discovery
 	r.ok(200, "GET", "/discover", "", nil, &d)
-	assert.Equal(t, featuresDTO{}, d.Features, "no demo, no song book, no web control page")
+	assert.Equal(t, wire.Features{}, d.Features, "no demo, no song book, no web control page")
 }
 
 // The stream sends the state at once, then the state on its ticker and the
