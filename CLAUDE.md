@@ -6,7 +6,8 @@ Guidance for Claude Code when working in this repository.
 
 CK Karaoke: a remote control for compatible karaoke units (Videoke VSK, CooKara,
 RafKara) over RakNet. A reusable Go library, one web UI, and native wrappers for
-Android, iOS and the desktop. Read [docs/BUILDING.md](docs/BUILDING.md) for the layout,
+Android, iOS and the desktop. The same code also builds CK Queue Remote, the
+guest app for the CK Queue Manager (`-backend queue`). Read [docs/BUILDING.md](docs/BUILDING.md) for the layout,
 [docs/PROTOCOL.md](docs/PROTOCOL.md) for the wire format and
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design rules.
 
@@ -82,6 +83,11 @@ tagging. Keep CI green.
 | macOS desktop | CI and locally | against a real unit |
 | iOS | CI (simulator, unsigned) and locally | on an iPad (6th generation) and the simulator against a real unit |
 | Linux desktop | CI | not yet |
+| CK Queue Remote, Android | CI and locally | not yet on a phone |
+| CK Queue Remote, iOS | CI (simulator, unsigned) | not yet |
+
+CK Queue Remote (`-backend queue`) has run on the desktop against a queue
+manager driving a real unit.
 
 Checked so far on macOS and iOS: the local network prompt, discovery (also when
 the prompt is answered late), the catalogue download and the device session.
