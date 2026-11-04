@@ -14,6 +14,7 @@ import (
 
 	"github.com/rrgmc/ck-karaoke/queue/fair"
 	"github.com/rrgmc/ck-karaoke/queue/feeder"
+	"github.com/rrgmc/ck-karaoke/queue/kmapi/wire"
 )
 
 // apiError is an answer other than success: a status and an ErrorDto.
@@ -85,7 +86,7 @@ func writeError(w http.ResponseWriter, err *apiError) {
 	if err.status == http.StatusUnauthorized {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="karaokemachine"`)
 	}
-	writeJSON(w, err.status, errorDTO{Error: err.code, Message: err.msg})
+	writeJSON(w, err.status, wire.Error{Error: err.code, Message: err.msg})
 }
 
 // handler is a route that answers a value or an error.
@@ -125,8 +126,8 @@ func (s *Server) routes() http.Handler {
 	route("GET /api/v1/discover", s.discover)
 	route("GET /api/v1/access", s.access)
 	route("POST /api/v1/login", s.login)
-	route("GET /api/v1/state", func(r *http.Request) (int, any, error) { return 200, s.stateDTO(r.Context()), nil })
-	route("GET /api/v1/settings", func(r *http.Request) (int, any, error) { return 200, s.stateDTO(r.Context()).Settings, nil })
+	route("GET /api/v1/state", func(r *http.Request) (int, any, error) { return 200, s.state(r.Context()), nil })
+	route("GET /api/v1/settings", func(r *http.Request) (int, any, error) { return 200, s.state(r.Context()).Settings, nil })
 	route("PUT /api/v1/settings", s.putSettings)
 	route("GET /api/v1/packages", s.packages)
 	mux.HandleFunc("GET /api/v1/songs/export", s.export)
@@ -138,7 +139,7 @@ func (s *Server) routes() http.Handler {
 	route("DELETE /api/v1/queue/{id}", s.removeEntry)
 	route("POST /api/v1/queue/{id}/move", s.moveEntry)
 
-	route("GET /api/v1/singers", func(*http.Request) (int, any, error) { return 200, s.singersDTO(), nil })
+	route("GET /api/v1/singers", func(*http.Request) (int, any, error) { return 200, s.singers(), nil })
 	route("POST /api/v1/singers", s.registerSinger)
 	route("POST /api/v1/singers/hosted", s.createSinger)
 	route("PUT /api/v1/singers/{id}/name", s.renameSinger)
@@ -148,7 +149,7 @@ func (s *Server) routes() http.Handler {
 	route("POST /api/v1/singers/{id}/requests", s.requestForSinger)
 
 	route("GET /api/v1/requests", s.getRequests)
-	route("POST /api/v1/requests", s.addRequest)
+	route("POST /api/v1/requests", s.postRequest)
 	route("POST /api/v1/requests/{id}/withdraw", s.withdraw)
 	route("POST /api/v1/requests/{id}/decline", s.decline)
 	route("POST /api/v1/requests/{id}/accept", s.accept)
@@ -231,11 +232,11 @@ func (s *Server) discover(r *http.Request) (int, any, error) {
 	cfg := s.config()
 	info := s.opts.Catalog.Info()
 	version := s.catalogVersion()
-	d := discoveryDTO{
+	d := wire.Discovery{
 		V: 1, ID: s.opts.ID, Name: cfg.Name, App: App, Version: s.opts.Version, API: "/api/v1",
 		Port: uint16(s.opts.Port), URLs: []string{}, SongCount: &info.Songs, CatalogVersion: &version,
 		// No demo, no song book, and the root page only says what this is.
-		Features: featuresDTO{},
+		Features: wire.Features{},
 	}
 	for _, ip := range s.opts.Addrs() {
 		d.URLs = append(d.URLs, fmt.Sprintf("http://%s:%d", ip, s.opts.Port))
@@ -251,14 +252,14 @@ func (s *Server) discover(r *http.Request) (int, any, error) {
 
 func (s *Server) access(r *http.Request) (int, any, error) {
 	room, codes := s.auth.snapshot()
-	return 200, accessDTO{
+	return 200, wire.Access{
 		Access: s.auth.callerLevel(bearer(r)), Room: room,
 		QueueCode: codes.Queue != "", ControlCode: codes.Control != "", HostCode: codes.Host != "",
 	}, nil
 }
 
 func (s *Server) login(r *http.Request) (int, any, error) {
-	var req loginRequest
+	var req wire.Login
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
@@ -273,7 +274,7 @@ func (s *Server) login(r *http.Request) (int, any, error) {
 		return 0, nil, &apiError{http.StatusUnauthorized, "unauthorized", err.Error()}
 	}
 	s.log.Info("a remote logged in", "level", level, "from", addr)
-	return 200, accessGrantDTO{Token: token, ExpiresInSecs: uint64(TokenTTL.Seconds()), Access: level}, nil
+	return 200, wire.AccessGrant{Token: token, ExpiresInSecs: uint64(TokenTTL.Seconds()), Access: level}, nil
 }
 
 // retryError is a 429 that says when to try again.
@@ -290,8 +291,8 @@ func (s *Server) packages(r *http.Request) (int, any, error) {
 	if name == "" {
 		name = "Karaoke unit"
 	}
-	return 200, packagesDTO{
-		Packages: []packageDTO{{
+	return 200, wire.Packages{
+		Packages: []wire.Package{{
 			ID: PackageID, Name: name, Version: strconv.Itoa(info.DBVersion), SongCount: info.Songs,
 			InstalledAt: "", FlagNames: []string{},
 		}},
@@ -312,7 +313,7 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 	}
 	after := 0
 	if v := r.URL.Query().Get("after"); v != "" {
-		var n Number
+		var n wire.Number
 		if err := n.UnmarshalJSON([]byte(strconv.Quote(strings.TrimSpace(v)))); err != nil {
 			writeError(w, badRequest("after is not a song number"))
 			return
@@ -345,7 +346,7 @@ func (s *Server) getQueue(*http.Request) (int, any, error) {
 }
 
 // song describes a requested number from the catalogue, or answers 404.
-func (s *Server) song(ctx context.Context, n Number) (fair.RequestedSong, error) {
+func (s *Server) song(ctx context.Context, n wire.Number) (fair.RequestedSong, error) {
 	c, err := s.opts.Catalog.Song(ctx, int(n))
 	if err != nil {
 		return fair.RequestedSong{}, notFound("song")
@@ -355,7 +356,7 @@ func (s *Server) song(ctx context.Context, n Number) (fair.RequestedSong, error)
 }
 
 func (s *Server) addToQueue(r *http.Request) (int, any, error) {
-	var req addToQueueRequest
+	var req wire.AddToQueue
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
@@ -363,13 +364,13 @@ func (s *Server) addToQueue(r *http.Request) (int, any, error) {
 	if err != nil {
 		return 0, nil, err
 	}
-	var out addedToQueueDTO
+	var out wire.AddedToQueue
 	s.opts.Room.Do(func(e *fair.Evening, _ time.Time) {
 		var id uint64
 		if id, err = e.Add(fair.Song{Number: song.Number, Title: song.Title, Artist: song.Artist,
 			DurationMS: song.DurationMS}); err == nil {
-			out = addedToQueueDTO{EntryID: id, Position: e.Queue().PositionOf(id), Title: song.Title,
-				Artist: optString(song.Artist)}
+			out = wire.AddedToQueue{EntryID: id, Position: e.Queue().PositionOf(id), Title: song.Title,
+				Artist: wire.OptString(song.Artist)}
 		}
 	})
 	if err != nil {
@@ -379,7 +380,7 @@ func (s *Server) addToQueue(r *http.Request) (int, any, error) {
 }
 
 func (s *Server) clearQueue(*http.Request) (int, any, error) {
-	var q queueDTO
+	var q wire.Queue
 	s.opts.Room.Do(func(e *fair.Evening, now time.Time) {
 		e.Clear(now)
 		q = queueOf(e)
@@ -392,7 +393,7 @@ func (s *Server) removeEntry(r *http.Request) (int, any, error) {
 	if err != nil {
 		return 0, nil, err
 	}
-	var q queueDTO
+	var q wire.Queue
 	found := false
 	s.opts.Room.Do(func(e *fair.Evening, now time.Time) {
 		_, found = e.Remove(id, now)
@@ -409,11 +410,11 @@ func (s *Server) moveEntry(r *http.Request) (int, any, error) {
 	if err != nil {
 		return 0, nil, err
 	}
-	var req moveRequest
+	var req wire.Move
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
-	var q queueDTO
+	var q wire.Queue
 	found := false
 	s.opts.Room.Do(func(e *fair.Evening, _ time.Time) {
 		found = e.MoveTo(id, req.ToIndex)
@@ -428,7 +429,7 @@ func (s *Server) moveEntry(r *http.Request) (int, any, error) {
 // Singers.
 
 func (s *Server) registerSinger(r *http.Request) (int, any, error) {
-	var req registerSingerRequest
+	var req wire.RegisterSinger
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
@@ -449,11 +450,11 @@ func (s *Server) registerSinger(r *http.Request) (int, any, error) {
 	}
 	s.log.Info("a singer registered", "singer", issued.Seat.ID)
 	s.publishSingers()
-	return http.StatusCreated, singerIssuedDTO{Singer: singerOf(issued.Seat), Token: issued.Token, Evening: s.Evening()}, nil
+	return http.StatusCreated, wire.SingerIssued{Singer: singerOf(issued.Seat), Token: issued.Token, Evening: s.Evening()}, nil
 }
 
 func (s *Server) createSinger(r *http.Request) (int, any, error) {
-	var req createSingerRequest
+	var req wire.CreateSinger
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
@@ -478,7 +479,7 @@ func (s *Server) renameSinger(r *http.Request) (int, any, error) {
 	if err != nil {
 		return 0, nil, err
 	}
-	var req renameSingerRequest
+	var req wire.RenameSinger
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
@@ -506,7 +507,7 @@ func (s *Server) removeSinger(r *http.Request) (int, any, error) {
 }
 
 func (s *Server) mergeSinger(r *http.Request) (int, any, error) {
-	var req mergeSingerRequest
+	var req wire.MergeSinger
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
@@ -536,13 +537,13 @@ func (s *Server) getRequests(*http.Request) (int, any, error) {
 	return 200, rs, nil
 }
 
-func (s *Server) ask(ctx context.Context, seat uint64, proof fair.Proof, n Number) (int, any, error) {
+func (s *Server) ask(ctx context.Context, seat uint64, proof fair.Proof, n wire.Number) (int, any, error) {
 	song, err := s.song(ctx, n)
 	if err != nil {
 		return 0, nil, err
 	}
 	rules := s.config().Rules
-	var out requestDTO
+	var out wire.Request
 	s.opts.Room.Do(func(e *fair.Evening, now time.Time) {
 		var req fair.Request
 		if req, err = e.Request(seat, proof, song, rules, now); err == nil {
@@ -555,8 +556,8 @@ func (s *Server) ask(ctx context.Context, seat uint64, proof fair.Proof, n Numbe
 	return http.StatusCreated, out, nil
 }
 
-func (s *Server) addRequest(r *http.Request) (int, any, error) {
-	var req addRequest
+func (s *Server) postRequest(r *http.Request) (int, any, error) {
+	var req wire.AddRequest
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
@@ -568,7 +569,7 @@ func (s *Server) requestForSinger(r *http.Request) (int, any, error) {
 	if err != nil {
 		return 0, nil, err
 	}
-	var req addSingerRequest
+	var req wire.AddSingerRequest
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
@@ -580,7 +581,7 @@ func (s *Server) requestAction(r *http.Request, fn func(*fair.Evening, uint64, t
 	if err != nil {
 		return 0, nil, err
 	}
-	var out requestDTO
+	var out wire.Request
 	s.opts.Room.Do(func(e *fair.Evening, now time.Time) {
 		var req fair.Request
 		if req, err = fn(e, id, now); err == nil {
@@ -594,7 +595,7 @@ func (s *Server) requestAction(r *http.Request, fn func(*fair.Evening, uint64, t
 }
 
 func (s *Server) withdraw(r *http.Request) (int, any, error) {
-	var req withdrawRequest
+	var req wire.Withdraw
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
@@ -610,7 +611,7 @@ func (s *Server) decline(r *http.Request) (int, any, error) {
 }
 
 func (s *Server) accept(r *http.Request) (int, any, error) {
-	var req acceptRequest
+	var req wire.Accept
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
@@ -620,7 +621,7 @@ func (s *Server) accept(r *http.Request) (int, any, error) {
 }
 
 func (s *Server) setAccepting(r *http.Request) (int, any, error) {
-	var req acceptingRequest
+	var req wire.Accepting
 	if err := decode(r, &req); err != nil {
 		return 0, nil, err
 	}
@@ -692,7 +693,7 @@ func (s *Server) transport(verb string) handler {
 		if err != nil {
 			return 0, nil, err
 		}
-		return 200, s.stateDTO(ctx), nil
+		return 200, s.state(ctx), nil
 	}
 }
 
@@ -703,7 +704,7 @@ func (s *Server) setLastCommand(c string) {
 }
 
 func (s *Server) putSettings(r *http.Request) (int, any, error) {
-	var p settingsPatchDTO
+	var p wire.SettingsPatch
 	if err := decode(r, &p); err != nil {
 		return 0, nil, err
 	}
@@ -740,8 +741,8 @@ func (s *Server) putSettings(r *http.Request) (int, any, error) {
 
 // expectSettings is the settings as the patch leaves them. The unit reports
 // the change in its next status, up to two seconds later.
-func (s *Server) expectSettings(p settingsPatchDTO) settingsDTO {
-	cur := s.stateDTO(context.Background()).Settings
+func (s *Server) expectSettings(p wire.SettingsPatch) wire.Settings {
+	cur := s.state(context.Background()).Settings
 	if p.Transpose != nil {
 		cur.Transpose = *p.Transpose
 	}

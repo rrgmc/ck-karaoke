@@ -9,7 +9,6 @@ package kmapi
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net"
 	"strconv"
@@ -19,6 +18,7 @@ import (
 	"github.com/rrgmc/ck-karaoke/catalog"
 	"github.com/rrgmc/ck-karaoke/queue/fair"
 	"github.com/rrgmc/ck-karaoke/queue/feeder"
+	"github.com/rrgmc/ck-karaoke/queue/kmapi/wire"
 )
 
 // DefaultPort is KaraokeMachine's port. The iOS remote finds a machine by
@@ -34,8 +34,6 @@ const PackageID = "ck"
 // StateInterval is how often the state event goes out. KM Remote reconnects
 // after five seconds without a frame.
 const StateInterval = 250 * time.Millisecond
-
-var errNotNumber = errors.New("not a song number")
 
 // Player is the unit, as the feeder drives it.
 type Player interface {
@@ -192,7 +190,7 @@ func (s *Server) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
-			s.hub.publish(event{"event": "state", "state": s.stateDTO(ctx)})
+			s.hub.publish(event{"event": "state", "state": s.state(ctx)})
 		case <-changed:
 			s.publishQueue()
 		}
@@ -238,27 +236,27 @@ func (s *Server) publishQueue() {
 }
 
 func (s *Server) publishSingers() {
-	s.hub.publish(event{"event": "singers_changed", "singers": s.singersDTO()})
+	s.hub.publish(event{"event": "singers_changed", "singers": s.singers()})
 }
 
-// stateDTO is the whole state in one read.
-func (s *Server) stateDTO(ctx context.Context) stateDTO {
+// wire.State is the whole state in one read.
+func (s *Server) state(ctx context.Context) wire.State {
 	st := s.opts.Player.State()
-	out := stateDTO{
-		Transport:    transportDTO(feeder.Idle),
+	out := wire.State{
+		Transport:    wire.Transport(feeder.Idle),
 		PlayerOnline: st.Connected,
-		Settings: settingsDTO{
+		Settings: wire.Settings{
 			Transpose:   st.Key,
 			TempoRatio:  feeder.TempoRatio(st.TempoSteps),
 			MusicVolume: float64(st.Volume) / 100,
 		},
 	}
 	if !st.Connected {
-		out.Settings = settingsDTO{TempoRatio: 1, MusicVolume: 1}
+		out.Settings = wire.Settings{TempoRatio: 1, MusicVolume: 1}
 	}
 	s.opts.Room.View(func(e *fair.Evening, _ time.Time) { out.QueueLen = e.Queue().Len() })
 	if st.Connected {
-		out.Transport = transportDTO(st.Transport)
+		out.Transport = wire.Transport(st.Transport)
 		if st.Song != nil {
 			out.NowPlaying = s.nowPlaying(ctx, st.Song)
 			out.PositionMS = uint32(max(st.Position.Milliseconds(), 0))
@@ -271,26 +269,26 @@ func (s *Server) stateDTO(ctx context.Context) stateDTO {
 }
 
 // nowPlaying describes the playing song.
-func (s *Server) nowPlaying(ctx context.Context, song *feeder.Song) *nowPlayingDTO {
-	np := &nowPlayingDTO{
+func (s *Server) nowPlaying(ctx context.Context, song *feeder.Song) *wire.NowPlaying {
+	np := &wire.NowPlaying{
 		Title: song.Title, Kind: "midi", DurationMS: s.opts.Durations.Get(song.Number),
 		TransposeAvailable: true, TempoAvailable: true, HasLyrics: true,
 	}
 	if song.Number != 0 {
 		if c, ok := s.lookup(ctx, song.Number); ok {
-			np.Title, np.Artist, np.Language = c.Title, optString(c.Artist), languageCode(c.Language)
+			np.Title, np.Artist, np.Language = c.Title, wire.OptString(c.Artist), languageCode(c.Language)
 		}
 	}
 	if song.Entry != nil {
-		n, id := Number(song.Number), song.Entry.ID
-		np.Origin = originDTO{Kind: "catalog", Number: &n, EntryID: &id}
-		np.Singer = optString(song.Entry.Singer)
+		n, id := wire.Number(song.Number), song.Entry.ID
+		np.Origin = wire.Origin{Kind: "catalog", Number: &n, EntryID: &id}
+		np.Singer = wire.OptString(song.Entry.Singer)
 	} else {
 		// A song the evening did not hold: played from the unit's own remote,
 		// or already playing when the session opened. "catalog" needs an
 		// entry, so it is reported as a file.
 		path := "unit:" + strconv.FormatUint(uint64(song.Number), 10)
-		np.Origin = originDTO{Kind: "file", Path: &path}
+		np.Origin = wire.Origin{Kind: "file", Path: &path}
 	}
 	return np
 }
@@ -316,9 +314,9 @@ func (s *Server) lookup(ctx context.Context, number uint32) (catalog.Song, bool)
 }
 
 // queueAndRequests reads the queue and the requests together.
-func (s *Server) queueAndRequests() (queueDTO, requestsDTO) {
-	var q queueDTO
-	var r requestsDTO
+func (s *Server) queueAndRequests() (wire.Queue, wire.Requests) {
+	var q wire.Queue
+	var r wire.Requests
 	s.opts.Room.View(func(e *fair.Evening, now time.Time) {
 		q = queueOf(e)
 		r = s.requestsOf(e, now)
@@ -326,15 +324,15 @@ func (s *Server) queueAndRequests() (queueDTO, requestsDTO) {
 	return q, r
 }
 
-func queueOf(e *fair.Evening) queueDTO {
+func queueOf(e *fair.Evening) wire.Queue {
 	entries := e.Queue().Entries()
-	q := queueDTO{Entries: make([]queueEntryDTO, 0, len(entries)), Len: len(entries), Capacity: fair.MaxQueued}
+	q := wire.Queue{Entries: make([]wire.QueueEntry, 0, len(entries)), Len: len(entries), Capacity: fair.MaxQueued}
 	var ahead uint64
 	known := true
 	for i, en := range entries {
-		d := queueEntryDTO{
-			ID: en.ID, Position: i, Number: Number(en.Number), Title: en.Title,
-			Artist: optString(en.Artist), Singer: optString(en.Singer), DurationMS: en.DurationMS,
+		d := wire.QueueEntry{
+			ID: en.ID, Position: i, Number: wire.Number(en.Number), Title: en.Title,
+			Artist: wire.OptString(en.Artist), Singer: wire.OptString(en.Singer), DurationMS: en.DurationMS,
 			Seat: en.Seat,
 		}
 		// The wait is the sum of the lengths ahead, and unknown once one of
@@ -352,24 +350,24 @@ func queueOf(e *fair.Evening) queueDTO {
 	return q
 }
 
-func (s *Server) requestsOf(e *fair.Evening, now time.Time) requestsDTO {
+func (s *Server) requestsOf(e *fair.Evening, now time.Time) wire.Requests {
 	reqs := e.Requests(now)
-	out := requestsDTO{
-		Requests: make([]requestDTO, 0, len(reqs)), Capacity: fair.MaxRequests,
-		Accepting: e.Accepting(), Sung: []sungDTO{}, WaitingForHost: s.WaitingForHost(),
+	out := wire.Requests{
+		Requests: make([]wire.Request, 0, len(reqs)), Capacity: fair.MaxRequests,
+		Accepting: e.Accepting(), Sung: []wire.Sung{}, WaitingForHost: s.WaitingForHost(),
 	}
 	for _, r := range reqs {
 		out.Requests = append(out.Requests, requestOf(e, r))
 	}
 	for _, sung := range e.Sung() {
-		out.Sung = append(out.Sung, sungDTO{Number: Number(sung.Number), Singer: sung.Seat})
+		out.Sung = append(out.Sung, wire.Sung{Number: wire.Number(sung.Number), Singer: sung.Seat})
 	}
 	return out
 }
 
-func requestOf(e *fair.Evening, r fair.Request) requestDTO {
-	d := requestDTO{
-		ID: r.ID, Singer: r.Seat, Number: Number(r.Number), Title: r.Title, Artist: optString(r.Artist),
+func requestOf(e *fair.Evening, r fair.Request) wire.Request {
+	d := wire.Request{
+		ID: r.ID, Singer: r.Seat, Number: wire.Number(r.Number), Title: r.Title, Artist: wire.OptString(r.Artist),
 		DurationMS: r.DurationMS, State: string(r.State), EntryID: r.Entry,
 	}
 	if r.State == fair.Queued && r.Entry != nil {
@@ -380,8 +378,8 @@ func requestOf(e *fair.Evening, r fair.Request) requestDTO {
 	return d
 }
 
-func (s *Server) singersDTO() singersDTO {
-	out := singersDTO{Singers: []singerDTO{}, Capacity: fair.MaxSeats, Evening: s.Evening()}
+func (s *Server) singers() wire.Singers {
+	out := wire.Singers{Singers: []wire.Singer{}, Capacity: fair.MaxSeats, Evening: s.Evening()}
 	s.opts.Room.View(func(e *fair.Evening, _ time.Time) {
 		for _, seat := range e.Seats().All() {
 			out.Singers = append(out.Singers, singerOf(seat))
@@ -390,8 +388,8 @@ func (s *Server) singersDTO() singersDTO {
 	return out
 }
 
-func singerOf(seat fair.Seat) singerDTO {
-	d := singerDTO{ID: seat.ID, Name: optString(seat.Name), Phone: seat.Phone}
+func singerOf(seat fair.Seat) wire.Singer {
+	d := wire.Singer{ID: seat.ID, Name: wire.OptString(seat.Name), Phone: seat.Phone}
 	if seat.Guest != 0 {
 		g := seat.Guest
 		d.Guest = &g
@@ -405,9 +403,9 @@ func (s *Server) catalogVersion() uint64 {
 	return uint64(s.opts.Catalog.Info().DBVersion)<<32 | uint64(s.opts.Durations.Len())
 }
 
-func (s *Server) songOf(c catalog.Song) songDTO {
-	return songDTO{
-		Number: Number(c.ID), Title: c.Title, Artist: optString(c.Artist), Language: languageCode(c.Language),
+func (s *Server) songOf(c catalog.Song) wire.Song {
+	return wire.Song{
+		Number: wire.Number(c.ID), Title: c.Title, Artist: wire.OptString(c.Artist), Language: languageCode(c.Language),
 		Kind: "midi", DurationMS: s.opts.Durations.Get(uint32(c.ID)), PackageID: PackageID,
 	}
 }

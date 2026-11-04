@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,59 +12,25 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rrgmc/ck-karaoke/queue/kmapi/wire"
 )
 
-// Level is an access level. The levels are ordered: a caller may do whatever
-// its level or a lower one allows.
-type Level int
+// Level is an access level; see wire.Level.
+type Level = wire.Level
 
+// The access levels, lowest first.
 const (
-	// View reads the catalogue, the queue and the state.
-	View Level = iota
-	// Request registers a singer, names one, asks for a song and withdraws one.
-	Request
-	// Queue adds a song with no singer and changes key, tempo and volume.
-	Queue
-	// Control interrupts: transport, moving or removing any entry, clearing.
-	Control
-	// Host runs the night: accepts and declines requests, acts for a singer,
-	// creates, removes and merges singers, opens and closes requests, starts
-	// a new evening.
-	Host
-	// Admin is never granted here; the queue manager has no admin routes.
-	Admin
+	View    = wire.LevelView
+	Request = wire.LevelRequest
+	Queue   = wire.LevelQueue
+	Control = wire.LevelControl
+	Host    = wire.LevelHost
+	Admin   = wire.LevelAdmin
 )
-
-var levelNames = []string{"view", "request", "queue", "control", "host", "admin"}
-
-func (l Level) String() string {
-	if l < 0 || int(l) >= len(levelNames) {
-		return "view"
-	}
-	return levelNames[l]
-}
 
 // ParseLevel reads a level's name.
-func ParseLevel(s string) (Level, error) {
-	for i, n := range levelNames {
-		if n == s {
-			return Level(i), nil
-		}
-	}
-	return View, fmt.Errorf("unknown access level %q", s)
-}
-
-func (l Level) MarshalJSON() ([]byte, error) { return json.Marshal(l.String()) }
-
-func (l *Level) UnmarshalJSON(b []byte) error {
-	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
-	}
-	v, err := ParseLevel(s)
-	*l = v
-	return err
-}
+func ParseLevel(s string) (Level, error) { return wire.ParseLevel(s) }
 
 // Room levels: what everybody gets without a code. Host and Admin are never
 // room levels.
