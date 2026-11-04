@@ -83,7 +83,7 @@ tagging. Keep CI green.
 | macOS desktop | CI and locally | against a real unit |
 | iOS | CI (simulator, unsigned) and locally | on an iPad (6th generation) and the simulator against a real unit |
 | Linux desktop | CI | not yet |
-| CK Queue Remote, Android | CI and locally | not yet on a phone |
+| CK Queue Remote, Android | CI and locally | on a Galaxy S23 against a queue manager |
 | CK Queue Remote, iOS | CI (simulator, unsigned) | not yet |
 
 CK Queue Remote (`-backend queue`) has run on the desktop against a queue

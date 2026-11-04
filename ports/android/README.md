@@ -47,8 +47,11 @@ manager.
 `unit` keeps the original application id, so it installs over earlier
 releases and keeps their favorites. `src/queue/res` holds what differs for the
 queue app: its name, its startup and notification text, and the icon's
-background. The queue app also holds a WiFi multicast lock while it runs,
-because the server finds the queue manager by mDNS.
+background. The queue app finds the queue manager by trying port 8177 on
+every host of the network (`-sweep`), not by mDNS: an app may not list the
+network interfaces, so the Go server has none to join. For the same reason
+the app reads the network's address and prefix from `ConnectivityManager` and
+passes them with `-sweep-net`.
 
 Outputs are `app/build/outputs/apk/<flavor>/<debug|release>/app-<flavor>-<type>.apk`
 and `app/build/outputs/bundle/<flavor>Release/app-<flavor>-release.aab`.

@@ -8,7 +8,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
-import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -73,7 +72,6 @@ class ServerService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        holdMulticast()
         Server.start(this, intent?.getStringExtra(EXTRA_ADDRESS))
         cancelGrace()
 
@@ -103,26 +101,7 @@ class ServerService : Service() {
         cancelGrace()
         if (instance === this) instance = null
         Server.stop()
-        multicast?.let { if (it.isHeld) it.release() }
-        multicast = null
         super.onDestroy()
-    }
-
-    /**
-     * CK Queue Remote finds the queue manager by mDNS, and Android's WiFi
-     * driver drops multicast it receives unless an app holds this lock. The
-     * lock covers the server's process, which runs as this app. CK Karaoke
-     * finds the unit by broadcast, which needs no lock.
-     */
-    private var multicast: WifiManager.MulticastLock? = null
-
-    private fun holdMulticast() {
-        if (BuildConfig.BACKEND != "queue" || multicast != null) return
-        val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager? ?: return
-        multicast = wifi.createMulticastLock("ckqueueremote-mdns").apply {
-            setReferenceCounted(false)
-            acquire()
-        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

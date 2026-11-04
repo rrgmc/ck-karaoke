@@ -132,7 +132,10 @@ func findQueueManager(ctx context.Context, cfg Config, logger *slog.Logger) (str
 	search := remote.Browse
 	timeout := queueSearch
 	if cfg.QueueSweep {
-		search, timeout = remote.Sweep, queueSweep
+		search = func(ctx context.Context, t time.Duration) ([]remote.Found, error) {
+			return remote.SweepNetworks(ctx, t, cfg.SweepNetworks)
+		}
+		timeout = queueSweep
 	}
 	if cfg.DiscoverTimeout > 0 {
 		timeout = cfg.DiscoverTimeout

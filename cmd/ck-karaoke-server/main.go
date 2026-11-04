@@ -59,7 +59,8 @@ func main() {
 func run(ctx context.Context) error {
 	var (
 		backend  = flag.String("backend", server.BackendUnit, `what to drive: "unit", the karaoke device, or "queue", a CK Queue Manager (CK Queue Remote)`)
-		sweep    = flag.Bool("sweep", false, "with -backend queue, find the queue manager by trying port 8177 on every local host, as the iOS app does, rather than by mDNS")
+		sweep    = flag.Bool("sweep", false, "with -backend queue, find the queue manager by trying port 8177 on every local host, as the phone apps do, rather than by mDNS")
+		sweepNet = flag.String("sweep-net", "", "with -sweep, the networks to walk, comma-separated, each this machine's address and prefix such as 192.168.1.20/24; this machine's interfaces if empty")
 		addr     = flag.String("addr", "", "karaoke device address, or the queue manager's with -backend queue; found on the network if empty")
 		discTO   = flag.Duration("discover-timeout", client.DefaultDiscoverTimeout, "how long to listen for a device when -addr is not given")
 		listen   = flag.String("listen", ":8080", "address to serve on")
@@ -100,9 +101,15 @@ func run(ctx context.Context) error {
 		}
 	}
 
+	sweepNets, err := client.ParseNetworks(*sweepNet)
+	if err != nil {
+		return fmt.Errorf("-sweep-net: %w", err)
+	}
+
 	cfg := server.Config{
 		Backend:           *backend,
 		QueueSweep:        *sweep,
+		SweepNetworks:     sweepNets,
 		Addr:              *addr,
 		DiscoverTimeout:   *discTO,
 		Listen:            *listen,

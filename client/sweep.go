@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -183,10 +184,7 @@ func LocalHosts() ([]net.IP, error) {
 		return nil, fmt.Errorf("listing interfaces to sweep: %w", err)
 	}
 
-	var (
-		targets []net.IP
-		seen    = map[string]bool{}
-	)
+	var nets []*net.IPNet
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
 			continue
@@ -196,21 +194,53 @@ func LocalHosts() ([]net.IP, error) {
 			continue
 		}
 		for _, a := range addrs {
-			ipnet, ok := a.(*net.IPNet)
-			if !ok {
-				continue
-			}
-			for _, ip := range subnetHosts(ipnet) {
-				s := ip.String()
-				if seen[s] {
-					continue
-				}
-				seen[s] = true
-				targets = append(targets, ip)
+			if ipnet, ok := a.(*net.IPNet); ok {
+				nets = append(nets, ipnet)
 			}
 		}
 	}
-	return targets, nil
+	return NetworkHosts(nets), nil
+}
+
+// NetworkHosts lists the addresses on the given IPv4 networks as LocalHosts
+// does, for each network outwards from its IP, which is this machine's own
+// address there. A network wider than MaxSweepHosts is left out.
+func NetworkHosts(nets []*net.IPNet) []net.IP {
+	var (
+		targets []net.IP
+		seen    = map[string]bool{}
+	)
+	for _, n := range nets {
+		for _, ip := range subnetHosts(n) {
+			s := ip.String()
+			if seen[s] {
+				continue
+			}
+			seen[s] = true
+			targets = append(targets, ip)
+		}
+	}
+	return targets
+}
+
+// ParseNetworks reads a comma-separated list of networks written as this
+// machine's address and the prefix length, such as "192.168.1.20/24". The
+// address is kept as given, not reduced to the network's first address, so
+// NetworkHosts can walk outwards from it.
+func ParseNetworks(s string) ([]*net.IPNet, error) {
+	var nets []*net.IPNet
+	for part := range strings.SplitSeq(s, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		ip, n, err := net.ParseCIDR(part)
+		if err != nil {
+			return nil, err
+		}
+		nets = append(nets, &net.IPNet{IP: ip, Mask: n.Mask})
+	}
+	return nets, nil
 }
 
 // subnetHosts returns the pingable addresses of an IPv4 network, ordered

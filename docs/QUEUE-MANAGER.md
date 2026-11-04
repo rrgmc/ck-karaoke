@@ -128,5 +128,7 @@ go run ./cmd/ck-queue-manager -v
 go run ./cmd/ck-karaoke-server -backend queue -v
 ```
 
-`-sweep` finds the queue manager the way the iOS app does, by port 8177
-instead of mDNS. The remote keeps its data in `data-queue/`.
+`-sweep` finds the queue manager the way the phone apps do, by port 8177
+instead of mDNS. `-sweep-net 192.168.1.20/24` names the networks to walk
+instead of this machine's interfaces. The remote keeps its data in
+`data-queue/`.
