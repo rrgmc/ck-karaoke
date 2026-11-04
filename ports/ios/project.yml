@@ -29,6 +29,12 @@ targetTemplates:
     platform: iOS
     sources:
       - path: CKKaraoke
+        # CKKaraoke's generated Info.plist lives in this folder. XcodeGen
+        # leaves a target's own Info.plist out of its resources, but not
+        # another target's, so CKQueueRemote would copy it in beside its own
+        # and the build fails with "Multiple commands produce Info.plist".
+        excludes:
+          - Info.plist
     dependencies:
       # A static archive: the Go runtime is linked into the app binary, not
       # embedded as a separate framework.
