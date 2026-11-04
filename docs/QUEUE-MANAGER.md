@@ -4,7 +4,7 @@ The queue manager is a server that holds the only session with the karaoke
 unit. It keeps the song queue, with an optional fair order, and feeds the unit
 one song ahead. It serves KaraokeMachine's HTTP API, so KM Remote connects to
 it unchanged. Its own page is for configuration and for the operator; people
-queue songs with KM Remote.
+queue songs with CK Queue Remote or KM Remote.
 
 The design and the measurements behind it are in
 [QUEUE-MANAGER-STUDY.md](QUEUE-MANAGER-STUDY.md).
@@ -93,3 +93,40 @@ the unit. Both are open at the `view` level, like every `GET`.
 A KaraokeMachine answers both with 404 `unknown_endpoint`, so a remote that
 gets a `CKCatalog` knows it has found a CK Queue Manager. `/discover` cannot
 tell them apart: both report `app: "karaokemachine"`.
+
+## CK Queue Remote
+
+CK Queue Remote is the guest remote for the queue manager. It is CK Karaoke's
+own code built with the queue backend, as
+[ARCHITECTURE.md](ARCHITECTURE.md#two-backends-two-apps) describes, so it has
+the same song list, search and favorites.
+
+It replaces KM Remote for a CK Queue Manager because KM Remote keeps one
+favorites list for every machine it connects to. The song numbers of a
+KaraokeMachine and of a CK unit are unrelated, so a phone used with both mixes
+two numberings in one list. CK Queue Remote keys favorites by the unit's
+`SongIndex`, like CK Karaoke, and keeps them apart from CK Karaoke's.
+
+What it offers, by the phone's access level. Each level includes the ones
+above it.
+
+| Level | Pages |
+|---|---|
+| `view` | Songs, Now and Queue, read only. |
+| `request` | Request a song as this phone's singer, name the singer, and see or withdraw the singer's songs on **My songs**. |
+| `control` | Transport, and removing or moving queue entries. |
+| `host` | The **Host** page: accept or decline waiting requests, open or close requests, add or remove singers, and start a new evening. |
+
+The **Setup** page shows the queue manager in use and the ones found, takes a
+typed address, and takes an access code. The code raises the phone's level
+until the host changes it.
+
+To try it on one machine, run the queue manager and the remote side by side:
+
+```bash
+go run ./cmd/ck-queue-manager -v
+go run ./cmd/ck-karaoke-server -backend queue -v
+```
+
+`-sweep` finds the queue manager the way the iOS app does, by port 8177
+instead of mDNS. The remote keeps its data in `data-queue/`.

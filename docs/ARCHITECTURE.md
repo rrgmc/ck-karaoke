@@ -13,9 +13,11 @@ ports/android   ports/ios   ports/desktop   cmd/ck-karaoke-server
                             |
                           webui ---- favorites (+ qrshare, xmlbackup)
                             |
-                 client ----+---- catalog
-                    |
-                 protocol
+             unit backend --+-- queue backend (queue/remote)
+                  |         |         |
+               client ---- catalog   queue/kmclient
+                  |
+               protocol
 ```
 
 - `protocol` is the wire format and nothing else. It has two layers: `Frame` is
@@ -28,13 +30,67 @@ ports/android   ports/ios   ports/desktop   cmd/ck-karaoke-server
   `protocol/command.go` and, optionally, a typed method on `client.Client`.
 - `client` owns one RakNet session. `catalog` is a read-only view of the song
   database the device sends. `favorites` is a separate SQLite file the app owns.
-- `webui` serves htmx pages and one server-sent event stream, and holds the
-  long-lived device session in `webui.Device`.
+- `webui` serves htmx pages and one server-sent event stream. The pages drive
+  a `webui.Backend`: the unit's long-lived session in `webui.Device`, or a CK
+  Queue Manager through `queue/remote`.
 - `server` assembles everything from a `server.Config`.
 - `i18n` holds the translations that `webui` and `ports/desktop` use.
 - `queue/...` is a second, separate server: the queue manager, which owns the
   unit's queue and serves KaraokeMachine's API. It shares `protocol`, `client`
   and `catalog` and nothing else; see [QUEUE-MANAGER.md](QUEUE-MANAGER.md).
+
+## Two backends, two apps
+
+The same pages drive either the karaoke unit or a CK Queue Manager. They talk
+to a `webui.Backend`, never to the unit directly:
+
+- **The unit backend** (`webui.UnitBackend`) adapts `webui.Device`. Its
+  capabilities are the zero value of `webui.Capabilities`.
+- **The queue backend** (`queue/remote.Backend`) uses KaraokeMachine's API
+  through `queue/kmclient`. It sets `Requests` and `EntryIDs`, and sets
+  `NoMixer` and `NoCutAhead` to hide what the queue manager does not offer.
+
+**Templates read capabilities, never the build.** A tab or a button appears
+because the backend can do it. The optional interfaces `webui.Setup`,
+`webui.Singer` and `webui.Host` add the Setup, My songs and Host pages; the
+unit backend implements none of them. Backend errors arrive as the sentinel
+errors in `webui/backend.go`, so the pages translate them once.
+
+`server.Config.Backend` picks the backend: `unit`, the default, or `queue`.
+It is fixed at build time, so each backend is its own app:
+
+| App | Backend | Android id | iOS target |
+|---|---|---|---|
+| CK Karaoke | `unit` | `com.rrgmc.ckkaraoke` (flavor `unit`) | `CKKaraoke` |
+| CK Queue Remote | `queue` | `com.rrgmc.ckqueueremote` (flavor `queue`) | `CKQueueRemote` |
+
+**CK Queue Remote is a separate app, not a mode.** The unit and the queue
+manager are always on the same network. A mode could fall back to the unit
+when the queue manager is slow to answer, and a guest could switch to it. Both
+would put songs on the unit around the fair queue. The queue build has no code
+path that dials the unit.
+
+Each app keeps its own data directory, so favorites stay apart. Both key songs
+by the unit's `SongIndex`, so a folder moves between them by QR code or
+backup.
+
+The queue backend:
+
+- **finds the queue manager** at the remembered address first, then by mDNS
+  (`_karaokemachine._tcp`). On iOS it sweeps port 8177 on the local subnets
+  instead (`remote.Sweep`), because mDNS from Go needs the multicast
+  entitlement. It accepts only a server that answers `/api/v1/ck/catalog`.
+- **downloads the catalogue** from the queue manager as the unit's raw
+  `song.db`, only when its SHA-256 differs from the local file, and checks it
+  with `catalog.Verify` before moving it into place.
+- **keeps its access token** in `access.json` and the singer's seat in
+  `singer.json`, beside the catalogue, keyed by the queue manager's id. The
+  file holds them because the web view's cookies do not survive every
+  reinstall.
+
+Android passes `-backend queue` from `BuildConfig.BACKEND`, and the queue
+flavor holds a multicast lock for mDNS. iOS sets `CKBackend` in each target's
+Info.plist, and `Server.swift` passes it to the bridge as `CK_BACKEND`.
 
 ## Translations
 

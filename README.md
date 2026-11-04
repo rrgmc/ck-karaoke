@@ -55,6 +55,15 @@ song queue and lets KaraokeMachine's KM Remote control the unit (see
 | macOS 11 or later | `ck-queue-manager-<version>-macos-universal.dmg` | Drag the app to Applications. It appears in the menu bar, not the Dock. Allow it to find devices on your local network. |
 | Linux | `ck-queue-manager-<version>-linux-amd64.deb` | Install it with `sudo apt install ./ck-queue-manager-<version>-linux-amd64.deb`. The desktop needs a tray (on GNOME, the AppIndicator extension). |
 
+Guests use **CK Queue Remote** with the queue manager. It is CK Karaoke with
+the same song list and favorites, but it sends songs to the queue manager as
+requests, never to the unit. Its favorites are kept apart from CK Karaoke's.
+
+| Platform | File | Notes |
+|---|---|---|
+| Android 8 or later | `ck-queue-remote-<version>-android.apk` | Installs beside CK Karaoke. |
+| iPhone and iPad, iOS 15 or later | `ck-queue-remote-<version>-ios-unsigned.ipa` | Sign it as for CK Karaoke. |
+
 ## Getting started
 
 1. Turn on the karaoke unit and connect it to your Wi-Fi network.
@@ -151,7 +160,7 @@ deletes its favorites. Make a backup before you uninstall.
   together.
 - [docs/QUEUE-MANAGER.md](docs/QUEUE-MANAGER.md): the queue manager, a server
   that keeps a fair song queue and lets KaraokeMachine's KM Remote control the
-  unit.
+  unit, and CK Queue Remote, its guest app.
 
 ## Author
 

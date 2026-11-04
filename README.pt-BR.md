@@ -61,6 +61,16 @@ fica na bandeja do sistema:
 | macOS 11 ou superior | `ck-queue-manager-<versão>-macos-universal.dmg` | Arraste o aplicativo para Aplicativos. Ele aparece na barra de menus, não no Dock. Permita que ele encontre dispositivos na rede local. |
 | Linux | `ck-queue-manager-<versão>-linux-amd64.deb` | Instale com `sudo apt install ./ck-queue-manager-<versão>-linux-amd64.deb`. A área de trabalho precisa de uma bandeja (no GNOME, a extensão AppIndicator). |
 
+Os convidados usam o **CK Queue Remote** com o gerenciador de fila. Ele é o CK
+Karaoke com a mesma lista de músicas e os mesmos favoritos, mas envia as
+músicas ao gerenciador de fila como pedidos, nunca ao aparelho. Os favoritos
+dele ficam separados dos do CK Karaoke.
+
+| Plataforma | Arquivo | Observações |
+|---|---|---|
+| Android 8 ou superior | `ck-queue-remote-<versão>-android.apk` | É instalado ao lado do CK Karaoke. |
+| iPhone e iPad, iOS 15 ou superior | `ck-queue-remote-<versão>-ios-unsigned.ipa` | Assine-o como o do CK Karaoke. |
+
 ## Primeiros passos
 
 1. Ligue o aparelho de karaokê e conecte-o à sua rede Wi-Fi.

@@ -44,9 +44,11 @@ Then open the printed URL on any phone or computer on the same network.
 
 | Flag | Meaning |
 |---|---|
-| `-addr` | device address; found by broadcast if empty |
+| `-backend` | `unit` (the default) drives the karaoke unit; `queue` drives a CK Queue Manager, as CK Queue Remote does |
+| `-sweep` | with `-backend queue`, find the queue manager by port 8177, as the iOS app does, instead of by mDNS |
+| `-addr` | device address, or the queue manager's with `-backend queue`; found on the network if empty |
 | `-listen` | address to serve on (default `:8080`) |
-| `-data` | directory for the databases (default `data/` beside the binary) |
+| `-data` | directory for the databases (default `data/` beside the binary, or `data-queue/` with `-backend queue`) |
 | `-catalog`, `-favorites` | database files, overriding `-data` |
 | `-refresh-db` | download the song list again |
 | `-name` | name the unit shows beside songs queued here (default: host name) |
@@ -60,7 +62,7 @@ The server is unauthenticated. Bind it to a trusted network only.
 
 | Platform | Command | Details |
 |---|---|---|
-| Android | `./ports/android/build.sh` | [ports/android/README.md](../ports/android/README.md) |
+| Android | `./ports/android/build.sh [debug\|release\|bundle] [unit\|queue]` | [ports/android/README.md](../ports/android/README.md) |
 | iOS | `./ports/ios/build.sh` (on a Mac) | [ports/ios/README.md](../ports/ios/README.md) |
 | Windows, macOS, Linux | `cd ports/desktop && wails build` | [ports/desktop/README.md](../ports/desktop/README.md) |
 
@@ -113,8 +115,8 @@ Binaries are built only for a release. To make one, set the new version in
 refuses direct pushes), then tag the merged commit and push the tag. The tag
 starts the [release workflow](../.github/workflows/release.yml), which checks
 that it matches `version/VERSION`, runs CI, then publishes a GitHub release with
-the Android APK and App Bundle, the Windows installer, the macOS disk image, the Linux `.deb`
-package, an unsigned iOS IPA, the queue manager's tray app for Windows (installer),
+the Android APK and App Bundle of both apps, the Windows installer, the macOS disk image, the Linux `.deb`
+package, an unsigned iOS IPA of both apps, the queue manager's tray app for Windows (installer),
 macOS (disk image, signed and notarized like the app) and Linux (`.deb`), and
 a `SHA256SUMS.txt`:
 
