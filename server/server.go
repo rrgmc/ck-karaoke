@@ -36,7 +36,13 @@ var ErrCatalogue = errors.New("cannot reach the device to fetch the song databas
 // the executable is a desktop idea — on a phone the binary lives in a read-only
 // bundle and the caller knows where writable storage is.
 type Config struct {
-	// Addr is the device address. Empty means discover it.
+	// Backend is what the pages drive: BackendUnit, the default, or
+	// BackendQueue. A port sets it when it is built; it is never the user's
+	// choice, so the queue build has no way to reach the unit.
+	Backend string
+
+	// Addr is the device address, or with BackendQueue the queue manager's.
+	// Empty means discover it.
 	Addr string
 	// DiscoverTimeout bounds discovery when Addr is empty.
 	DiscoverTimeout time.Duration
@@ -145,7 +151,11 @@ func Run(ctx context.Context, cfg Config) error {
 		time.Local = cfg.Local
 		logger.Debug("time zone", "zone", cfg.Local.String())
 	}
-	logger.Info("CK Karaoke", "version", version.Version)
+	logger.Info("CK Karaoke", "version", version.Version, "backend", cfg.backend())
+
+	if cfg.backend() == BackendQueue {
+		return runQueue(ctx, cfg, logger)
+	}
 
 	// Generated, not chosen: the device accepts any UUID.
 	identity := protocol.NewIdentity()
@@ -236,6 +246,23 @@ func Run(ctx context.Context, cfg Config) error {
 		dev.Run(ctx)
 	}()
 
+	// Cancelling ctx is what tells the session to close, but closing it is not
+	// instant: client.Close waits for the disconnect notification to actually
+	// go out, because go-raknet defers sending it to a tick loop a second later.
+	// Returning without waiting would let the process exit first, and the unit
+	// would go on showing a client connected until its own timeout expired —
+	// which main's SIGTERM handling exists to prevent.
+	//
+	// It matters on Android, which stops the server every time the phone has
+	// been away from it for ten minutes.
+	return serve(ctx, cfg, logger, srv, device, devDone, client.CloseTimeout+time.Second)
+}
+
+// serve listens, reports the address through cfg.Ready, and serves srv until
+// ctx ends. It then shuts down and waits up to closeWait for sessionDone, so
+// the backend's session is closed before the caller returns.
+func serve(ctx context.Context, cfg Config, logger *slog.Logger, srv *webui.Server, device string,
+	sessionDone <-chan struct{}, closeWait time.Duration) error {
 	httpSrv := &http.Server{
 		Addr:              cfg.Listen,
 		Handler:           srv.Handler(),
@@ -270,20 +297,10 @@ func Run(ctx context.Context, cfg Config) error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		err := httpSrv.Shutdown(shutdownCtx)
-
-		// Cancelling ctx is what tells the session to close, but closing it is
-		// not instant: client.Close waits for the disconnect notification to
-		// actually go out, because go-raknet defers sending it to a tick loop a
-		// second later. Returning here without waiting would let the process exit
-		// first, and the unit would go on showing a client connected until its own
-		// timeout expired — which main's SIGTERM handling exists to prevent.
-		//
-		// It matters on Android, which stops the server
-		// every time the phone has been away from it for ten minutes.
 		select {
-		case <-devDone:
-		case <-time.After(client.CloseTimeout + time.Second):
-			logger.Warn("device session did not close in time")
+		case <-sessionDone:
+		case <-time.After(closeWait):
+			logger.Warn("the session did not close in time")
 		}
 		return err
 	}

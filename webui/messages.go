@@ -19,6 +19,10 @@ var knownErrors = []struct {
 }{
 	{ErrOffline, "The device is offline."},
 	{client.ErrBusy, "The device is not accepting connections."},
+	{ErrQueueManager, "The queue manager is not answering."},
+	{ErrAway, "The karaoke machine is not connected to the queue manager."},
+	{ErrNeedsCode, "This needs an access code."},
+	{ErrUnsupported, "This is not available here."},
 	{favorites.ErrNoName, "A folder needs a name."},
 	{favorites.ErrDuplicateName, "A folder with that name already exists."},
 	{favorites.ErrLastFolder, "This is the only folder left, so it cannot be deleted."},

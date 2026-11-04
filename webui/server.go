@@ -157,6 +157,10 @@ func (s *Server) watchConnection(dev Backend) {
 			// Worth spelling out: the usual cause is another
 			// remote still holding the single connection slot.
 			s.notify(toastBad, "Device is busy — it allows one connection at a time. Close any other remote.")
+		case errors.Is(reason, ErrAway):
+			s.notify(toastWarn, "The karaoke machine is not connected to the queue manager.")
+		case errors.Is(reason, ErrQueueManager):
+			s.notify(toastWarn, "Queue manager unreachable — retrying")
 		case reason != nil:
 			s.notify(toastWarn, "Device unreachable — retrying")
 		default:
@@ -181,8 +185,10 @@ func (s *Server) publishConn(online bool) {
 
 // Why the device is unavailable, for the banner to put into words.
 const (
-	reasonBusy        = "busy"
-	reasonUnreachable = "unreachable"
+	reasonBusy         = "busy"
+	reasonUnreachable  = "unreachable"
+	reasonAway         = "away"
+	reasonQueueManager = "queue-manager"
 )
 
 // offlineReason classifies a dial failure, so the banner can say "busy" rather
@@ -193,6 +199,10 @@ func offlineReason(err error) string {
 		return ""
 	case errors.Is(err, client.ErrBusy):
 		return reasonBusy
+	case errors.Is(err, ErrAway):
+		return reasonAway
+	case errors.Is(err, ErrQueueManager):
+		return reasonQueueManager
 	default:
 		return reasonUnreachable
 	}

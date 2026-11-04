@@ -58,10 +58,11 @@ func main() {
 
 func run(ctx context.Context) error {
 	var (
-		addr     = flag.String("addr", "", "karaoke device address; found by broadcast if empty")
+		backend  = flag.String("backend", server.BackendUnit, `what to drive: "unit", the karaoke device, or "queue", a CK Queue Manager (CK Queue Remote)`)
+		addr     = flag.String("addr", "", "karaoke device address, or the queue manager's with -backend queue; found on the network if empty")
 		discTO   = flag.Duration("discover-timeout", client.DefaultDiscoverTimeout, "how long to listen for a device when -addr is not given")
 		listen   = flag.String("listen", ":8080", "address to serve on")
-		dataDirF = flag.String("data", "", "directory for the databases; defaults to data/ beside the binary")
+		dataDirF = flag.String("data", "", "directory for the databases; defaults to data/ beside the binary, or data-queue/ with -backend queue")
 		dbPath   = flag.String("catalog", "", "song database file; defaults to data/song.db beside the binary, downloaded from the device if missing")
 		favPath  = flag.String("favorites", "", "favorites database file; defaults to data/favorites.db beside the binary")
 		allowDel = flag.Bool("allow-folder-delete", false, "allow deleting favorites folders, which cannot be undone and is off by default")
@@ -76,7 +77,16 @@ func run(ctx context.Context) error {
 		return nil
 	}
 
-	dir, err := dataDir(*dataDirF)
+	if *backend != server.BackendUnit && *backend != server.BackendQueue {
+		return fmt.Errorf("-backend is %q; it must be %q or %q", *backend, server.BackendUnit, server.BackendQueue)
+	}
+	// The two builds keep their own data, as the two apps do on a phone, so
+	// their favorites stay apart.
+	defaultDir, lastAddr := "data", "device.addr"
+	if *backend == server.BackendQueue {
+		defaultDir, lastAddr = "data-queue", "queue-manager.addr"
+	}
+	dir, err := dataDir(*dataDirF, defaultDir)
 	if err != nil {
 		return err
 	}
@@ -90,12 +100,13 @@ func run(ctx context.Context) error {
 	}
 
 	cfg := server.Config{
+		Backend:           *backend,
 		Addr:              *addr,
 		DiscoverTimeout:   *discTO,
 		Listen:            *listen,
 		SongDB:            songPath,
 		FavDB:             favoritesPath,
-		LastAddrFile:      filepath.Join(dir, "device.addr"),
+		LastAddrFile:      filepath.Join(dir, lastAddr),
 		AllowFolderDelete: *allowDel,
 		Name:              *name,
 		Verbose:           *verbose,
@@ -142,7 +153,7 @@ func run(ctx context.Context) error {
 // happened to be launched from, and the favorites that go with it are invisible
 // from the next launch. Under `go run` the binary is in a temporary directory,
 // so pass the flags explicitly there.
-func dataDir(explicit string) (string, error) {
+func dataDir(explicit, name string) (string, error) {
 	dir := explicit
 	if dir == "" {
 		exe, err := os.Executable()
@@ -152,7 +163,7 @@ func dataDir(explicit string) (string, error) {
 		if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 			exe = resolved
 		}
-		dir = filepath.Join(filepath.Dir(exe), "data")
+		dir = filepath.Join(filepath.Dir(exe), name)
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("creating %s: %w", dir, err)

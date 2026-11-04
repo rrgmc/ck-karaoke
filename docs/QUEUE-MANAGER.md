@@ -33,6 +33,8 @@ go run ./cmd/ck-queue-manager -v
 | `queue/kmapi` | KaraokeMachine's `/api/v1`, the WebSocket events and the `_karaokemachine._tcp` mDNS announcement. |
 | `queue/kmapi/wire` | The API's JSON types and access levels, shared by the server and its clients. |
 | `queue/kmclient` | A client of the API and its event stream, for CK Queue Remote. Its tests run against `kmapi.Server`. |
+| `queue/kmapi/kmapitest` | Serves the API with a fake unit and catalogue, for testing clients against the real server. |
+| `queue/remote` | CK Queue Remote's backend for the web UI: a `webui.Backend` over `kmclient`, the mDNS search for a queue manager, and the song database sync. `server.Run` uses it with `Config.Backend` set to `queue`; `ck-karaoke-server -backend queue` runs it. |
 | `queue/manager` | `Run(ctx, Config)`: finds the unit, opens the catalogue, wires the three together, serves both ports. |
 | `cmd/ck-queue-manager` | The command line. |
 | `ports/queue-desktop` | The tray app; its own module. |
