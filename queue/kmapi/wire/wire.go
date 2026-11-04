@@ -355,3 +355,19 @@ func OptString(s string) *string {
 	}
 	return &s
 }
+
+// CKCatalog describes the unit's song database, which the queue manager
+// serves whole at /api/v1/ck/catalog/song.db. It is CK's own extension, not
+// part of KaraokeMachine's API: a KaraokeMachine answers 404 there, which is
+// how CK Queue Remote tells a CK Queue Manager apart.
+type CKCatalog struct {
+	// Model and DatabaseID identify the unit the database came from. Either
+	// is empty when the queue manager has not met the unit yet.
+	Model      string `json:"model"`
+	DatabaseID string `json:"database_id"`
+	DBVersion  int    `json:"db_version"`
+	Songs      int    `json:"songs"`
+	Size       int64  `json:"size"`
+	// SHA256 is the file's hash in hex, and the download's ETag.
+	SHA256 string `json:"sha256"`
+}

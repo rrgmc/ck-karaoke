@@ -132,6 +132,8 @@ func (s *Server) routes() http.Handler {
 	route("GET /api/v1/packages", s.packages)
 	mux.HandleFunc("GET /api/v1/songs/export", s.export)
 	mux.HandleFunc("GET /api/v1/events", s.handleEvents)
+	route("GET /api/v1/ck/catalog", s.ckCatalog)
+	mux.HandleFunc("GET /api/v1/ck/catalog/song.db", s.ckSongDB)
 
 	route("GET /api/v1/queue", s.getQueue)
 	route("POST /api/v1/queue", s.addToQueue)

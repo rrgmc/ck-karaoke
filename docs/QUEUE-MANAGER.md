@@ -31,6 +31,7 @@ go run ./cmd/ck-queue-manager -v
 | `queue/fair` | KaraokeMachine's evening, ported: singers, requests, Arrival and Turns order, operator actions, the JSON store. Pure state. |
 | `queue/feeder` | Plays the evening on the unit: one long session for status and control, a short session per song named after its singer, one song buffered on the unit. |
 | `queue/kmapi` | KaraokeMachine's `/api/v1`, the WebSocket events and the `_karaokemachine._tcp` mDNS announcement. |
+| `queue/kmapi/wire` | The API's JSON types and access levels, shared by the server and its clients. |
 | `queue/manager` | `Run(ctx, Config)`: finds the unit, opens the catalogue, wires the three together, serves both ports. |
 | `cmd/ck-queue-manager` | The command line. |
 | `ports/queue-desktop` | The tray app; its own module. |
@@ -74,3 +75,18 @@ go run ./cmd/ck-queue-manager -v
 - Songs queued on the unit by anyone else are adopted as songs with no singer,
   at the place the unit plays them, or, with the reroute policy, taken off the
   unit and added to the end of the evening.
+
+## CK's own routes
+
+Two routes under `/api/v1/ck/` are not part of KaraokeMachine's API. They let
+CK Queue Remote browse the same song database that CK Karaoke downloads from
+the unit. Both are open at the `view` level, like every `GET`.
+
+| Route | Answer |
+|---|---|
+| `GET /api/v1/ck/catalog` | `wire.CKCatalog`: the unit's model and database id, the database version, the song count, and the file's size and SHA-256. |
+| `GET /api/v1/ck/catalog/song.db` | The unit's `song.db` as it is, with the SHA-256 as its `ETag`. A request whose `If-None-Match` matches gets 304. |
+
+A KaraokeMachine answers both with 404 `unknown_endpoint`, so a remote that
+gets a `CKCatalog` knows it has found a CK Queue Manager. `/discover` cannot
+tell them apart: both report `app: "karaokemachine"`.
