@@ -72,7 +72,7 @@ tasks:
     desc: Vet the queue manager's tray app
     dir: ports/queue-desktop
     cmds:
-      - go vet .
+      - go vet -tags desktop,production{{if eq OS "linux"}},webkit2_41{{end}} ./...
 
   queue-desktop:package:
     desc: Package the queue manager's tray app into dist/ the way a release does

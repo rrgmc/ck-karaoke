@@ -22,7 +22,8 @@ go run ./cmd/ck-queue-manager -v
   configuration directory. It holds `song.db` (downloaded from the unit on a
   first start), `settings.json`, the learned song lengths, the server's id and
   the token secret, and, when kept, the evening.
-- `ports/queue-desktop` is the same server in the system tray.
+- `ports/queue-desktop` is the same server in the system tray. It shows the
+  configuration page in a window of its own.
 
 ## Layers
 
@@ -37,7 +38,7 @@ go run ./cmd/ck-queue-manager -v
 | `queue/remote` | CK Queue Remote's backend for the web UI: a `webui.Backend` over `kmclient`, the mDNS search for a queue manager, and the song database sync. `server.Run` uses it with `Config.Backend` set to `queue`; `ck-karaoke-server -backend queue` runs it. |
 | `queue/manager` | `Run(ctx, Config)`: finds the unit, opens the catalogue, wires the three together, serves both ports. |
 | `cmd/ck-queue-manager` | The command line. |
-| `ports/queue-desktop` | The tray app; its own module. |
+| `ports/queue-desktop` | The tray app and its configuration window; its own module. |
 
 ## Rules
 

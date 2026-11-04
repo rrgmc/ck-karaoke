@@ -79,6 +79,11 @@ var targets = []target{
 	// The queue manager's tray icon: Windows wants an ICO, the others a PNG.
 	{"ports/queue-desktop/icon.png", 64, 64, 1.2, false, false},
 	{"ports/queue-desktop/icon.ico", 64, 64, 1.2, false, true},
+	// The configuration window's icon: Linux takes a PNG, and Windows takes
+	// it from the executable's resources, which ports/queue-desktop/internal/winres
+	// makes from the ICO.
+	{"ports/queue-desktop/appicon.png", 256, 256, 1.2, false, false},
+	{"ports/queue-desktop/appicon.ico", 256, 256, 1.2, false, true},
 }
 
 func main() {

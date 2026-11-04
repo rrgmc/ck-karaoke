@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CK Queue Manager</title>
+<style>
+:root { color-scheme: light dark; }
+body { margin: 0; height: 100vh; display: grid; place-items: center; font: 15px/1.45 system-ui, sans-serif; background: #f6f7f9; color: #5d6675; }
+@media (prefers-color-scheme: dark) { body { background: #14171c; color: #9aa3b2; } }
+</style>
+</head>
+<body>
+<p id="msg">Opening the configuration page…</p>
+<script>
+"use strict";
+// The configuration page, set by the tray app.
+const url = {{.}};
+// A no-cors request cannot read the answer, but it fails only when nothing
+// listens, so it tells whether the queue manager is up yet.
+(async function open() {
+  for (;;) {
+    try {
+      await fetch(url, { mode: "no-cors", cache: "no-store" });
+      location.replace(url);
+      return;
+    } catch {
+      document.getElementById("msg").textContent = "Waiting for the queue manager…";
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+})();
+</script>
+</body>
+</html>
