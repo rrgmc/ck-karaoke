@@ -19,6 +19,7 @@ import (
 
 	"github.com/rrgmc/ck-karaoke/queue/kmapi"
 	"github.com/rrgmc/ck-karaoke/queue/kmapi/kmapitest"
+	"github.com/rrgmc/ck-karaoke/queue/kmclient"
 )
 
 // songDB writes a song database with the unit's schema and the songs
@@ -159,4 +160,75 @@ func TestTheQueueBuildHasASetupPage(t *testing.T) {
 	saved, err := os.ReadFile(filepath.Join(dir, "access.json"))
 	require.NoError(t, err)
 	assert.Contains(t, string(saved), "00112233aabbccdd", "the code is kept beside the song database")
+}
+
+func TestTheQueueBuildRequestsForThisPhone(t *testing.T) {
+	qm := kmapitest.New(t, kmapi.Request, songDB(t))
+	dir := t.TempDir()
+	ready := make(chan string, 1)
+	cfg := Config{
+		Backend: BackendQueue,
+		Addr:    qm.URL,
+		Listen:  "127.0.0.1:0",
+		SongDB:  filepath.Join(dir, "song.db"),
+		FavDB:   filepath.Join(dir, "favorites.db"),
+		Logger:  slog.New(slog.DiscardHandler),
+		Ready:   func(a net.Addr, _ string) { ready <- a.String() },
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- Run(ctx, cfg) }()
+	t.Cleanup(func() { cancel(); <-done })
+	var base string
+	select {
+	case a := <-ready:
+		base = "http://" + a
+	case err := <-done:
+		t.Fatalf("Run returned before serving: %v", err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("Run never became ready")
+	}
+	get := func(path string) string {
+		t.Helper()
+		resp, err := http.Get(base + path)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		b, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode, path)
+		return string(b)
+	}
+	post := func(path string, form url.Values) string {
+		t.Helper()
+		resp, err := http.PostForm(base+path, form)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		b, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode, path+": "+string(b))
+		return string(b)
+	}
+
+	songs := get("/")
+	assert.Contains(t, songs, `hx-post="/song/1001/request"`, "+ requests the song")
+	assert.NotContains(t, songs, "/song/1001/reserve")
+	assert.Contains(t, songs, `href="/mine"`, "the My songs tab")
+
+	now := get("/now")
+	assert.NotContains(t, now, "/control/key", "no mixer")
+	assert.NotContains(t, now, "/control/next")
+	assert.Contains(t, now, "/control/skip")
+
+	post("/song/1001/request", nil)
+	post("/mine/name", url.Values{"name": {"Ana"}})
+	mine := get("/mine")
+	assert.Contains(t, mine, `value="Ana"`)
+	assert.Contains(t, mine, "PRESENTE DE DEUS", "the request, named from the catalogue")
+	assert.Contains(t, mine, "/withdraw")
+
+	singers, err := kmclient.New(qm.URL, nil).Singers(context.Background())
+	require.NoError(t, err)
+	require.Len(t, singers.Singers, 1)
+	require.NotNil(t, singers.Singers[0].Name)
+	assert.Equal(t, "Ana", *singers.Singers[0].Name)
 }

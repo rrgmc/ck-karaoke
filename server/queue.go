@@ -79,6 +79,7 @@ func runQueue(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	// Beside the song database, which every port puts in the app's own
 	// storage, so the code entered on the Setup page is kept with the rest.
 	backend.UseTokenFile(filepath.Join(filepath.Dir(cfg.SongDB), "access.json"))
+	backend.UseSingerFile(filepath.Join(filepath.Dir(cfg.SongDB), "singer.json"))
 	srv, err := webui.New(backend, songs, favs, logger, webui.Options{
 		AllowFolderDelete: cfg.AllowFolderDelete,
 		SaveFile:          cfg.SaveFile,

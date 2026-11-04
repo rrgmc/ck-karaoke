@@ -22,6 +22,8 @@ var knownErrors = []struct {
 	{ErrQueueManager, "The queue manager is not answering."},
 	{ErrAway, "The karaoke machine is not connected to the queue manager."},
 	{ErrNeedsCode, "This needs an access code. Enter one on the Setup page."},
+	{ErrNameRequired, "Give your name on My songs first."},
+	{ErrRequestsClosed, "The host has paused requests for now."},
 	{ErrWrongCode, "That code does not open anything. Check it and try again."},
 	{ErrUnsupported, "This is not available here."},
 	{favorites.ErrNoName, "A folder needs a name."},

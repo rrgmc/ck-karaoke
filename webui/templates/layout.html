@@ -66,6 +66,11 @@
   <a href="/queue" class="{{if eq .Nav "queue"}}active{{end}}">
     <span class="tab-icon">≡</span><span>{{t "Queue"}}</span><span class="tab-count" sse-swap="queuecount">{{template "_queuecount.html" .QueueCount}}</span>
   </a>
+  {{if .Caps.Requests}}
+  <a href="/mine" class="{{if eq .Nav "mine"}}active{{end}}">
+    <span class="tab-icon">☺</span><span>{{t "My songs"}}</span>
+  </a>
+  {{end}}
   {{if .HasSetup}}
   <a href="/setup" class="{{if eq .Nav "setup"}}active{{end}}">
     <span class="tab-icon">⚙</span><span>{{t "Setup"}}</span>

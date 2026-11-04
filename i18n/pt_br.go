@@ -230,6 +230,30 @@ var portuguese = map[string]string{
 	"This needs an access code. Enter one on the Setup page.":    "Isto precisa de um código de acesso. Digite um na página Ajustes.",
 	"That code does not open anything. Check it and try again.":  "Esse código não libera nada. Confira e tente de novo.",
 
+	"Give your name on My songs first.": "Diga seu nome em Minhas músicas primeiro.",
+
+	// Requests.
+	"My songs":           "Minhas músicas",
+	"Request this song":  "Pedir esta música",
+	"requested":          "pedida",
+	"Requested: %s":      "Pedida: %s",
+	"Your name":          "Seu nome",
+	"Hello, %s":          "Olá, %s",
+	"Type a name first.": "Digite um nome primeiro.",
+	"Your name shows beside your songs in the queue.":  "Seu nome aparece ao lado das suas músicas na fila.",
+	"The host has paused requests for now.":            "Quem organiza a noite pausou os pedidos por enquanto.",
+	"No songs yet. Tap + beside a song to ask for it.": "Nenhuma música ainda. Toque em + ao lado de uma música para pedir.",
+	"Withdraw":                "Desistir",
+	"Withdraw “%s”?":          "Desistir de “%s”?",
+	"in the queue":            "na fila",
+	"in the queue, number %d": "na fila, número %d",
+	"waiting for the host":    "esperando quem organiza",
+	"sung":                    "cantada",
+	"declined":                "recusada",
+	"withdrawn":               "desistida",
+	"Move up":                 "Subir",
+	"Move down":               "Descer",
+
 	// Setup.
 	"Setup":                "Ajustes",
 	"Queue manager":        "Gerenciador de fila",

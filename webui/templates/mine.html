@@ -1,0 +1,15 @@
+{{define "mine.html"}}
+{{template "head" .}}
+
+<div class="d-flex align-items-center justify-content-between my-2">
+  <h2 class="h5 m-0">{{t "My songs"}}</h2>
+  <button class="btn btn-sm btn-outline-primary" hx-get="/fragment/mine" hx-target="#mine">{{t "Refresh"}}</button>
+</div>
+{{/* Refreshed with the queue, since accepting, playing or declining a
+     request changes it too. */}}
+<div id="mine" hx-get="/fragment/mine" hx-trigger="sse:queue" hx-swap="innerHTML">
+  {{template "_mine.html" .Mine}}
+</div>
+
+{{template "foot" .}}
+{{end}}

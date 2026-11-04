@@ -38,6 +38,8 @@ type pageData struct {
 	AppName string
 	// HasSetup offers the Setup tab: the backend has something to set up.
 	HasSetup bool
+	// Caps is what the backend can do, for the tab bar.
+	Caps Capabilities
 
 	Player playerData
 	Browse browseData
@@ -45,6 +47,7 @@ type pageData struct {
 	Sync   syncData
 	Backup backupData
 	Setup  setupData
+	Mine   mineData
 }
 
 // playerData drives the Now tab and the SSE fragment.
@@ -62,6 +65,7 @@ type playerData struct {
 	Mic      int
 	Echo     int
 	Lyrics   []string
+	Caps     Capabilities
 }
 
 // Browse modes.
@@ -126,6 +130,10 @@ type browseData struct {
 	// of a search result is an easy thing to mistap — one guest can reorder
 	// everyone else's evening without meaning to. Queueing stays available.
 	ShowExtraActions bool
+
+	// Caps is what the backend can do: whether + requests or queues, and
+	// whether the play-now controls exist.
+	Caps Capabilities
 
 	// LangChoice is the language picked on this device for the app itself, or
 	// "" to follow the system. Not to be confused with Languages, the song
@@ -326,10 +334,12 @@ type queueData struct {
 	// Pending is true while no list has arrived yet, so the page can say it is
 	// loading rather than claim the queue is empty.
 	Pending bool
+	Caps    Capabilities
 }
 
 type queueEntry struct {
 	Position int
+	EntryID  string
 	SongID   string
 	// Title is empty for a song the catalogue does not know; the template
 	// names it by number instead.
@@ -347,7 +357,7 @@ type bannerData struct {
 }
 
 func (s *Server) playerData(st *Status) playerData {
-	d := playerData{Online: s.dev.Online()}
+	d := playerData{Online: s.dev.Online(), Caps: s.dev.Capabilities()}
 	if st == nil {
 		return d
 	}
@@ -667,6 +677,7 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Lang = langOf(r)
 	data.LangChoice = recallLang(r)
+	data.Caps = s.caps()
 
 	if s.songs == nil {
 		s.page(w, r, "browse.html", pageData{Title: data.title(), Browse: data})
@@ -917,7 +928,7 @@ func (s *Server) PublishQueue(q *Queue) {
 // describeQueue joins the queue's song ids against the catalogue, since the
 // unit's reserved list carries nothing but numbers.
 func (s *Server) describeQueue(ctx context.Context, q *Queue) queueData {
-	out := queueData{Total: q.Total}
+	out := queueData{Total: q.Total, Caps: s.caps()}
 
 	ids := make([]int, 0, len(q.Entries))
 	for _, e := range q.Entries {
@@ -931,7 +942,7 @@ func (s *Server) describeQueue(ctx context.Context, q *Queue) queueData {
 	}
 
 	for i, e := range q.Entries {
-		entry := queueEntry{Position: q.Start + i + 1, SongID: e.SongID, By: e.By}
+		entry := queueEntry{Position: q.Start + i + 1, EntryID: e.EntryID, SongID: e.SongID, By: e.By}
 		if id, err := strconv.Atoi(e.SongID); err == nil {
 			if song, ok := titles[id]; ok {
 				entry.Title, entry.Artist = song.Title, song.Artist
@@ -1045,6 +1056,8 @@ func actionLabel(lang i18n.Lang, action string) string {
 	switch action {
 	case "reserve":
 		return lang.T("queued")
+	case "request":
+		return lang.T("requested")
 	case "reserve-top":
 		return lang.T("next up")
 	case "play":
@@ -1059,6 +1072,8 @@ func actionMessage(lang i18n.Lang, action, title string) string {
 	switch action {
 	case "reserve":
 		return lang.T("Queued: %s", title)
+	case "request":
+		return lang.T("Requested: %s", title)
 	case "reserve-top":
 		return lang.T("Playing next: %s", title)
 	case "play":
