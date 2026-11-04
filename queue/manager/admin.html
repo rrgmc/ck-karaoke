@@ -47,6 +47,10 @@ label.field { display: grid; gap: 4px; margin-bottom: 10px; }
 label.field span { font-size: 13px; color: var(--muted); }
 .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 6px; display: none; max-width: calc(100% - 32px); }
 .hidden { display: none; }
+dialog { border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); max-width: min(420px, calc(100% - 32px)); }
+dialog::backdrop { background: rgb(0 0 0 / .4); }
+dialog p { margin: 0 0 14px; overflow-wrap: anywhere; }
+dialog .row { justify-content: flex-end; }
 @media (max-width: 600px) { th.opt, td.opt { display: none; } }
 </style>
 </head>
@@ -169,6 +173,13 @@ label.field span { font-size: 13px; color: var(--muted); }
 
 <div class="toast" id="toast"></div>
 
+<dialog id="ask">
+  <form method="dialog">
+    <p id="ask-text"></p>
+    <div class="row"><button value="no" autofocus>Cancel</button><button class="primary" value="yes">OK</button></div>
+  </form>
+</dialog>
+
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -260,7 +271,7 @@ function renderSingers() {
     <td class="opt">${sung(s.id)}</td>
     <td><input size="7" placeholder="number" inputmode="numeric" id="ask-${s.id}"><button class="small" onclick="askFor(${s.id})">Add</button></td>
     <td class="actions">
-      ${singers.length > 1 ? `<select class="small" onchange="merge(${s.id}, this.value)"><option value="">Merge into…</option>${singers.filter(o => o.id !== s.id).map(o => `<option value="${o.id}">${esc(o.name ?? ("Guest " + o.guest))}</option>`).join("")}</select>` : ""}
+      ${singers.length > 1 ? `<select class="small" onchange="merge(${s.id}, this.value, this)"><option value="">Merge into…</option>${singers.filter(o => o.id !== s.id).map(o => `<option value="${o.id}">${esc(o.name ?? ("Guest " + o.guest))}</option>`).join("")}</select>` : ""}
       ${s.name ? `<button class="small" title="Let the next phone that gives this name take the seat" onclick="api('POST','/singers/${s.id}/reissue').then(refreshSingers)">Free seat</button>` : ""}
       <button class="small danger" onclick="removeSinger(${s.id})">Remove</button>
     </td></tr>`).join("") || '<tr><td colspan="5" class="muted">Nobody has registered yet.</td></tr>';
@@ -290,15 +301,28 @@ function createSinger() {
   const name = $("new-singer").value.trim();
   api("POST", "/singers/hosted", { name: name || null }).then(() => { $("new-singer").value = ""; refreshSingers(); });
 }
-function removeSinger(id) {
-  if (confirm("Remove " + singerName(id) + " and every song of theirs?")) api("DELETE", "/singers/" + id).then(refreshSingers);
+// ask asks a yes or no question in the page and resolves to the answer.
+// confirm() is not used: WKWebView, the configuration window's web view on
+// macOS, answers it with Cancel without showing anything. Cancel has the
+// focus, so a stray Enter does not remove anything.
+function ask(question) {
+  const d = $("ask");
+  $("ask-text").textContent = question;
+  d.returnValue = "";
+  d.showModal();
+  return new Promise(resolve => d.addEventListener("close", () => resolve(d.returnValue === "yes"), { once: true }));
 }
-function merge(from, into) {
-  if (into && confirm("Merge " + singerName(from) + " into " + singerName(+into) + "?"))
+async function removeSinger(id) {
+  if (await ask("Remove " + singerName(id) + " and every song of theirs?")) api("DELETE", "/singers/" + id).then(refreshSingers);
+}
+async function merge(from, into, select) {
+  if (!into) return;
+  if (await ask("Merge " + singerName(from) + " into " + singerName(+into) + "?"))
     api("POST", "/singers/" + from + "/merge", { into: +into }).then(refreshSingers);
+  else select.value = "";
 }
-function newEvening() {
-  if (confirm("Start a new evening? The queue, the requests and every singer go.")) api("POST", "/evening/reset").then(refreshAll);
+async function newEvening() {
+  if (await ask("Start a new evening? The queue, the requests and every singer go.")) api("POST", "/evening/reset").then(refreshAll);
 }
 
 // The event stream: the state four times a second, and a refresh after
