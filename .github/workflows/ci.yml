@@ -2,6 +2,12 @@
 # master and on pull requests, and is called by the release workflow before it
 # builds anything.
 name: CI
+# A pull request run is titled with the pull request's number and title. An
+# empty name, as on a push, keeps GitHub's default title, the commit message.
+run-name: >-
+  ${{ github.event_name == 'pull_request'
+  && format('PR #{0}: {1}', github.event.pull_request.number, github.event.pull_request.title)
+  || '' }}
 
 on:
   push:
