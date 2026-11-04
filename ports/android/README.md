@@ -47,11 +47,8 @@ manager.
 `unit` keeps the original application id, so it installs over earlier
 releases and keeps their favorites. `src/queue/res` holds what differs for the
 queue app: its name, its startup and notification text, and the icon's
-background. The queue app finds the queue manager by trying port 8177 on
-every host of the network (`-sweep`), not by mDNS: an app may not list the
-network interfaces, so the Go server has none to join. For the same reason
-the app reads the network's address and prefix from `ConnectivityManager` and
-passes them with `-sweep-net`.
+background. The queue app finds the queue manager by a sweep, not by mDNS;
+see [Finding the queue manager](#finding-the-queue-manager).
 
 Outputs are `app/build/outputs/apk/<flavor>/<debug|release>/app-<flavor>-<type>.apk`
 and `app/build/outputs/bundle/<flavor>Release/app-<flavor>-release.aab`.
@@ -180,6 +177,34 @@ To check the restart policy on a device, run
 `adb shell dumpsys activity services com.rrgmc.ckkaraoke`: `startCommandResult=1`
 is `START_STICKY`, `2` is `START_NOT_STICKY`. A stuck restart record survives a
 reinstall; clear it with `adb shell am force-stop com.rrgmc.ckkaraoke`.
+
+## Finding the queue manager
+
+CK Queue Remote tries port 8177 on every host of the phone's network, nearest
+first (`-sweep`), as the iOS app does. It does not use mDNS.
+
+Go cannot list the network interfaces on Android. `net.Interfaces` and
+`net.InterfaceAddrs` ask the kernel over a netlink socket, and Android 11 and
+later refuse that request from an app
+([golang/go#40569](https://github.com/golang/go/issues/40569)). The C
+library's `getifaddrs` works there, which is how native code such as Rust's
+`if_addrs` lists them, but calling it needs cgo, and this build has cgo off so
+that it needs no NDK. With no interfaces, `grandcat/zeroconf` has nothing to
+join, and the server exits with
+`mDNS: udp4: failed to join any of these interfaces: []`.
+
+The sweep needs the network too, so the app reads the active network's IPv4
+address and prefix from `ConnectivityManager.getLinkProperties` and passes
+them as `-sweep-net 192.168.68.54/22`. A sweep needs no multicast lock.
+
+The cost is the port: the sweep finds a queue manager only on 8177, which the
+iOS app needs anyway. A queue manager on another port can be reached only
+through the `device_address` preference, which has no screen to set it.
+Finding one by mDNS would mean browsing with `NsdManager` on the Kotlin side,
+holding a multicast lock, and passing the result as `-addr`.
+
+CK Karaoke is not affected. It finds the unit by broadcast, and when the
+interfaces cannot be listed it still sends to `255.255.255.255`.
 
 ## Permissions
 
