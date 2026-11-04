@@ -34,8 +34,12 @@ func (c Config) backend() string {
 	return c.Backend
 }
 
-// queueSearch is how long one mDNS search for a queue manager listens.
-const queueSearch = 3 * time.Second
+// queueSearch is how long one mDNS search for a queue manager listens, and
+// queueSweep how long one sweep of the local networks may take.
+const (
+	queueSearch = 3 * time.Second
+	queueSweep  = 10 * time.Second
+)
 
 // runQueue is Run for BackendQueue. It never opens a session with the unit.
 func runQueue(ctx context.Context, cfg Config, logger *slog.Logger) error {
@@ -125,12 +129,16 @@ func findQueueManager(ctx context.Context, cfg Config, logger *slog.Logger) (str
 		}
 	}
 
-	timeout := cfg.DiscoverTimeout
-	if timeout <= 0 {
-		timeout = queueSearch
+	search := remote.Browse
+	timeout := queueSearch
+	if cfg.QueueSweep {
+		search, timeout = remote.Sweep, queueSweep
+	}
+	if cfg.DiscoverTimeout > 0 {
+		timeout = cfg.DiscoverTimeout
 	}
 	for {
-		found, err := remote.Browse(ctx, timeout)
+		found, err := search(ctx, timeout)
 		if err == nil {
 			logger.Info("found the queue manager", "addr", found[0].URL, "name", found[0].Name,
 				"others", len(found)-1)
