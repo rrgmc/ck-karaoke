@@ -5,24 +5,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
-	"log/slog"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/rrgmc/ck-karaoke/catalog"
-	"github.com/rrgmc/ck-karaoke/queue/fair"
-	"github.com/rrgmc/ck-karaoke/queue/feeder"
 	"github.com/rrgmc/ck-karaoke/queue/kmapi"
+	"github.com/rrgmc/ck-karaoke/queue/kmapi/kmapitest"
 	"github.com/rrgmc/ck-karaoke/queue/kmapi/wire"
 	"github.com/rrgmc/ck-karaoke/queue/kmclient"
 )
@@ -30,118 +23,20 @@ import (
 // The client runs against a real kmapi.Server, so a change on either side of
 // the contract fails here.
 
-type songs []catalog.Song
-
-func (c songs) Song(_ context.Context, id int) (catalog.Song, error) {
-	for _, s := range c {
-		if s.ID == id {
-			return s, nil
-		}
-	}
-	return catalog.Song{}, errors.New("no such song")
-}
-
-func (c songs) SongsAfter(_ context.Context, after, limit int) ([]catalog.Song, error) {
-	var out []catalog.Song
-	for _, s := range c {
-		if s.ID > after && len(out) < limit {
-			out = append(out, s)
-		}
-	}
-	return out, nil
-}
-
-func (c songs) Info() catalog.Info { return catalog.Info{DBVersion: 7, Songs: len(c)} }
-
-var testSongs = songs{
-	{ID: 1001, Title: "PRESENTE DE DEUS", Artist: "FERNANDINHO"},
-	{ID: 3656, Title: "MENINA", Artist: "LUAN SANTANA"},
-	{ID: 6541, Title: "4 MINUTES", Artist: "MADONNA"},
-}
-
-type player struct {
-	mu    sync.Mutex
-	state feeder.State
-	calls []string
-}
-
-func (p *player) State() feeder.State {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.state
-}
-
-func (p *player) call(c string) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.calls = append(p.calls, c)
-	return nil
-}
-
-func (p *player) Play(context.Context) error               { return p.call("play") }
-func (p *player) Pause(context.Context) error              { return p.call("pause") }
-func (p *player) Skip(context.Context) error               { return p.call("skip") }
-func (p *player) Restart(context.Context) error            { return p.call("restart") }
-func (p *player) Stop(context.Context) error               { return p.call("stop") }
-func (p *player) SetTranspose(context.Context, int) error  { return p.call("transpose") }
-func (p *player) SetTempo(context.Context, float64) error  { return p.call("tempo") }
-func (p *player) SetVolume(context.Context, float64) error { return p.call("volume") }
-func (p *player) setConnected(c bool)                      { p.mu.Lock(); p.state.Connected = c; p.mu.Unlock() }
-func (p *player) Calls() []string {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return append([]string(nil), p.calls...)
-}
-
-type rig struct {
-	srv    *kmapi.Server
-	player *player
-	url    string
-}
-
 const (
-	queueCode = "1111"
-	hostCode  = "3333"
+	queueCode = kmapitest.QueueCode
+	hostCode  = kmapitest.HostCode
 )
 
-// newRig serves a queue manager's API with the given room level and song
-// database file ("" for none), and runs its event loop for the test.
-func newRig(t *testing.T, room kmapi.Level, catalogFile string) *rig {
-	t.Helper()
-	lookup := func(n uint32) (fair.Song, bool) {
-		s, err := testSongs.Song(context.Background(), int(n))
-		return fair.Song{Number: n, Title: s.Title, Artist: s.Artist}, err == nil
-	}
-	p := &player{state: feeder.State{Connected: true, Transport: feeder.Idle, Volume: 50}}
-	srv := kmapi.New(kmapi.Options{
-		Room:        feeder.NewRoom(fair.NewEvening(fair.Turns), lookup),
-		Player:      p,
-		Catalog:     testSongs,
-		CatalogFile: catalogFile,
-		Unit:        func() (string, string) { return "MK8513-BR-B", "d91c983b" },
-		ID:          "00112233aabbccdd",
-		Secret:      []byte("secret"),
-		Version:     "1.3.0",
-		Config: kmapi.Config{
-			Name: "Living room", Room: room,
-			Codes: kmapi.Codes{Queue: queueCode, Control: "2222", Host: hostCode},
-		},
-		Logger: slog.New(slog.DiscardHandler),
-		Addrs:  func() []net.IP { return []net.IP{net.IPv4(127, 0, 0, 1)} },
-	})
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() { defer close(done); srv.Run(ctx) }()
-	hs := httptest.NewServer(srv.Handler())
-	t.Cleanup(func() {
-		cancel()
-		<-done
-		hs.Close()
-	})
-	return &rig{srv: srv, player: p, url: hs.URL}
+var testSongs = kmapitest.Catalog
+
+type rig struct{ *kmapitest.Server }
+
+func newRig(t *testing.T, room kmapi.Level, catalogFile string) rig {
+	return rig{kmapitest.New(t, room, catalogFile)}
 }
 
-func (r *rig) client() *kmclient.Client { return kmclient.New(r.url, nil) }
+func (r rig) client() *kmclient.Client { return kmclient.New(r.URL, nil) }
 
 func TestDiscoverAndTheCKCatalogue(t *testing.T) {
 	content := []byte("SQLite format 3\x00 the song database")
@@ -312,9 +207,9 @@ func TestTransportAndAnAbsentPlayer(t *testing.T) {
 
 	_, err := c.Transport(ctx, "stop")
 	require.NoError(t, err)
-	assert.Equal(t, []string{"stop"}, r.player.Calls())
+	assert.Equal(t, []string{"stop"}, r.Player.Calls())
 
-	r.player.setConnected(false)
+	r.Player.SetConnected(false)
 	st, err := c.State(ctx)
 	require.NoError(t, err)
 	assert.False(t, st.PlayerOnline)
