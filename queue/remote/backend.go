@@ -27,6 +27,7 @@ type Backend struct {
 	id, name     string // the queue manager's, once known
 	tokenFile    string
 	singerFile   string
+	level        wire.Level // this app's, when last asked
 	streaming    bool
 	state        *wire.State
 	queue        *wire.Queue
@@ -55,6 +56,7 @@ func (b *Backend) Run(ctx context.Context) {
 	const maxBackoff = 30 * time.Second
 	for ctx.Err() == nil {
 		b.identify(ctx)
+		b.refreshLevel(ctx)
 		// The queue is read once per connection: the stream only carries it
 		// when it changes.
 		if q, err := b.client.Queue(ctx); err == nil {

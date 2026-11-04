@@ -1,0 +1,14 @@
+{{define "host.html"}}
+{{template "head" .}}
+
+<div class="d-flex align-items-center justify-content-between my-2">
+  <h2 class="h5 m-0">{{t "Host"}}</h2>
+  <button class="btn btn-sm btn-outline-primary" hx-get="/fragment/host" hx-target="#host">{{t "Refresh"}}</button>
+</div>
+{{/* Refreshed with the queue, which every request decision changes. */}}
+<div id="host" hx-get="/fragment/host" hx-trigger="sse:queue" hx-swap="innerHTML">
+  {{template "_host.html" .Host}}
+</div>
+
+{{template "foot" .}}
+{{end}}

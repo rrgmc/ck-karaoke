@@ -160,6 +160,28 @@ func TestTheQueueBuildHasASetupPage(t *testing.T) {
 	saved, err := os.ReadFile(filepath.Join(dir, "access.json"))
 	require.NoError(t, err)
 	assert.Contains(t, string(saved), "00112233aabbccdd", "the code is kept beside the song database")
+
+	resp, err = http.Get(base + "/host")
+	require.NoError(t, err)
+	host, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode, "the host code opens the Host page")
+	assert.Contains(t, string(host), `href="/host"`, "the Host tab")
+	assert.Contains(t, string(host), "New evening")
+
+	resp, err = http.PostForm(base+"/host/add-singer", url.Values{"value": {"Bia"}})
+	require.NoError(t, err)
+	fragment, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	assert.Contains(t, string(fragment), "Bia")
+
+	resp, err = http.PostForm(base+"/setup/forget", nil)
+	require.NoError(t, err)
+	resp.Body.Close()
+	resp, err = http.Get(base + "/host")
+	require.NoError(t, err)
+	resp.Body.Close()
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "no Host page without the code")
 }
 
 func TestTheQueueBuildRequestsForThisPhone(t *testing.T) {

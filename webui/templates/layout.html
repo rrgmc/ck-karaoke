@@ -71,6 +71,11 @@
     <span class="tab-icon">☺</span><span>{{t "My songs"}}</span>
   </a>
   {{end}}
+  {{if .HasHost}}
+  <a href="/host" class="{{if eq .Nav "host"}}active{{end}}">
+    <span class="tab-icon">★</span><span>{{t "Host"}}</span>
+  </a>
+  {{end}}
   {{if .HasSetup}}
   <a href="/setup" class="{{if eq .Nav "setup"}}active{{end}}">
     <span class="tab-icon">⚙</span><span>{{t "Setup"}}</span>

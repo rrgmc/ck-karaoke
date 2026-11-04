@@ -32,6 +32,10 @@ func TestTheUnitHasNoSetupPage(t *testing.T) {
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/mine", nil))
 	assert.Equal(t, http.StatusNotFound, rec.Code)
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/host", nil))
+	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
 func TestQueueEntriesActOnTheirIDs(t *testing.T) {

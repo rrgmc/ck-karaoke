@@ -40,6 +40,8 @@ type pageData struct {
 	HasSetup bool
 	// Caps is what the backend can do, for the tab bar.
 	Caps Capabilities
+	// HasHost offers the Host tab: this app holds the host level.
+	HasHost bool
 
 	Player playerData
 	Browse browseData
@@ -48,6 +50,7 @@ type pageData struct {
 	Backup backupData
 	Setup  setupData
 	Mine   mineData
+	Host   hostData
 }
 
 // playerData drives the Now tab and the SSE fragment.
