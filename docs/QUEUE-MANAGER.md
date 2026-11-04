@@ -32,6 +32,7 @@ go run ./cmd/ck-queue-manager -v
 | `queue/feeder` | Plays the evening on the unit: one long session for status and control, a short session per song named after its singer, one song buffered on the unit. |
 | `queue/kmapi` | KaraokeMachine's `/api/v1`, the WebSocket events and the `_karaokemachine._tcp` mDNS announcement. |
 | `queue/kmapi/wire` | The API's JSON types and access levels, shared by the server and its clients. |
+| `queue/kmclient` | A client of the API and its event stream, for CK Queue Remote. Its tests run against `kmapi.Server`. |
 | `queue/manager` | `Run(ctx, Config)`: finds the unit, opens the catalogue, wires the three together, serves both ports. |
 | `cmd/ck-queue-manager` | The command line. |
 | `ports/queue-desktop` | The tray app; its own module. |
