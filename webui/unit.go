@@ -81,6 +81,12 @@ func (u unitBackend) SongAction(ctx context.Context, action, songID string) erro
 	}))
 }
 
+// EntryAction is not offered: the unit's queue has no entry ids.
+func (u unitBackend) EntryAction(context.Context, string, string) error { return ErrUnsupported }
+
+// Capabilities are the zero value, which is the unit's.
+func (u unitBackend) Capabilities() Capabilities { return Capabilities{} }
+
 func (u unitBackend) OnStatus(fn func(*Status)) {
 	u.dev.OnStatus(func(st *protocol.Status) { fn(unitStatus(st)) })
 }

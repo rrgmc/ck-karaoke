@@ -1,0 +1,48 @@
+{{/* This phone's singer: the name the host and the queue show, and the songs
+     asked for, each with where it stands. */}}
+{{define "_mine.html"}}
+{{if .Me.Err}}
+<div class="alert alert-warning py-2">{{t "The queue manager is not answering."}}</div>
+{{else}}
+<form class="d-flex gap-2 my-2" hx-post="/mine/name" hx-target="#mine" autocomplete="off">
+  <input class="form-control" name="name" value="{{.Me.Name}}" maxlength="40"
+         placeholder="{{t "Your name"}}" aria-label="{{t "Your name"}}">
+  <button class="btn btn-primary" type="submit">{{t "Save"}}</button>
+</form>
+{{if not .Me.Name}}<p class="text-secondary small">{{t "Your name shows beside your songs in the queue."}}</p>{{end}}
+{{with .Error}}<p class="text-danger small">{{.}}</p>{{end}}
+{{if not .Me.Accepting}}<div class="alert alert-info py-2">{{t "The host has paused requests for now."}}</div>{{end}}
+
+{{if .Requests}}
+<ul class="song-list">
+  {{range .Requests}}
+  <li class="song-row">
+    <div class="song-name">{{if .Title}}{{.Title}}{{else}}{{t "Song %s" .SongID}}{{end}}</div>
+    <div class="song-line">
+      <div class="song-sub">{{.Artist}} <span class="request-state">{{template "_requeststate" .}}</span></div>
+      {{if or (eq .State "waiting") (eq .State "queued")}}
+      <div class="song-actions">
+        <button class="btn btn-outline-danger icon-btn" title="{{t "Withdraw"}}" aria-label="{{t "Withdraw"}}"
+                hx-post="/mine/{{.ID}}/withdraw" hx-target="#mine"
+                hx-confirm="{{t "Withdraw “%s”?" (or .Title (t "Song %s" .SongID))}}">✕</button>
+      </div>
+      {{end}}
+    </div>
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<p class="empty">{{t "No songs yet. Tap + beside a song to ask for it."}}</p>
+{{end}}
+{{end}}
+{{end}}
+
+{{/* Where one request stands, in words. */}}
+{{define "_requeststate"}}
+{{- if eq .State "queued"}}{{if .Position}}{{t "in the queue, number %d" .Position}}{{else}}{{t "in the queue"}}{{end}}
+{{- else if eq .State "waiting"}}{{t "waiting for the host"}}
+{{- else if eq .State "played"}}{{t "sung"}}
+{{- else if eq .State "declined"}}{{t "declined"}}
+{{- else if eq .State "withdrawn"}}{{t "withdrawn"}}
+{{- else}}{{.State}}{{end -}}
+{{end}}

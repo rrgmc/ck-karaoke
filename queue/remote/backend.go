@@ -26,6 +26,7 @@ type Backend struct {
 	mu           sync.Mutex
 	id, name     string // the queue manager's, once known
 	tokenFile    string
+	singerFile   string
 	streaming    bool
 	state        *wire.State
 	queue        *wire.Queue
@@ -204,7 +205,10 @@ func queueOf(q *wire.Queue) *webui.Queue {
 	}
 	out := &webui.Queue{Total: q.Len, Entries: make([]webui.QueueEntry, len(q.Entries))}
 	for i, e := range q.Entries {
-		out.Entries[i] = webui.QueueEntry{SongID: strconv.FormatUint(uint64(e.Number), 10)}
+		out.Entries[i] = webui.QueueEntry{
+			EntryID: strconv.FormatUint(e.ID, 10),
+			SongID:  strconv.FormatUint(uint64(e.Number), 10),
+		}
 		if e.Singer != nil {
 			out.Entries[i].By = *e.Singer
 		}
@@ -259,6 +263,8 @@ func (b *Backend) SongAction(ctx context.Context, action, songID string) error {
 		return fmt.Errorf("bad song id %q", songID)
 	}
 	switch action {
+	case "request":
+		return b.request(ctx, song)
 	case "reserve":
 		_, err = b.client.AddToQueue(ctx, song)
 	case "remove":
@@ -274,6 +280,58 @@ func (b *Backend) SongAction(ctx context.Context, action, songID string) error {
 		return fmt.Errorf("%w: %s", webui.ErrUnsupported, action)
 	}
 	return wrap(err)
+}
+
+// Capabilities: songs are requested for this phone's singer, entries have
+// ids, and the unit's mixer and cutting ahead are not offered.
+func (b *Backend) Capabilities() webui.Capabilities {
+	return webui.Capabilities{Requests: true, EntryIDs: true, NoMixer: true, NoCutAhead: true}
+}
+
+// EntryAction moves an entry one place up or down, or removes it.
+func (b *Backend) EntryAction(ctx context.Context, action, entryID string) error {
+	entry, err := strconv.ParseUint(entryID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("bad entry id %q", entryID)
+	}
+	var q wire.Queue
+	switch action {
+	case "remove":
+		q, err = b.client.RemoveEntry(ctx, entry)
+	case "up", "down":
+		at, ok := b.indexOf(entry)
+		if !ok {
+			return fmt.Errorf("entry %d is not in the queue", entry)
+		}
+		if action == "up" {
+			at--
+		} else {
+			at++
+		}
+		q, err = b.client.MoveEntry(ctx, entry, max(at, 0))
+	default:
+		return fmt.Errorf("%w: %s", webui.ErrUnsupported, action)
+	}
+	if err != nil {
+		return wrap(err)
+	}
+	b.setQueue(&q)
+	return nil
+}
+
+// indexOf finds an entry's 0-based place in the last queue.
+func (b *Backend) indexOf(entry uint64) (int, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.queue == nil {
+		return 0, false
+	}
+	for i, e := range b.queue.Entries {
+		if e.ID == entry {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 // entryOf finds the first queue entry for a song.
@@ -322,6 +380,10 @@ func wrap(err error) error {
 		return fmt.Errorf("%w: %v", webui.ErrNeedsCode, err)
 	case errors.As(err, &e) && e.Code == "player_offline":
 		return fmt.Errorf("%w: %v", webui.ErrAway, err)
+	case errors.As(err, &e) && e.Code == "name_required":
+		return fmt.Errorf("%w: %v", webui.ErrNameRequired, err)
+	case errors.As(err, &e) && e.Code == "requests_closed":
+		return fmt.Errorf("%w: %v", webui.ErrRequestsClosed, err)
 	case errors.As(err, &e):
 		return err
 	default:

@@ -16,6 +16,23 @@
         <div class="song-name">{{if .Title}}{{.Title}}{{else}}{{t "Song %s" .SongID}}{{end}}</div>
         <div class="song-line">
           <div class="song-sub">{{.Artist}} <span class="song-id">#{{.SongID}}</span>{{if .By}} <span class="queued-by">{{.By}}</span>{{end}}</div>
+          {{if $.Caps.EntryIDs}}
+          {{/* Entries have ids, so each acts on itself even when one song is
+               queued twice, and the answer is the whole list. */}}
+          <div class="song-actions">
+            {{if gt .Position 1}}
+            <button class="btn btn-outline-secondary icon-btn" title="{{t "Move up"}}" aria-label="{{t "Move up"}}"
+                    hx-post="/queue/{{.EntryID}}/up" hx-target="#queue" hx-swap="innerHTML">↑</button>
+            {{end}}
+            <button class="btn btn-outline-secondary icon-btn" title="{{t "Move down"}}" aria-label="{{t "Move down"}}"
+                    hx-post="/queue/{{.EntryID}}/down" hx-target="#queue" hx-swap="innerHTML">↓</button>
+            <button class="btn btn-outline-danger icon-btn"
+                    title="{{t "Remove from queue"}}" aria-label="{{t "Remove from queue"}}"
+                    hx-post="/queue/{{.EntryID}}/remove" hx-target="#queue"
+                    hx-confirm="{{t "Remove “%s” from the queue?" (or .Title (t "Song %s" .SongID))}}"
+                    hx-swap="innerHTML">✕</button>
+          </div>
+          {{else}}
           <div class="song-actions" id="qsong-{{.SongID}}">
             <button class="btn btn-outline-danger icon-btn"
                     title="{{t "Remove from queue"}}" aria-label="{{t "Remove from queue"}}"
@@ -23,6 +40,7 @@
                     hx-confirm="{{t "Remove “%s” from the queue?" (or .Title (t "Song %s" .SongID))}}"
                     hx-swap="innerHTML">✕</button>
           </div>
+          {{end}}
         </div>
       </div>
     </li>

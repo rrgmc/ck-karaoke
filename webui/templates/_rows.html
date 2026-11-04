@@ -71,13 +71,23 @@
            ><svg class="yt-icon" viewBox="0 0 24 17" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="M3.4 0h17.2A3.4 3.4 0 0 1 24 3.4v10.2a3.4 3.4 0 0 1-3.4 3.4H3.4A3.4 3.4 0 0 1 0 13.6V3.4A3.4 3.4 0 0 1 3.4 0zm6.4 4.4v8.2l7.1-4.1z"/></svg></a>
       </div>
       <div class="song-actions" id="song-{{.ID}}">
+        {{/* With a queue manager, + asks for the song as this phone's singer,
+             so the fair order applies to it like everybody else's. */}}
+        {{if $.Caps.Requests}}
+        <button class="btn btn-primary icon-btn" title="{{t "Request this song"}}" aria-label="{{t "Request this song"}}"
+                hx-post="/song/{{.ID}}/request" hx-target="#song-{{.ID}}" hx-swap="innerHTML">+</button>
+        {{else}}
         <button class="btn btn-primary icon-btn" title="{{t "Add to queue"}}" aria-label="{{t "Add to queue"}}"
                 hx-post="/song/{{.ID}}/reserve" hx-target="#song-{{.ID}}" hx-swap="innerHTML">+</button>
+        {{end}}
         {{if $.ShowExtraActions}}
+        {{/* A queue manager keeps the order fair, so nothing cuts ahead. */}}
+        {{if not $.Caps.NoCutAhead}}
         <button class="btn btn-outline-primary icon-btn" title="{{t "Play next"}}" aria-label="{{t "Play next"}}"
                 hx-post="/song/{{.ID}}/reserve-top" hx-target="#song-{{.ID}}" hx-swap="innerHTML">↑</button>
         <button class="btn btn-outline-primary icon-btn" title="{{t "Play now"}}" aria-label="{{t "Play now"}}"
                 hx-post="/song/{{.ID}}/play" hx-target="#song-{{.ID}}" hx-swap="innerHTML">▶︎</button>
+        {{end}}
         {{/* Only inside a folder, where "remove" has somewhere to mean. Red, and
              behind a confirmation, because it is the one action here that takes
              something away — the others only add to the queue. */}}

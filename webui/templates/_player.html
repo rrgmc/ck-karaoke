@@ -34,12 +34,16 @@
      changes is the values, and those are not inside a preserved element. */}}
 <div class="transport" role="group">
   <button id="tp-pause"  class="btn btn-outline-primary" hx-preserve="true" hx-post="/control/pause"  hx-target="#player">{{t "Pause"}}</button>
+  {{if not .Caps.NoMixer}}
   <button id="tp-next"   class="btn btn-outline-primary" hx-preserve="true" hx-post="/control/next"   hx-target="#player">{{t "Next"}}</button>
+  {{end}}
   <button id="tp-skip"   class="btn btn-outline-primary" hx-preserve="true" hx-post="/control/skip"   hx-target="#player">{{t "Skip"}}</button>
   <button id="tp-stop"   class="btn btn-outline-primary" hx-preserve="true" hx-post="/control/stop"   hx-target="#player">{{t "Stop"}}</button>
   <button id="tp-repeat" class="btn btn-outline-primary" hx-preserve="true" hx-post="/control/repeat" hx-target="#player">{{t "Repeat"}}</button>
 </div>
 
+{{/* The mixer is the unit's own; a queue manager does not offer it. */}}
+{{if not .Caps.NoMixer}}
 {{template "_stepper" (stepper (t "Key")   "key"    .Key    -6 6  "reset-key")}}
 {{template "_stepper" (stepper (t "Tempo") "tempo"  .Tempo  -6 6  "reset-tempo")}}
 {{template "_slider"  (slider  (t "Song")  "volume" .Volume "")}}
@@ -55,6 +59,7 @@
             hx-preserve="true" hx-post="/control/melody" hx-target="#player">{{t "Toggle"}}</button>
   </div>
 </div>
+{{end}}
 {{end}}
 
 {{define "_stepper"}}

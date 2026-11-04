@@ -31,6 +31,13 @@ type Backend interface {
 	Control(ctx context.Context, action string, amount, mic int) error
 	// SongAction queues, plays or removes one song.
 	SongAction(ctx context.Context, action, songID string) error
+	// EntryAction moves one queue entry ("up", "down") or removes it
+	// ("remove"), by its EntryID. A backend without entry ids answers
+	// ErrUnsupported.
+	EntryAction(ctx context.Context, action, entryID string) error
+
+	// Capabilities says what the pages may offer.
+	Capabilities() Capabilities
 
 	// OnStatus, OnQueue and OnConnection register the push callbacks.
 	// OnConnection fires only on a change.
@@ -38,6 +45,59 @@ type Backend interface {
 	OnQueue(fn func(*Queue))
 	OnConnection(fn func(online bool, reason error))
 }
+
+// Capabilities says what a backend can do. The zero value is the unit's.
+type Capabilities struct {
+	// Requests: a song is requested for this phone's singer rather than put
+	// on the queue directly, and the My songs page is offered. The backend
+	// implements Singer.
+	Requests bool
+	// EntryIDs: queue entries carry an id and are moved and removed by it.
+	EntryIDs bool
+	// NoMixer: no key, tempo, volume, echo or melody controls, and no Next
+	// button beside Skip.
+	NoMixer bool
+	// NoCutAhead: no "play next" or "play now".
+	NoCutAhead bool
+}
+
+// Singer is this phone's singer at a queue manager, for the My songs page.
+type Singer interface {
+	// Me describes this phone's singer and their requests.
+	Me(ctx context.Context) Me
+	// SetName names this phone's singer.
+	SetName(ctx context.Context, name string) error
+	// Withdraw takes back one of this phone's requests.
+	Withdraw(ctx context.Context, requestID string) error
+}
+
+// Me is this phone's singer.
+type Me struct {
+	// Name is empty until the singer is named.
+	Name     string
+	Requests []MyRequest
+	// Accepting is false while the host has closed requests.
+	Accepting bool
+	// Err is why the rest could not be read, or nil.
+	Err error
+}
+
+// MyRequest is one of this phone's requests.
+type MyRequest struct {
+	ID     string
+	SongID string
+	// State is "waiting", "queued", "played", "declined" or "withdrawn".
+	State string
+	// Position is the place in the queue, from 1, or 0 when not queued.
+	Position int
+}
+
+// ErrNameRequired reports that the queue manager wants the singer named
+// before they request a song.
+var ErrNameRequired = errors.New("the singer needs a name")
+
+// ErrRequestsClosed reports that the host has paused requests.
+var ErrRequestsClosed = errors.New("requests are closed")
 
 // Setup is what a backend offers on the Setup page. A backend that has
 // nothing to set up, such as the unit's, does not implement it, and the page
@@ -112,7 +172,9 @@ type Queue struct {
 
 // QueueEntry is one waiting song.
 type QueueEntry struct {
-	SongID string
+	// EntryID identifies the entry, when the backend has Capabilities.EntryIDs.
+	EntryID string
+	SongID  string
 	// By names who queued it.
 	By string
 }
