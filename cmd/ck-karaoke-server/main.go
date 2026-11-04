@@ -59,6 +59,7 @@ func main() {
 func run(ctx context.Context) error {
 	var (
 		backend  = flag.String("backend", server.BackendUnit, `what to drive: "unit", the karaoke device, or "queue", a CK Queue Manager (CK Queue Remote)`)
+		sweep    = flag.Bool("sweep", false, "with -backend queue, find the queue manager by trying port 8177 on every local host, as the iOS app does, rather than by mDNS")
 		addr     = flag.String("addr", "", "karaoke device address, or the queue manager's with -backend queue; found on the network if empty")
 		discTO   = flag.Duration("discover-timeout", client.DefaultDiscoverTimeout, "how long to listen for a device when -addr is not given")
 		listen   = flag.String("listen", ":8080", "address to serve on")
@@ -101,6 +102,7 @@ func run(ctx context.Context) error {
 
 	cfg := server.Config{
 		Backend:           *backend,
+		QueueSweep:        *sweep,
 		Addr:              *addr,
 		DiscoverTimeout:   *discTO,
 		Listen:            *listen,

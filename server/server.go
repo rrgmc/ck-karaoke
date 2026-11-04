@@ -106,6 +106,11 @@ type Config struct {
 	// before the user has read the prompt.
 	WaitForDevice bool
 
+	// QueueSweep finds a queue manager by trying port 8177 on every local
+	// host rather than by mDNS. iOS sets it: mDNS from Go needs an entitlement
+	// there. Only BackendQueue reads it.
+	QueueSweep bool
+
 	// Searching is called each time a search finds nothing and WaitForDevice
 	// starts another one, so a caller can say what the wait is for.
 	Searching func()

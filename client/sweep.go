@@ -163,13 +163,28 @@ func readPongs(conn *net.UDPConn, start time.Time, deadline time.Time, stopEarly
 // phone on a home network, and the sweep can then answer in well under a second
 // instead of walking a thousand addresses to get there.
 func sweepTargets() ([]*net.UDPAddr, error) {
+	hosts, err := LocalHosts()
+	if err != nil {
+		return nil, err
+	}
+	targets := make([]*net.UDPAddr, len(hosts))
+	for i, ip := range hosts {
+		targets[i] = &net.UDPAddr{IP: ip, Port: Port}
+	}
+	return targets, nil
+}
+
+// LocalHosts lists the addresses on this machine's IPv4 networks, nearest to
+// its own first, as Sweep walks them. A network wider than MaxSweepHosts is
+// left out.
+func LocalHosts() ([]net.IP, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return nil, fmt.Errorf("listing interfaces to sweep: %w", err)
 	}
 
 	var (
-		targets []*net.UDPAddr
+		targets []net.IP
 		seen    = map[string]bool{}
 	)
 	for _, iface := range ifaces {
@@ -191,7 +206,7 @@ func sweepTargets() ([]*net.UDPAddr, error) {
 					continue
 				}
 				seen[s] = true
-				targets = append(targets, &net.UDPAddr{IP: ip, Port: Port})
+				targets = append(targets, ip)
 			}
 		}
 	}
