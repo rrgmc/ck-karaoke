@@ -30,7 +30,6 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.rrgmc.ckkaraoke"
         minSdk = 26
         targetSdk = 36
         // versionName is what a person reads; versionCode is what Android
@@ -43,6 +42,27 @@ android {
         // The server binary is built only for arm64: of the Android targets,
         // that is the one Go links without cgo, and it covers current phones.
         ndk { abiFilters += "arm64-v8a" }
+    }
+
+    buildFeatures { buildConfig = true }
+
+    // Two apps from one source: CK Karaoke drives the unit, CK Queue Remote a
+    // CK Queue Manager. The backend is fixed here, at build time, so the queue
+    // app has no way to reach the unit around the queue manager. "unit" keeps
+    // the original application id, so the installed app upgrades in place and
+    // keeps its favorites.
+    flavorDimensions += "backend"
+    productFlavors {
+        create("unit") {
+            dimension = "backend"
+            applicationId = "com.rrgmc.ckkaraoke"
+            buildConfigField("String", "BACKEND", "\"unit\"")
+        }
+        create("queue") {
+            dimension = "backend"
+            applicationId = "com.rrgmc.ckqueueremote"
+            buildConfigField("String", "BACKEND", "\"queue\"")
+        }
     }
 
     packaging {

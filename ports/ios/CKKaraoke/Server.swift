@@ -33,6 +33,7 @@ enum Server {
     @discardableResult
     static func start() -> Bool {
         passTimeZone()
+        passBackend()
 
         let dir = dataDirectory.path
         let name = deviceName
@@ -74,6 +75,14 @@ enum Server {
         let zone = TimeZone.current
         setenv("CK_TZ", zone.identifier, 1)
         setenv("CK_TZ_OFFSET", String(zone.secondsFromGMT()), 1)
+    }
+
+    /// Tells the server which backend this app is built for: CKBackend in the
+    /// Info.plist, "unit" for CK Karaoke and "queue" for CK Queue Remote. It
+    /// travels the same way as the time zone, and for the same reason.
+    private static func passBackend() {
+        let backend = Bundle.main.object(forInfoDictionaryKey: "CKBackend") as? String ?? "unit"
+        setenv("CK_BACKEND", backend, 1)
     }
 
     /// The port the server is listening on, or nil until it is.

@@ -93,10 +93,12 @@ jobs:
           ./ports/android/build.sh release
           ./ports/android/build.sh bundle
           mkdir -p dist
-          cp ports/android/app/build/outputs/apk/release/app-release.apk \
-            "dist/ck-karaoke-$VERSION-android.apk"
-          cp ports/android/app/build/outputs/bundle/release/app-release.aab \
-            "dist/ck-karaoke-$VERSION-android.aab"
+          # The unit flavor is CK Karaoke, the queue flavor CK Queue Remote.
+          out=ports/android/app/build/outputs
+          cp "$out/apk/unit/release/app-unit-release.apk" "dist/ck-karaoke-$VERSION-android.apk"
+          cp "$out/bundle/unitRelease/app-unit-release.aab" "dist/ck-karaoke-$VERSION-android.aab"
+          cp "$out/apk/queue/release/app-queue-release.apk" "dist/ck-queue-remote-$VERSION-android.apk"
+          cp "$out/bundle/queueRelease/app-queue-release.aab" "dist/ck-queue-remote-$VERSION-android.aab"
       - uses: actions/upload-artifact@v7
         with:
           name: android

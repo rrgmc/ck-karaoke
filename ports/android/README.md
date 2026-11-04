@@ -24,11 +24,34 @@ Requirements: Go, a JDK 17 to 21 (Temurin 21 is tested), Gradle on `PATH` or in
 
 ```bash
 export JAVA_HOME=/path/to/jdk-21
-./ports/android/build.sh            # debug APK
-./ports/android/build.sh release    # release APK; see "Signing" below
-./ports/android/build.sh bundle     # App Bundle for Google Play
-adb install -r ports/android/app/build/outputs/apk/debug/app-debug.apk
+./ports/android/build.sh            # debug APKs of both apps
+./ports/android/build.sh release    # release APKs; see "Signing" below
+./ports/android/build.sh bundle     # App Bundles for Google Play
+./ports/android/build.sh debug queue  # one app only: unit or queue
+adb install -r ports/android/app/build/outputs/apk/unit/debug/app-unit-debug.apk
 ```
+
+## Two apps
+
+The project builds two apps from the same sources, as product flavors. Both
+carry the same server binary; the flavor tells it which backend to drive
+(`-backend`, from `BuildConfig.BACKEND`). The backend is fixed when the app is
+built, so CK Queue Remote has no way to reach the unit around the queue
+manager.
+
+| Flavor | App | Application id | Drives |
+|---|---|---|---|
+| `unit` | CK Karaoke | `com.rrgmc.ckkaraoke` | the karaoke unit, over RakNet |
+| `queue` | CK Queue Remote | `com.rrgmc.ckqueueremote` | a CK Queue Manager, over its HTTP API |
+
+`unit` keeps the original application id, so it installs over earlier
+releases and keeps their favorites. `src/queue/res` holds what differs for the
+queue app: its name, its startup and notification text, and the icon's
+background. The queue app also holds a WiFi multicast lock while it runs,
+because the server finds the queue manager by mDNS.
+
+Outputs are `app/build/outputs/apk/<flavor>/<debug|release>/app-<flavor>-<type>.apk`
+and `app/build/outputs/bundle/<flavor>Release/app-<flavor>-release.aab`.
 
 Do not build with Android Studio's bundled runtime. It reports a malformed
 version string (`25.0.2+-15348964-b329.117`) that the Kotlin DSL's version
@@ -64,8 +87,9 @@ override them.
 ## Google Play
 
 Google Play takes an Android App Bundle (`.aab`), not an APK. `build.sh bundle`
-writes it to `app/build/outputs/bundle/release/app-release.aab`, signed like the
-release APK, and the release workflow attaches it to each GitHub release.
+writes one per app to `app/build/outputs/bundle/<flavor>Release/`, signed like
+the release APKs, and the release workflow attaches both to each GitHub
+release. Each app is its own Play listing.
 
 **Play App Signing.** Play re-signs every app with an app signing key that
 Google keeps. When creating the app in Play Console, choose to use an existing
@@ -84,7 +108,7 @@ single jar, so download `bundletool-all-<version>.jar` and run it with Java.
 It needs `adb` on the `PATH` and signs the APKs with the debug key:
 
 ```bash
-java -jar bundletool-all.jar build-apks --bundle app-release.aab --output app.apks --connected-device
+java -jar bundletool-all.jar build-apks --bundle app-unit-release.aab --output app.apks --connected-device
 java -jar bundletool-all.jar install-apks --apks app.apks
 ```
 

@@ -14,23 +14,51 @@ echo "building the server for android/arm64"
 GOOS=android GOARCH=arm64 CGO_ENABLED=0 \
     go build -trimpath -ldflags="-s -w" -o "$JNI/libckkaraoke.so" ./cmd/ck-karaoke-server
 
-# assembleDebug by default. "release" builds the shareable APK and "bundle" the
-# App Bundle that Google Play takes. Both are signed with the release key when
+# Both apps carry the same binary; the flavor tells it which backend to run
+# (-backend unit or queue, from BuildConfig.BACKEND).
+#
+# assembleDebug by default. "release" builds the shareable APKs and "bundle" the
+# App Bundles that Google Play takes. Both are signed with the release key when
 # CK_KEYSTORE_FILE is set; see app/build.gradle.kts.
-task=assembleDebug
-out=apk/debug/app-debug.apk
+#
+# A second argument, "unit" (CK Karaoke) or "queue" (CK Queue Remote), builds
+# one app; without it both are built.
+kind=Debug
+step=assemble
 case "${1:-}" in
 release)
-    task=assembleRelease
-    out=apk/release/app-release.apk
+    kind=Release
     shift
     ;;
 bundle)
-    task=bundleRelease
-    out=bundle/release/app-release.aab
+    kind=Release
+    step=bundle
+    shift
+    ;;
+debug)
     shift
     ;;
 esac
+flavors="unit queue"
+case "${1:-}" in
+unit | queue)
+    flavors=$1
+    shift
+    ;;
+esac
+tasks=()
+outs=()
+for f in $flavors; do
+    F="$(tr '[:lower:]' '[:upper:]' <<<"${f:0:1}")${f:1}"
+    tasks+=("$step$F$kind")
+    lower=$(tr '[:upper:]' '[:lower:]' <<<"$kind")
+    if [ "$step" = bundle ]; then
+        outs+=("bundle/$f$kind/app-$f-$lower.aab")
+    else
+        outs+=("apk/$f/$lower/app-$f-$lower.apk")
+    fi
+done
+task="${tasks[*]}"
 
 echo "building the app ($task)"
 cd ports/android
@@ -44,7 +72,9 @@ if [ -z "$GRADLE" ]; then
 fi
 : "${GRADLE:?no gradle found — set GRADLE to its path}"
 
-"$GRADLE" "$task" "$@"
+"$GRADLE" "${tasks[@]}" "$@"
 
 echo
-echo "output: ports/android/app/build/outputs/$out"
+for out in "${outs[@]}"; do
+    echo "output: ports/android/app/build/outputs/$out"
+done

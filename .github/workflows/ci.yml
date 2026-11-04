@@ -184,12 +184,14 @@ jobs:
       - name: Build the Go server and generate the project
         run: XCODE="$(xcode-select -p | sed 's#/Contents/Developer##')" ./ports/ios/build.sh
       # arm64 only: the Go archive has no x86_64 simulator slice.
-      - name: Build the app for the simulator
+      - name: Build the apps for the simulator
         run: |
-          xcodebuild -project ports/ios/CKKaraoke.xcodeproj -scheme CKKaraoke \
-            -sdk iphonesimulator -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
-            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
+          for scheme in CKKaraoke CKQueueRemote; do
+            xcodebuild -project ports/ios/CKKaraoke.xcodeproj -scheme "$scheme" \
+              -sdk iphonesimulator -configuration Debug \
+              -destination 'generic/platform=iOS Simulator' \
+              ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
+          done
       # The device build a release ships, so that packaging problems show up
       # before a tag.
       - name: Package the unsigned IPA

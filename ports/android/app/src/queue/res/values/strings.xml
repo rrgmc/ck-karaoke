@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CK Queue Remote's own text. Everything not here comes from src/main. -->
+<resources>
+    <string name="app_name" translatable="false">CK Queue Remote</string>
+
+    <string name="starting_title">Looking for the queue manager…</string>
+    <string name="starting_detail">The first run downloads the song list from the queue manager, which takes a few seconds. Later launches are immediate.</string>
+    <string name="failure_title">Could not start the queue remote.</string>
+
+    <string name="notification_title">Queue remote</string>
+    <string name="notification_text">Connected to the queue manager</string>
+    <string name="channel_description">Shown while the remote is connected to the queue manager.</string>
+</resources>

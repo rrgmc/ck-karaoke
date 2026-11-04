@@ -12,9 +12,25 @@ Re-run `build.sh` whenever Go code changes. It regenerates
 `ports/ios/CKKaraoke.xcodeproj` from `ports/ios/project.yml`, so never edit the project in
 Xcode expecting it to stick — edit the spec.
 
+## Two apps
+
+The project has two targets and two schemes, built from the same sources:
+
+| Target | App | Bundle id | Drives |
+|---|---|---|---|
+| `CKKaraoke` | CK Karaoke | `com.rrgmc.ckkaraoke` | the karaoke unit, over RakNet |
+| `CKQueueRemote` | CK Queue Remote | `com.rrgmc.ckqueueremote` | a CK Queue Manager, over its HTTP API |
+
+Each target's Info.plist sets `CKBackend` (`unit` or `queue`). `Server.swift`
+exports it as `CK_BACKEND`, and the bridge passes it to `server.Run`. The
+queue app finds the queue manager by trying port 8177 on each local host,
+because mDNS from Go needs the multicast entitlement, as broadcast does for
+the unit. Pick the scheme in Xcode to run one or the other.
+
 ## Installing the release IPA
 
-Each release includes `ck-karaoke-<version>-ios-unsigned.ipa`, built by
+Each release includes `ck-karaoke-<version>-ios-unsigned.ipa` and
+`ck-queue-remote-<version>-ios-unsigned.ipa`, built by
 [`package.sh`](package.sh). An IPA is the zip file iOS installs apps from. This
 one is **not signed**, and iOS refuses to install an app without a signature
 from an Apple developer account. You sign it with your own account. There are
