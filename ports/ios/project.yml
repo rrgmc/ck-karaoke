@@ -18,8 +18,13 @@ settings:
     # iPhone and iPad both.
     TARGETED_DEVICE_FAMILY: "1,2"
 
-targets:
-  CKKaraoke:
+# Two apps from one source: CK Karaoke drives the unit, CK Queue Remote a CK
+# Queue Manager. Everything they share is in this template; each target below
+# sets only its bundle id, its name, its Info.plist and CKBackend, which
+# Server.swift passes to the Go server. The backend is fixed at build time, so
+# the queue app has no way to reach the unit around the queue manager.
+targetTemplates:
+  App:
     type: application
     platform: iOS
     sources:
@@ -37,7 +42,6 @@ targets:
       - sdk: Security.framework
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.rrgmc.ckkaraoke
         # On the target, not just the project. xcodegen writes an empty
         # DEVELOPMENT_TEAM into every app target's own configurations, and that
         # overrides a project-level one — leaving Xcode to report that signing
@@ -57,9 +61,7 @@ targets:
         MARKETING_VERSION: "${CK_VERSION}"
         CURRENT_PROJECT_VERSION: "${CK_BUILD}"
     info:
-      path: CKKaraoke/Info.plist
       properties:
-        CFBundleDisplayName: CK Karaoke
         # WKWebView builds its Accept-Language from the languages the bundle
         # declares, so without pt-BR here the web UI would always arrive in
         # English. The matching strings live in the en.lproj and pt-BR.lproj
@@ -115,6 +117,32 @@ targets:
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
 
+targets:
+  CKKaraoke:
+    templates: [App]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rrgmc.ckkaraoke
+    info:
+      path: CKKaraoke/Info.plist
+      properties:
+        CFBundleDisplayName: CK Karaoke
+        CKBackend: unit
+  CKQueueRemote:
+    templates: [App]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rrgmc.ckqueueremote
+    info:
+      # Generated, like CKKaraoke/Info.plist, and beside it so both stay out
+      # of the sources.
+      path: CKQueueRemote-Info.plist
+      properties:
+        CFBundleDisplayName: CK Queue Remote
+        CKBackend: queue
+        NSLocalNetworkUsageDescription:
+          Finds the queue manager on the local network so you can request songs.
+
 # Declared rather than left to Xcode to autocreate. Without a real scheme on disk
 # xcodebuild invents one whose buildable has no supported platforms, and every
 # -destination is then rejected as unmatched.
@@ -123,6 +151,14 @@ schemes:
     build:
       targets:
         CKKaraoke: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  CKQueueRemote:
+    build:
+      targets:
+        CKQueueRemote: all
     run:
       config: Debug
     archive:

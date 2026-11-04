@@ -57,6 +57,9 @@ object Server {
 
         val args = mutableListOf(
             binary.absolutePath,
+            // Fixed by the build flavor: "unit" for CK Karaoke, "queue" for
+            // CK Queue Remote.
+            "-backend", BuildConfig.BACKEND,
             // Loopback only. The phone's server is for this phone's WebView, and
             // binding the WiFi interface would put an unauthenticated remote
             // control on the network.

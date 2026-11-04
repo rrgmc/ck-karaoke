@@ -7,7 +7,8 @@
 #
 # The version defaults to version/VERSION.
 #
-# Output: ck-karaoke-<version>-ios-unsigned.ipa
+# Output: ck-karaoke-<version>-ios-unsigned.ipa and
+# ck-queue-remote-<version>-ios-unsigned.ipa
 #
 # The IPA is not signed, so iOS will not install it as it is. See "Installing
 # the release IPA" in ports/ios/README.md for how to sign it.
@@ -33,18 +34,28 @@ export XCODE DEVELOPER_DIR="$XCODE/Contents/Developer"
 
 derived=build/package
 rm -rf "$derived"
-xcodebuild -project CKKaraoke.xcodeproj -scheme CKKaraoke \
-    -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
-    -derivedDataPath "$derived" \
-    MARKETING_VERSION="$numeric" CURRENT_PROJECT_VERSION="$code" \
-    CODE_SIGNING_ALLOWED=NO \
-    build
 
-# An IPA is a zip with the app bundle in a Payload directory.
-staging="$derived/ipa"
-mkdir -p "$staging/Payload"
-cp -R "$derived/Build/Products/Release-iphoneos/CKKaraoke.app" "$staging/Payload/"
-ipa="$out/ck-karaoke-$version-ios-unsigned.ipa"
-rm -f "$ipa"
-(cd "$staging" && zip -qry "$ipa" Payload)
-echo "$ipa"
+# package <scheme> <file name prefix>: one app, one IPA.
+package() {
+    local scheme=$1 prefix=$2
+    xcodebuild -project CKKaraoke.xcodeproj -scheme "$scheme" \
+        -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+        -derivedDataPath "$derived" \
+        MARKETING_VERSION="$numeric" CURRENT_PROJECT_VERSION="$code" \
+        CODE_SIGNING_ALLOWED=NO \
+        build
+
+    # An IPA is a zip with the app bundle in a Payload directory.
+    local staging="$derived/ipa-$scheme"
+    rm -rf "$staging"
+    mkdir -p "$staging/Payload"
+    cp -R "$derived/Build/Products/Release-iphoneos/$scheme.app" "$staging/Payload/"
+    local ipa="$out/$prefix-$version-ios-unsigned.ipa"
+    rm -f "$ipa"
+    (cd "$staging" && zip -qry "$ipa" Payload)
+    echo "$ipa"
+}
+
+# CK Karaoke, then CK Queue Remote; see the targets in project.yml.
+package CKKaraoke ck-karaoke
+package CKQueueRemote ck-queue-remote

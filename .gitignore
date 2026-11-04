@@ -32,6 +32,7 @@ CLAUDE.local.md
 /ports/ios/*.xcodeproj/
 # Generated from the info.properties block in ports/ios/project.yml.
 /ports/ios/CKKaraoke/Info.plist
+/ports/ios/CKQueueRemote-Info.plist
 
 # Desktop build output.
 /ports/desktop/build/bin/

@@ -99,8 +99,21 @@ func CKStart(dataDir, name, addr *C.char) C.int {
 	// web view that failed to load from one that loaded something empty.
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
+	// The app's CKBackend, which Server.swift exports: "unit" for CK Karaoke,
+	// "queue" for CK Queue Remote. Read through getenv for the same reason as
+	// the time zone.
+	backend := cgoGetenv("CK_BACKEND")
+	lastAddr := "device.addr"
+	if backend == server.BackendQueue {
+		lastAddr = "queue-manager.addr"
+	}
+
 	cfg := server.Config{
-		Addr: goAddr,
+		Backend: backend,
+		// mDNS from Go needs the multicast entitlement here, so the queue
+		// manager is found by trying port 8177 on each local host.
+		QueueSweep: true,
+		Addr:       goAddr,
 		// Loopback only. Binding the WiFi interface would put an unauthenticated
 		// remote control on the network for anyone to find.
 		Listen: "127.0.0.1:0",
@@ -108,7 +121,7 @@ func CKStart(dataDir, name, addr *C.char) C.int {
 		FavDB:  filepath.Join(dir, "favorites.db"),
 		// So switching the karaoke unit off still leaves a browsable song list and
 		// working favorites, rather than a failure screen.
-		LastAddrFile: filepath.Join(dir, "device.addr"),
+		LastAddrFile: filepath.Join(dir, lastAddr),
 		Name:         goName,
 		Logger:       logger,
 
