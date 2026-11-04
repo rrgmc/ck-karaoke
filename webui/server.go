@@ -36,6 +36,7 @@ type Server struct {
 	// action in the UI and is off unless the operator asked for it.
 	allowFolderDelete bool
 	saveFile          func(name string, data []byte) (string, error)
+	appName           string
 	// tmpl is the English template set, and byLang holds one set per language.
 	// Each set binds its own "t" function, so a template translates without the
 	// language having to be threaded through every piece of data it is given.
@@ -75,6 +76,10 @@ type Options struct {
 	// desktop port's. The phone ports handle the download header natively and
 	// leave this nil.
 	SaveFile func(name string, data []byte) (string, error)
+
+	// AppName names the build in the window title and the web app manifest.
+	// Empty means "CK Karaoke".
+	AppName string
 }
 
 // New builds a Server and registers its callbacks on the backend. The backend
@@ -94,6 +99,10 @@ func New(dev Backend, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger
 		hub: newHub(), stopping: make(chan struct{}),
 		allowFolderDelete: opts.AllowFolderDelete,
 		saveFile:          opts.SaveFile,
+		appName:           opts.AppName,
+	}
+	if srv.appName == "" {
+		srv.appName = "CK Karaoke"
 	}
 	if songs != nil {
 		srv.defaultLan = songs.LanTypeNamed(context.Background(), DefaultLanguage)
@@ -259,6 +268,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /favorites/backup/import", s.backupImport)
 	mux.HandleFunc("POST /favorites/backup/import", s.backupRestore)
 
+	mux.HandleFunc("GET /setup", s.setupPage)
+	mux.HandleFunc("POST /setup/code", s.enterCode)
+	mux.HandleFunc("POST /setup/forget", s.forgetCode)
+
 	mux.HandleFunc("POST /language", s.setLanguage)
 	mux.HandleFunc("POST /control/{action}", s.control)
 	mux.HandleFunc("POST /song/{id}/{action}", s.songAction)
@@ -330,6 +343,8 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request, name string, data 
 		data.Catalogue = s.songs.Info()
 	}
 	data.Nav = navFor(r.URL.Path)
+	data.AppName = s.appName
+	_, data.HasSetup = s.setup()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Language", data.Lang.Tag())
@@ -364,9 +379,13 @@ func (s *Server) manifest(w http.ResponseWriter, r *http.Request) {
 	// The icons are hashed like every other asset, so the URLs are built rather
 	// than written out. An empty list here is what stopped this being installable
 	// as a home-screen app at all.
+	name := s.appName
+	if name == "" {
+		name = "CK Karaoke"
+	}
 	fmt.Fprintf(w, `{
-  "name": "CK Karaoke",
-  "short_name": "CK Karaoke",
+  "name": %q,
+  "short_name": %q,
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -375,7 +394,7 @@ func (s *Server) manifest(w http.ResponseWriter, r *http.Request) {
     {"src": %q, "sizes": "192x192", "type": "image/png", "purpose": "any"},
     {"src": %q, "sizes": "512x512", "type": "image/png", "purpose": "any"}
   ]
-}`, assetURL("icon-192.png"), assetURL("icon-512.png"))
+}`, name, name, assetURL("icon-192.png"), assetURL("icon-512.png"))
 }
 
 func logRequests(logger *slog.Logger, next http.Handler) http.Handler {
@@ -398,6 +417,8 @@ func navFor(path string) string {
 		return "now"
 	case strings.HasPrefix(path, "/queue"):
 		return "queue"
+	case strings.HasPrefix(path, "/setup"):
+		return "setup"
 	default:
 		return "browse"
 	}

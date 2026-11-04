@@ -24,6 +24,8 @@ type Backend struct {
 	log    *slog.Logger
 
 	mu           sync.Mutex
+	id, name     string // the queue manager's, once known
+	tokenFile    string
 	streaming    bool
 	state        *wire.State
 	queue        *wire.Queue
@@ -51,6 +53,7 @@ func (b *Backend) Run(ctx context.Context) {
 	backoff := time.Second
 	const maxBackoff = 30 * time.Second
 	for ctx.Err() == nil {
+		b.identify(ctx)
 		// The queue is read once per connection: the stream only carries it
 		// when it changes.
 		if q, err := b.client.Queue(ctx); err == nil {

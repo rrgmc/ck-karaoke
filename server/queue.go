@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/rrgmc/ck-karaoke/catalog"
@@ -75,9 +76,13 @@ func runQueue(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	logger.Info("song catalogue ready", "file", songs.Path(), "songs", info.Songs, "version", info.DBVersion)
 
 	backend := remote.New(c, logger)
+	// Beside the song database, which every port puts in the app's own
+	// storage, so the code entered on the Setup page is kept with the rest.
+	backend.UseTokenFile(filepath.Join(filepath.Dir(cfg.SongDB), "access.json"))
 	srv, err := webui.New(backend, songs, favs, logger, webui.Options{
 		AllowFolderDelete: cfg.AllowFolderDelete,
 		SaveFile:          cfg.SaveFile,
+		AppName:           "CK Queue Remote",
 	})
 	if err != nil {
 		return err

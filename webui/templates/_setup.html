@@ -1,0 +1,40 @@
+{{/* The queue manager this app uses, what it may do there, and the access
+     code. Swapped whole after a code is entered or forgotten. */}}
+{{define "_setup.html"}}
+<section class="setup">
+  <h3 class="h6 mt-3">{{t "Queue manager"}}</h3>
+  {{if .Info.Err}}
+  <p class="text-danger">{{t "The queue manager is not answering."}}</p>
+  {{end}}
+  <dl class="setup-facts">
+    {{with .Info.Name}}<dt>{{t "Name"}}</dt><dd>{{.}}</dd>{{end}}
+    <dt>{{t "Address"}}</dt><dd>{{.Info.Addr}}</dd>
+    {{if .Info.Level}}
+    <dt>{{t "This phone can"}}</dt><dd>{{template "_level.html" .Info.Level}}</dd>
+    {{end}}
+    {{if .Info.Room}}
+    <dt>{{t "Everyone can"}}</dt><dd>{{template "_level.html" .Info.Room}}</dd>
+    {{end}}
+  </dl>
+
+  <h3 class="h6 mt-3">{{t "Access code"}}</h3>
+  <p class="text-secondary small">{{t "The host can give you a code that lets this phone do more."}}</p>
+  <form class="d-flex gap-2" hx-post="/setup/code" hx-target="#setup" autocomplete="off">
+    <input class="form-control" name="code" inputmode="numeric" placeholder="{{t "Code"}}" aria-label="{{t "Code"}}">
+    <button class="btn btn-primary" type="submit">{{t "Enter"}}</button>
+  </form>
+  {{with .Error}}<p class="text-danger small mt-2">{{.}}</p>{{end}}
+  {{if .Info.HasCode}}
+  <button class="btn btn-sm btn-outline-secondary mt-3" hx-post="/setup/forget" hx-target="#setup">{{t "Forget the code"}}</button>
+  {{end}}
+</section>
+{{end}}
+
+{{/* One access level in words. */}}
+{{define "_level.html"}}
+{{- if eq . "host"}}{{t "run the evening"}}
+{{- else if eq . "control"}}{{t "control playback and the queue"}}
+{{- else if eq . "queue"}}{{t "add songs to the queue"}}
+{{- else if eq . "request"}}{{t "request songs"}}
+{{- else}}{{t "see the queue"}}{{end -}}
+{{end}}
