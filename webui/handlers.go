@@ -34,12 +34,17 @@ type pageData struct {
 	// say "busy" rather than a generic "offline".
 	OfflineReason string
 	Catalogue     catalog.Info
+	// AppName names the build in the window title.
+	AppName string
+	// HasSetup offers the Setup tab: the backend has something to set up.
+	HasSetup bool
 
 	Player playerData
 	Browse browseData
 	Queue  queueData
 	Sync   syncData
 	Backup backupData
+	Setup  setupData
 }
 
 // playerData drives the Now tab and the SSE fragment.

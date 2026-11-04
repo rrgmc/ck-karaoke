@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,4 +110,53 @@ func TestRunQueueNeedsACatalogue(t *testing.T) {
 		Logger:  slog.New(slog.DiscardHandler),
 	})
 	assert.Error(t, err)
+}
+
+func TestTheQueueBuildHasASetupPage(t *testing.T) {
+	qm := kmapitest.New(t, kmapi.Request, songDB(t))
+	dir := t.TempDir()
+	ready := make(chan string, 1)
+	cfg := Config{
+		Backend: BackendQueue,
+		Addr:    qm.URL,
+		Listen:  "127.0.0.1:0",
+		SongDB:  filepath.Join(dir, "song.db"),
+		FavDB:   filepath.Join(dir, "favorites.db"),
+		Logger:  slog.New(slog.DiscardHandler),
+		Ready:   func(a net.Addr, _ string) { ready <- a.String() },
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- Run(ctx, cfg) }()
+	t.Cleanup(func() { cancel(); <-done })
+	var base string
+	select {
+	case a := <-ready:
+		base = "http://" + a
+	case err := <-done:
+		t.Fatalf("Run returned before serving: %v", err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("Run never became ready")
+	}
+
+	resp, err := http.Get(base + "/setup")
+	require.NoError(t, err)
+	page, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Contains(t, string(page), `href="/setup"`, "the Setup tab")
+	assert.Contains(t, string(page), "· CK Queue Remote</title>")
+	assert.Contains(t, string(page), "Living room")
+	assert.Contains(t, string(page), "request songs")
+
+	resp, err = http.PostForm(base+"/setup/code", url.Values{"code": {kmapitest.HostCode}})
+	require.NoError(t, err)
+	fragment, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	assert.Contains(t, string(fragment), "run the evening", "the host code's level")
+	assert.Contains(t, string(fragment), "Forget the code")
+
+	saved, err := os.ReadFile(filepath.Join(dir, "access.json"))
+	require.NoError(t, err)
+	assert.Contains(t, string(saved), "00112233aabbccdd", "the code is kept beside the song database")
 }

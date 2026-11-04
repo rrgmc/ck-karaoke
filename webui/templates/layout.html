@@ -12,7 +12,7 @@
      Add to Home Screen without it gets a screenshot of the page as its tile. */}}
 <link rel="apple-touch-icon" href="{{asset "icon-180.png"}}">
 <link rel="icon" href="{{asset "icon-192.png"}}" type="image/png">
-<title>{{.Title}} · CK Karaoke</title>
+<title>{{.Title}} · {{with .AppName}}{{.}}{{else}}CK Karaoke{{end}}</title>
 <link rel="stylesheet" href="{{asset "bootstrap.min.css"}}">
 <link rel="stylesheet" href="{{asset "app.css"}}">
 <script src="{{asset "htmx.min.js"}}"></script>
@@ -66,6 +66,11 @@
   <a href="/queue" class="{{if eq .Nav "queue"}}active{{end}}">
     <span class="tab-icon">≡</span><span>{{t "Queue"}}</span><span class="tab-count" sse-swap="queuecount">{{template "_queuecount.html" .QueueCount}}</span>
   </a>
+  {{if .HasSetup}}
+  <a href="/setup" class="{{if eq .Nav "setup"}}active{{end}}">
+    <span class="tab-icon">⚙</span><span>{{t "Setup"}}</span>
+  </a>
+  {{end}}
 </nav>
 {{/* Asks the hx-confirm questions in place of the browser's confirm(), which
      WKWebView answers with Cancel and shows nothing unless the app implements a

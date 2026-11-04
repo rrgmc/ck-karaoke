@@ -39,6 +39,37 @@ type Backend interface {
 	OnConnection(fn func(online bool, reason error))
 }
 
+// Setup is what a backend offers on the Setup page. A backend that has
+// nothing to set up, such as the unit's, does not implement it, and the page
+// is not offered.
+type Setup interface {
+	// SetupInfo describes what the backend is connected to and what the
+	// caller may do there.
+	SetupInfo(ctx context.Context) SetupInfo
+	// EnterCode exchanges an access code for a higher level, and keeps it.
+	EnterCode(ctx context.Context, code string) error
+	// ForgetCode drops the code, back to the level everybody has.
+	ForgetCode() error
+}
+
+// SetupInfo is what the Setup page shows.
+type SetupInfo struct {
+	// Name and Addr identify the server.
+	Name string
+	Addr string
+	// Level is what this app may do there: "view", "request", "queue",
+	// "control" or "host". Room is what everybody may do without a code.
+	Level string
+	Room  string
+	// HasCode reports a code in use.
+	HasCode bool
+	// Err is why the rest could not be read, or nil.
+	Err error
+}
+
+// ErrWrongCode reports an access code that opens nothing.
+var ErrWrongCode = errors.New("that code opens nothing")
+
 // ErrNotAcknowledged reports a command that was sent but not confirmed. The
 // pages treat it as done, and say so.
 var ErrNotAcknowledged = errors.New("command not acknowledged")

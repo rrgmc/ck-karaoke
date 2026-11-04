@@ -887,3 +887,8 @@ body:has(.htmx-request) { cursor: progress; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Setup page: label and value pairs. */
+.setup-facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; margin: 0; }
+.setup-facts dt { font-weight: 500; color: var(--muted); }
+.setup-facts dd { margin: 0; overflow-wrap: anywhere; }
