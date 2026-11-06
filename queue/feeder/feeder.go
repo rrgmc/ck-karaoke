@@ -186,7 +186,10 @@ type slot struct {
 	title     string
 	sent      time.Time
 	confirmed bool // seen in the unit's queue
-	gone      bool // left the unit's queue; its fate shows in the next status
+	// checking reports that a queue push lacked the song after it was
+	// confirmed, and that a fresh reading of the queue was asked for.
+	checking bool
+	gone     bool // left the unit's queue; its fate shows in the next status
 }
 
 type command struct {
@@ -329,14 +332,7 @@ func (f *Feeder) serve(ctx context.Context, unit Unit, changed <-chan struct{}) 
 		}
 	}()
 
-	// The reply arrives as a pushed queue, which the loop below handles.
-	go func() {
-		qctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-		if _, err := unit.Queue(qctx, 0, 10); err != nil && ctx.Err() == nil {
-			f.log.Debug("asking for the unit's queue", "error", err)
-		}
-	}()
+	f.askQueue(ctx, unit)
 
 	silence := time.NewTimer(f.opts.Silence)
 	defer silence.Stop()
@@ -370,6 +366,18 @@ func (f *Feeder) serve(ctx context.Context, unit Unit, changed <-chan struct{}) 
 		}
 		f.reconcile(ctx)
 	}
+}
+
+// askQueue asks the unit for its queue. The reply arrives as a pushed queue,
+// which the run loop handles.
+func (f *Feeder) askQueue(ctx context.Context, unit Unit) {
+	go func() {
+		qctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		if _, err := unit.Queue(qctx, 0, 10); err != nil && ctx.Err() == nil {
+			f.log.Debug("asking for the unit's queue", "error", err)
+		}
+	}()
 }
 
 // do runs fn on the loop's goroutine with the session open.
@@ -569,6 +577,7 @@ func (f *Feeder) onQueue(ctx context.Context, q *protocol.Queue) {
 		inUnit[n] = true
 		if f.buffered != nil && f.buffered.number == n {
 			f.buffered.confirmed = true
+			f.buffered.checking = false
 			continue
 		}
 		if f.pending != nil && f.pending.number == n {
@@ -599,8 +608,18 @@ func (f *Feeder) onQueue(ctx context.Context, q *protocol.Queue) {
 			f.log.Info("adopted a foreign song", "number", n, "by", e.QueuedBy())
 		}
 	}
-	if f.buffered != nil && f.buffered.confirmed && !inUnit[f.buffered.number] {
-		f.buffered.gone = true
+	if b := f.buffered; b != nil && b.confirmed && !inUnit[b.number] {
+		// A queue push that lacks the song can be older than the one that
+		// confirmed it: the queue sent when the previous song started, read
+		// before this song was added. Taken as a removal, it makes the feeder
+		// send the song again while the unit still holds it. So a removal
+		// counts only when a queue read after this push also lacks the song.
+		if b.checking {
+			b.gone = true
+		} else {
+			b.checking = true
+			f.askQueue(ctx, f.unit)
+		}
 	}
 	for n, entry := range f.adopted {
 		if !inUnit[n] {

@@ -193,7 +193,8 @@ func TestFeederPlaysTurnsOneSongAhead(t *testing.T) {
 	h.unit.End()
 	h.waitFor("the unit stops", h.playing(0))
 
-	assert.Equal(t, []uint32{11, 21, 12, 22, 13}, h.started())
+	// The unit stops before the feeder reads its last statuses.
+	h.waitFor("every song is reported as started", equal(h.started, 11, 21, 12, 22, 13))
 	assert.Contains(t, h.unit.Log(), "AddOrder 11 as Ana")
 	var sung []uint32
 	h.room.View(func(e *fair.Evening, _ time.Time) {
@@ -206,6 +207,76 @@ func TestFeederPlaysTurnsOneSongAhead(t *testing.T) {
 		assert.True(t, e.Natural)
 		assert.Equal(t, 3*time.Minute-time.Second, e.Length, "the last position reported")
 	}
+}
+
+// inLoop runs fn on the feeder's loop goroutine. It returns after the loop has
+// finished handling every push it took before fn.
+func (h *harness) inLoop(fn func(f *Feeder)) {
+	h.t.Helper()
+	require.NoError(h.t, h.f.do(context.Background(), func(context.Context) error {
+		fn(h.f)
+		return nil
+	}))
+}
+
+// bufferedConfirmed reports whether the feeder has seen number, its next song,
+// in the unit's queue.
+func (h *harness) bufferedConfirmed(number uint32) func() bool {
+	return func() bool {
+		// Eventually polls on another goroutine, so this cannot use inLoop's
+		// require.
+		var ok bool
+		err := h.f.do(context.Background(), func(context.Context) error {
+			b := h.f.buffered
+			ok = b != nil && b.number == number && b.confirmed
+			return nil
+		})
+		return err == nil && ok
+	}
+}
+
+// count is how many commands the unit received that equal cmd.
+func (h *harness) count(cmd string) int {
+	n := 0
+	for _, c := range h.unit.Log() {
+		if c == cmd {
+			n++
+		}
+	}
+	return n
+}
+
+// A queue push read before the feeder added the next song arrives after the
+// push that showed the song, and a status follows: the feeder keeps the song as
+// queued and does not send it again.
+func TestFeederKeepsTheBufferedSongAfterAnOlderQueuePush(t *testing.T) {
+	h := startFeeder(t, fair.Turns, nil)
+	h.singer("Ana")
+	h.singer("Beto")
+	h.ask("Ana", 11)
+	h.ask("Ana", 12)
+	h.ask("Beto", 21)
+	h.ask("Beto", 22)
+
+	h.unit.Advance(0)
+	h.waitFor("Ana's first song starts", h.playing(11))
+	h.waitFor("Beto's song waits on the unit", equal(h.unitQueue, "21 by Beto"))
+	h.unit.End()
+	h.waitFor("21 starts", h.playing(21))
+	h.waitFor("the feeder sees 12 on the unit", h.bufferedConfirmed(12))
+
+	h.unit.PushStaleQueue() // the queue from when 21 started, before 12 was added
+	h.unit.Advance(time.Second)
+	h.waitFor("the feeder reads the status", func() bool { return h.f.State().Position == time.Second })
+	h.inLoop(func(*Feeder) {}) // the feeder has acted on the status
+	assert.Equal(t, 1, h.count("AddOrder 12 as Ana"), "12 is sent once; commands %v", h.unit.Log())
+	assert.Equal(t, []string{"12 by Ana"}, h.unitQueue())
+
+	h.unit.End()
+	h.waitFor("12 starts", h.playing(12))
+	h.waitFor("the next song waits on the unit", equal(h.unitQueue, "22 by Beto"))
+	assert.Equal(t, 1, h.count("AddOrder 12 as Ana"), "12 is sent once; commands %v", h.unit.Log())
+	h.waitFor("the songs start in turns", equal(h.started, 11, 21, 12))
 }
 
 // A host moves another song ahead of the buffered one: the feeder swaps the
