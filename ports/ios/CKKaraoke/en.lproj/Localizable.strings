@@ -39,3 +39,6 @@
 
 /* Alert button */
 "OK" = "OK";
+
+/* Alert title; the argument is the other app's name */
+"Could not open %@" = "Could not open %@";

@@ -122,6 +122,10 @@ targetTemplates:
         # permits cleartext to 127.0.0.1 and nothing else.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        # Each app asks whether the other is installed before it offers to send
+        # favorites to it; see Peer.swift. canOpenURL answers only for schemes
+        # listed here.
+        LSApplicationQueriesSchemes: [ckkaraoke, ckqueueremote]
 
 targets:
   CKKaraoke:
@@ -134,6 +138,13 @@ targets:
       properties:
         CFBundleDisplayName: CK Karaoke
         CKBackend: unit
+        # Favorites arrive from CK Queue Remote on this scheme, and are sent
+        # to it on its own.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.rrgmc.ckkaraoke.favorites
+            CFBundleURLSchemes: [ckkaraoke]
+        CKPeerScheme: ckqueueremote
+        CKPeerName: CK Queue Remote
   CKQueueRemote:
     templates: [App]
     settings:
@@ -146,6 +157,11 @@ targets:
       properties:
         CFBundleDisplayName: CK Queue Remote
         CKBackend: queue
+        CFBundleURLTypes:
+          - CFBundleURLName: com.rrgmc.ckqueueremote.favorites
+            CFBundleURLSchemes: [ckqueueremote]
+        CKPeerScheme: ckkaraoke
+        CKPeerName: CK Karaoke
         NSLocalNetworkUsageDescription:
           Finds the queue manager on the local network so you can request songs.
 

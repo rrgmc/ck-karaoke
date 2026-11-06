@@ -127,7 +127,16 @@ final class RootViewController: UIViewController {
         ])
 
         webView = web
+        // Favorites sent from the other app open their own page instead.
+        if let port = Server.port, Peer.deliver(to: self, port: port) { return }
         web.load(URLRequest(url: url))
+    }
+
+    /// Shows favorites the other app sent while this one was already open. If
+    /// the web view is not up yet, showWeb shows them when it is.
+    func deliverIncoming() {
+        guard webView != nil, let port = Server.port else { return }
+        _ = Peer.deliver(to: self, port: port)
     }
 
     /// Puts the page back in working order after a suspension.
@@ -345,6 +354,15 @@ extension RootViewController: WKNavigationDelegate {
     /// restart it.
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        // A link that sends favorites to the other app on this device. It has
+        // no host, so isOurs would let it through to a load that fails.
+        if let url = navigationAction.request.url, url.scheme == "ckpeer" {
+            decisionHandler(.cancel)
+            if let port = Server.port {
+                Peer.send(url, port: port) { [weak self] name in self?.showSendFailure(name) }
+            }
+            return
+        }
         guard let url = navigationAction.request.url, !isOurs(url) else {
             // A target="_blank" to our own server would otherwise be dropped on
             // the floor: WebKit asks createWebViewWith for somewhere to put it,
@@ -369,6 +387,14 @@ extension RootViewController: WKNavigationDelegate {
                   navigationAction.navigationType.rawValue, url.absoluteString)
             decisionHandler(.cancel)
         }
+    }
+
+    private func showSendFailure(_ name: String) {
+        let alert = UIAlertController(
+            title: String(format: NSLocalizedString("Could not open %@", comment: "Alert title; the argument is the other app's name"), name),
+            message: nil, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Alert button"), style: .default))
+        present(alert, animated: true)
     }
 
     /// Our own server. The port moves between launches; the host does not. A URL
@@ -592,5 +618,12 @@ extension RootViewController: WKDownloadDelegate {
         // Presented rather than added to the view hierarchy, which also means
         // clear() — it removes every subview — cannot take it away mid-share.
         present(sheet, animated: true)
+    }
+}
+
+extension RootViewController: PageLoader {
+    /// Loads a page of the local server, for Peer.deliver.
+    func loadPage(_ url: URL) {
+        webView?.load(URLRequest(url: url))
     }
 }

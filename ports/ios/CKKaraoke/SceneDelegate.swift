@@ -19,6 +19,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession,
                options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
+        // Launched by the other app to receive favorites: held until the web
+        // view is up.
+        for context in connectionOptions.urlContexts { Peer.receive(context.url) }
         let window = UIWindow(windowScene: windowScene)
         window.rootViewController = RootViewController()
         window.backgroundColor = .white
@@ -58,6 +61,14 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard didSuspend else { return }
         didSuspend = false
         (window?.rootViewController as? RootViewController)?.resumeWeb()
+    }
+
+    /// Favorites sent from the other app while this one was running.
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        var received = false
+        for context in URLContexts where Peer.receive(context.url) { received = true }
+        guard received else { return }
+        (window?.rootViewController as? RootViewController)?.deliverIncoming()
     }
 
     private func endBackgroundTask() {

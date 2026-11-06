@@ -34,6 +34,7 @@ enum Server {
     static func start() -> Bool {
         passTimeZone()
         passBackend()
+        Peer.passPeer()
 
         let dir = dataDirectory.path
         let name = deviceName
