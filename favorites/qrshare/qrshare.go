@@ -53,7 +53,7 @@ import (
 type Folder struct {
 	// Name is the folder's name on the sending device. It is a label, not an
 	// instruction: the receiving device uses it to offer the obvious
-	// destination, and never to create one.
+	// destination. It creates a folder only when the user picks a new one.
 	Name string
 	// IDs are the catalogue song ids filed in it.
 	IDs []int

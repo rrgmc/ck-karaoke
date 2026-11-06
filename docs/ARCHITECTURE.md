@@ -74,6 +74,24 @@ Each app keeps its own data directory, so favorites stay apart. Both key songs
 by the unit's `SongIndex`, so a folder moves between them by QR code or
 backup.
 
+On a phone with both apps, favorites also move between them on demand:
+
+- When the other app is installed, the port names it in `server.Config.PeerApp`.
+  The sync page then offers **Send to** that app for one folder, and the backup
+  page for every folder. The link is `ckpeer:folder?code=<code>` or
+  `ckpeer:backup`, and the port handles it.
+- A folder travels as its folder code, the same digits a QR code holds. A
+  backup travels as the backup file.
+- The receiving app shows `/favorites/sync/incoming`, which asks which folder
+  to add the songs to, or `/favorites/backup/incoming`, which confirms before
+  it adds everything. Both only add, like sync and backup.
+- On Android, `ReceiveFavorites` takes the intent, guarded by a signature
+  permission that both apps declare. On iOS, each app has a URL scheme
+  (`ckkaraoke`, `ckqueueremote`); a backup travels on a named pasteboard,
+  which only apps of the same team can read.
+
+Sending does not delete. To have both apps match, send in both directions.
+
 The queue backend:
 
 - **finds the queue manager** at the remembered address first, then by mDNS

@@ -50,6 +50,12 @@ queue app: its name, its startup and notification text, and the icon's
 background. The queue app finds the queue manager by a sweep, not by mDNS;
 see [Finding the queue manager](#finding-the-queue-manager).
 
+With both apps installed, each can send favorites to the other (see
+[ARCHITECTURE.md](../../docs/ARCHITECTURE.md#two-backends-two-apps)).
+`ReceiveFavorites` receives them. The `SEND_FAVORITES` signature permission
+guards it, so both apps must be signed with the same key. A debug build and a
+release build cannot send to each other.
+
 Outputs are `app/build/outputs/apk/<flavor>/<debug|release>/app-<flavor>-<type>.apk`
 and `app/build/outputs/bundle/<flavor>Release/app-<flavor>-release.aab`.
 
