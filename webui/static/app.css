@@ -52,7 +52,40 @@ body {
   color: var(--muted);
   text-decoration: none;
   font-size: 0.8rem;
+  /* Lets a tab shrink below its label's width, so a long label wraps to a
+     second line instead of pushing the bar past the screen edge. */
+  min-width: 0;
+  padding: 0 0.15rem;
+  line-height: 1.1;
+  text-align: center;
 }
+
+/* The setup tab is an icon at the right end, sized to the icon rather than
+   taking an even share of the bar. */
+.tabbar a.tab-setup {
+  flex: 0 0 2.75rem;
+}
+.tabbar a.tab-setup .tab-icon { font-size: 1.2rem; }
+
+/* Five labelled tabs: icon above a smaller label, each tab as wide as its
+   label rather than an even share, so the long ones do not overflow. The bar
+   stays the same height. */
+.tabbar-stacked a {
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.1rem;
+  position: relative;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+.tabbar-stacked a.tab-setup { flex: 0 0 2.75rem; }
+/* The badge goes over the icon's top-right corner, where stacking left room. */
+.tabbar-stacked .tab-count {
+  position: absolute;
+  top: 0.15rem;
+  left: calc(50% + 0.35rem);
+}
+.tabbar-stacked .tab-badge { margin-left: 0; }
 
 .tabbar a.active { color: var(--accent); font-weight: 500; }
 
