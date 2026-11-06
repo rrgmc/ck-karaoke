@@ -58,9 +58,15 @@ func (u *fakeUnit) Dial(_ context.Context, id protocol.Identity) (Unit, error) {
 	return s, nil
 }
 
-// push is a status or queue to deliver once the lock is released.
+// push is a status or queue to deliver.
 type push func()
 
+// deliver hands pushes to the sessions. Call it with the lock held, so pushes
+// arrive in the order the unit's state changed, as one session's do on the
+// real unit. Delivered after the lock is released, a push from one call (the
+// status of a song added while stopped) could arrive after a newer push from
+// another (the next status), which the real unit never sends. The feeder's
+// callbacks only queue the push, so they do not call back into the unit.
 func (u *fakeUnit) deliver(ps []push) {
 	for _, p := range ps {
 		p()
@@ -153,8 +159,8 @@ func (u *fakeUnit) Advance(d time.Duration) {
 	if ps == nil {
 		ps = []push{u.statusLocked(u.pos)}
 	}
-	u.mu.Unlock()
 	u.deliver(ps)
+	u.mu.Unlock()
 }
 
 // End plays the current song to its end, reporting a status one second
@@ -175,8 +181,8 @@ func (u *fakeUnit) PushStaleQueue(entries ...fakeEntry) {
 	u.queue = entries
 	p := u.queueLocked()
 	u.queue = current
-	u.mu.Unlock()
 	p()
+	u.mu.Unlock()
 }
 
 func (u *fakeUnit) record(s string) {
@@ -223,8 +229,8 @@ func (s *fakeSession) Reserve(_ context.Context, id string) error {
 		u.queue = append(u.queue, fakeEntry{number: uint32(n), by: s.name})
 		ps = []push{u.queueLocked()}
 	}
-	u.mu.Unlock()
 	u.deliver(ps)
+	u.mu.Unlock()
 	return nil
 }
 
@@ -235,8 +241,8 @@ func (s *fakeSession) RemoveFromQueue(_ context.Context, id string) error {
 	u.record("DelOrder " + id)
 	u.queue = slices.DeleteFunc(u.queue, func(e fakeEntry) bool { return e.number == uint32(n) })
 	ps := []push{u.queueLocked()}
-	u.mu.Unlock()
 	u.deliver(ps)
+	u.mu.Unlock()
 	return nil
 }
 
@@ -252,8 +258,8 @@ func (s *fakeSession) PlayNow(_ context.Context, id string) error {
 		u.idField = "0"
 		ps[0] = u.statusLocked(-1580327258)
 	}
-	u.mu.Unlock()
 	u.deliver(ps)
+	u.mu.Unlock()
 	return nil
 }
 
@@ -267,8 +273,8 @@ func (s *fakeSession) NextSong(context.Context) error {
 		u.queue = u.queue[1:]
 		ps = u.startStaleLocked(next.number)
 	}
-	u.mu.Unlock()
 	u.deliver(ps)
+	u.mu.Unlock()
 	return nil
 }
 
@@ -288,8 +294,8 @@ func (s *fakeSession) Stop(context.Context) error {
 	u.record("Stop")
 	u.title, u.pos, u.paused, u.stopped = "", 0, false, true
 	ps := []push{u.statusLocked(0)}
-	u.mu.Unlock()
 	u.deliver(ps)
+	u.mu.Unlock()
 	return nil
 }
 
@@ -320,8 +326,8 @@ func (s *fakeSession) SetVolume(_ context.Context, level int) error {
 func (s *fakeSession) Queue(context.Context, int, int) (*protocol.Queue, error) {
 	s.u.mu.Lock()
 	p := s.u.queueLocked()
-	s.u.mu.Unlock()
 	p()
+	s.u.mu.Unlock()
 	return nil, nil
 }
 
