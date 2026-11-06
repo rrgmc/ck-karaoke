@@ -394,6 +394,10 @@ class MainActivity : Activity() {
                     view: WebView?, request: WebResourceRequest?,
                 ): Boolean {
                     val url = request?.url ?: return false
+                    if (url.scheme == "ckpeer") {
+                        sendToPeer(url)
+                        return true
+                    }
                     if (staysInside(url)) return false
                     return openOutside(url)
                 }
@@ -552,7 +556,125 @@ class MainActivity : Activity() {
         // The page then loads but never applies a stream event: the banner
         // keeps saying "unreachable" after the device has connected.
         web.resumeTimers()
-        web.loadUrl("http://127.0.0.1:$port/")
+        // Favorites sent from the other app open their own page instead.
+        if (!deliverIncoming(port)) web.loadUrl("http://127.0.0.1:$port/")
+    }
+
+    /**
+     * Favorites sent from the other app while this one was already open.
+     *
+     * ReceiveFavorites starts this Activity with CLEAR_TOP and SINGLE_TOP, so
+     * an open one gets the payload here rather than as a new instance. If the
+     * server is not up yet, showWeb delivers it when it is.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val port = Server.port
+        if (web != null && port != 0) deliverIncoming(port)
+    }
+
+    /**
+     * Opens the page for favorites the other app sent, and says whether there
+     * were any.
+     *
+     * A folder code goes in the URL. A backup is posted to the server first,
+     * which holds it, and then its confirm page opens. Neither page adds
+     * anything until the user confirms.
+     */
+    private fun deliverIncoming(port: Int): Boolean {
+        val w = web ?: return false
+        val base = "http://127.0.0.1:$port"
+        when (val incoming = Incoming.pending.also { Incoming.pending = null }) {
+            null -> return false
+            is Incoming.Folder ->
+                w.loadUrl("$base/favorites/sync/incoming?code=" + Uri.encode(incoming.code))
+            is Incoming.Backup -> Thread({
+                try {
+                    post("$base/favorites/backup/incoming", incoming.xml.toByteArray())
+                } catch (e: Exception) {
+                    // The confirm page then says nothing was received.
+                    Log.w(Server.TAG, "handing the received favorites to the server", e)
+                }
+                main.post { web?.loadUrl("$base/favorites/backup/incoming") }
+            }, "ckkaraoke-incoming").apply { isDaemon = true }.start()
+        }
+        return true
+    }
+
+    private fun post(url: String, body: ByteArray) {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        try {
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/xml; charset=utf-8")
+            connection.setFixedLengthStreamingMode(body.size)
+            connection.outputStream.use { it.write(body) }
+            if (connection.responseCode !in 200..299) {
+                throw IOException("the server answered ${connection.responseCode}")
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /**
+     * Sends favorites to the other app, from a ckpeer: link on the sync or
+     * backup page.
+     *
+     * ckpeer:folder?code=<code> carries one folder's code, the same digits a QR
+     * code holds. ckpeer:backup asks for everything, which is read from this
+     * server's own backup export. The other app's ReceiveFavorites takes either.
+     */
+    private fun sendToPeer(url: Uri) {
+        val part = url.encodedSchemeSpecificPart ?: return
+        val kind = part.substringBefore('?')
+        val code = Uri.decode(part.substringAfter("code=", ""))
+        when (kind) {
+            Incoming.KIND_FOLDER -> if (code.isNotEmpty()) startPeer(kind, code)
+            Incoming.KIND_BACKUP -> {
+                val port = Server.port
+                Thread({
+                    val xml = try {
+                        val connection = URL("http://127.0.0.1:$port/favorites/backup.xml")
+                            .openConnection() as HttpURLConnection
+                        try {
+                            connection.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+                        } finally {
+                            connection.disconnect()
+                        }
+                    } catch (e: Exception) {
+                        Log.w(Server.TAG, "reading the favorites to send", e)
+                        null
+                    }
+                    main.post {
+                        when {
+                            xml == null -> toast(getString(R.string.send_failed, BuildConfig.PEER_NAME))
+                            xml.length > Incoming.MAX_INLINE -> toast(getString(R.string.send_too_large))
+                            else -> startPeer(kind, xml)
+                        }
+                    }
+                }, "ckkaraoke-send").apply { isDaemon = true }.start()
+            }
+        }
+    }
+
+    private fun startPeer(kind: String, data: String) {
+        val send = Intent(Incoming.ACTION)
+            .setClassName(BuildConfig.PEER_PACKAGE, ReceiveFavorites::class.java.name)
+            .putExtra(Incoming.EXTRA_KIND, kind)
+            .putExtra(Incoming.EXTRA_DATA, data)
+            // ReceiveFavorites has no task of its own; it starts the other
+            // app's MainActivity in that app's task.
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            startActivity(send)
+        } catch (e: Exception) {
+            // Uninstalled since this server started, or signed with another
+            // key, which the permission refuses.
+            Log.w(Server.TAG, "sending favorites to ${BuildConfig.PEER_PACKAGE}", e)
+            toast(getString(R.string.send_failed, BuildConfig.PEER_NAME))
+        }
     }
 
     /**

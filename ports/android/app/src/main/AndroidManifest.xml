@@ -22,6 +22,22 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- Sending favorites between CK Karaoke and CK Queue Remote. Both apps
+         declare and use this permission. A signature permission is granted
+         only to apps signed with the same key, so no other app can start
+         ReceiveFavorites. -->
+    <permission
+        android:name="com.rrgmc.ck.permission.SEND_FAVORITES"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.rrgmc.ck.permission.SEND_FAVORITES" />
+
+    <!-- Package visibility: each app checks whether the other is installed
+         before it offers to send favorites to it. -->
+    <queries>
+        <package android:name="com.rrgmc.ckkaraoke" />
+        <package android:name="com.rrgmc.ckqueueremote" />
+    </queries>
+
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
@@ -38,6 +54,22 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Receives favorites from the other app. It shows nothing and has no
+             task of its own; see ReceiveFavorites. -->
+        <activity
+            android:name=".ReceiveFavorites"
+            android:exported="true"
+            android:permission="com.rrgmc.ck.permission.SEND_FAVORITES"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="com.rrgmc.ck.action.SEND_FAVORITES" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 

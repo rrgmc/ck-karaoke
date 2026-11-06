@@ -22,6 +22,10 @@
     <!-- Backup restore -->
     <string name="restore_unreadable">Could not read that file. Try choosing it again.</string>
 
+    <!-- Sending favorites to the other app -->
+    <string name="send_failed">Could not open %1$s.</string>
+    <string name="send_too_large">These favorites are too many to send this way. Save a backup and restore it in the other app.</string>
+
     <!-- Notification -->
     <string name="notification_title">Karaoke remote</string>
     <string name="notification_text">Connected to the karaoke device</string>

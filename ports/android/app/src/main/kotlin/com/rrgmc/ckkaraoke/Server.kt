@@ -1,6 +1,7 @@
 package com.rrgmc.ckkaraoke
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.os.Build
 import android.util.Log
@@ -74,6 +75,12 @@ object Server {
         if (!deviceAddress.isNullOrBlank()) {
             args += listOf("-addr", deviceAddress)
         }
+        // The favorites pages offer to send to the other app only when it is
+        // installed. Checked at each start, so installing it later shows the
+        // option after the next one.
+        if (peerInstalled(context)) {
+            args += listOf("-peer-app", BuildConfig.PEER_NAME)
+        }
         if (BuildConfig.BACKEND == "queue") {
             // The queue manager is found by trying its port on every host of
             // the network, as on iOS. mDNS cannot work from the server here: an
@@ -129,6 +136,18 @@ object Server {
         env["CK_TZ"] = zone.id
         env["CK_TZ_OFFSET"] = (zone.getOffset(System.currentTimeMillis()) / 1000).toString()
     }
+
+    /**
+     * Whether the other app (CK Karaoke or CK Queue Remote) is installed. The
+     * manifest's <queries> entry makes it visible to this lookup.
+     */
+    fun peerInstalled(context: Context): Boolean =
+        try {
+            context.packageManager.getPackageInfo(BuildConfig.PEER_PACKAGE, 0)
+            true
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
+        }
 
     /**
      * The IPv4 networks of the active network, as "address/prefix" separated

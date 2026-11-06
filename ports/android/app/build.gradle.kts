@@ -57,11 +57,16 @@ android {
             dimension = "backend"
             applicationId = "com.rrgmc.ckkaraoke"
             buildConfigField("String", "BACKEND", "\"unit\"")
+            // The other app, which favorites can be sent to when installed.
+            buildConfigField("String", "PEER_PACKAGE", "\"com.rrgmc.ckqueueremote\"")
+            buildConfigField("String", "PEER_NAME", "\"CK Queue Remote\"")
         }
         create("queue") {
             dimension = "backend"
             applicationId = "com.rrgmc.ckqueueremote"
             buildConfigField("String", "BACKEND", "\"queue\"")
+            buildConfigField("String", "PEER_PACKAGE", "\"com.rrgmc.ckkaraoke\"")
+            buildConfigField("String", "PEER_NAME", "\"CK Karaoke\"")
         }
     }
 
