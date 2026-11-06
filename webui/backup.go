@@ -2,6 +2,7 @@ package webui
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -47,6 +48,10 @@ type backupData struct {
 	// Filename is what the download is called, and what the Android picker
 	// offers as the name to save under.
 	Filename string
+
+	// Incoming is a backup sent from the other app on this phone, waiting to
+	// be confirmed, and is nil otherwise.
+	Incoming *xmlbackup.Favorites
 
 	// Result is a restore that happened, and is nil otherwise.
 	Result *restoreResult
@@ -233,45 +238,12 @@ func (s *Server) backupRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := restoreResult{Folders: len(read.Folders), Read: read.Songs()}
-	for _, folder := range read.Folders {
-		target, created, err := s.favs.EnsureFolder(ctx, folder.Name)
-		if err != nil {
-			s.logger.Error("restoring a favorites backup", "folder", folder.Name, "error", err)
-			data.Err = errorText(langOf(r), err)
-			s.page(w, r, "backup_import.html", pageData{Title: langOf(r).T("Restore favorites"), Backup: data})
-			return
-		}
-		if created {
-			result.Created++
-		}
-
-		ids := make([]int, len(folder.Songs))
-		for i, song := range folder.Songs {
-			ids[i] = song.ID
-		}
-		known, err := s.knownSongs(ctx, ids)
-		if err != nil {
-			s.fail(w, r, err)
-			return
-		}
-		keep := make([]int, 0, len(ids))
-		for _, id := range ids {
-			if known[id] {
-				keep = append(keep, id)
-			}
-		}
-		result.Unknown += len(ids) - len(keep)
-
-		added, err := s.favs.AddSongs(ctx, target.ID, keep)
-		if err != nil {
-			s.logger.Error("restoring a favorites backup", "folder", folder.Name, "error", err)
-			data.Err = errorText(langOf(r), err)
-			s.page(w, r, "backup_import.html", pageData{Title: langOf(r).T("Restore favorites"), Backup: data})
-			return
-		}
-		result.Added += added
-		result.Already += len(keep) - added
+	result, err := s.restoreAll(ctx, read)
+	if err != nil {
+		s.logger.Error("restoring a favorites backup", "error", err)
+		data.Err = errorText(langOf(r), err)
+		s.page(w, r, "backup_import.html", pageData{Title: langOf(r).T("Restore favorites"), Backup: data})
+		return
 	}
 
 	name := "a favorites file"
@@ -284,6 +256,45 @@ func (s *Server) backupRestore(w http.ResponseWriter, r *http.Request) {
 
 	data.Result = &result
 	s.page(w, r, "backup_done.html", pageData{Title: langOf(r).T("Restored"), Backup: data})
+}
+
+// restoreAll files every folder of a backup, creating the folders it does not
+// find. It only adds, so running it twice is the same insert again.
+func (s *Server) restoreAll(ctx context.Context, read xmlbackup.Favorites) (restoreResult, error) {
+	result := restoreResult{Folders: len(read.Folders), Read: read.Songs()}
+	for _, folder := range read.Folders {
+		target, created, err := s.favs.EnsureFolder(ctx, folder.Name)
+		if err != nil {
+			return result, fmt.Errorf("folder %q: %w", folder.Name, err)
+		}
+		if created {
+			result.Created++
+		}
+
+		ids := make([]int, len(folder.Songs))
+		for i, song := range folder.Songs {
+			ids[i] = song.ID
+		}
+		known, err := s.knownSongs(ctx, ids)
+		if err != nil {
+			return result, err
+		}
+		keep := make([]int, 0, len(ids))
+		for _, id := range ids {
+			if known[id] {
+				keep = append(keep, id)
+			}
+		}
+		result.Unknown += len(ids) - len(keep)
+
+		added, err := s.favs.AddSongs(ctx, target.ID, keep)
+		if err != nil {
+			return result, fmt.Errorf("folder %q: %w", folder.Name, err)
+		}
+		result.Added += added
+		result.Already += len(keep) - added
+	}
+	return result, nil
 }
 
 // uploadError words the two ways picking a file goes wrong, because neither of

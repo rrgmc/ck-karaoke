@@ -27,6 +27,20 @@
   </span>
   <span class="chevron">›</span>
 </a>
+
+{{if $.PeerApp}}
+{{/* The other app on this phone. The phone port handles the ckpeer: link: it
+     takes /favorites/backup.xml from this server and hands it to that app,
+     which asks before adding anything. */}}
+<a class="sync-choice" href="ckpeer:backup">
+  <span class="sync-choice-icon" aria-hidden="true">⇄</span>
+  <span class="sync-choice-text">
+    <span class="sync-choice-name">{{t "Send to %s" $.PeerApp}}</span>
+    <span class="sync-choice-sub">{{t "Add every folder to %s on this phone" $.PeerApp}}</span>
+  </span>
+  <span class="chevron">›</span>
+</a>
+{{end}}
 {{else}}
 <p class="sync-intro">{{t "There are no favorites here yet, so there is nothing to save."}}</p>
 {{end}}

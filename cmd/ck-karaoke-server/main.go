@@ -68,6 +68,7 @@ func run(ctx context.Context) error {
 		dbPath   = flag.String("catalog", "", "song database file; defaults to data/song.db beside the binary, downloaded from the device if missing")
 		favPath  = flag.String("favorites", "", "favorites database file; defaults to data/favorites.db beside the binary")
 		allowDel = flag.Bool("allow-folder-delete", false, "allow deleting favorites folders, which cannot be undone and is off by default")
+		peerApp  = flag.String("peer-app", "", "name of the other app on this phone that favorites can be sent to; set by the Android app when it is installed")
 		name     = flag.String("name", "", "name the device shows beside songs queued here; the hostname if empty")
 		refresh  = flag.Bool("refresh-db", false, "re-download the song database even if one exists")
 		verbose  = flag.Bool("v", false, "verbose logging")
@@ -117,6 +118,7 @@ func run(ctx context.Context) error {
 		FavDB:             favoritesPath,
 		LastAddrFile:      filepath.Join(dir, lastAddr),
 		AllowFolderDelete: *allowDel,
+		PeerApp:           *peerApp,
 		Name:              *name,
 		Verbose:           *verbose,
 

@@ -23,6 +23,19 @@
   <span class="chevron">›</span>
 </a>
 
+{{if and .PeerApp .Sync.Code}}
+{{/* The other app on this phone. The phone port handles the ckpeer: link and
+     opens that app with this code, which asks there where to add the songs. */}}
+<a class="sync-choice" href="ckpeer:folder?code={{.Sync.Code}}">
+  <span class="sync-choice-icon" aria-hidden="true">⇄</span>
+  <span class="sync-choice-text">
+    <span class="sync-choice-name">{{t "Send to %s" .PeerApp}}</span>
+    <span class="sync-choice-sub">{{t "Add these songs to a folder in %s on this phone" .PeerApp}}</span>
+  </span>
+  <span class="chevron">›</span>
+</a>
+{{end}}
+
 <p class="sync-intro">
   {{t "Songs are only ever added — nothing is removed on either device, and reading the same code twice changes nothing. This carries %s in one direction, so do it both ways to have both devices match." .Sync.Folder.Name}}
 </p>

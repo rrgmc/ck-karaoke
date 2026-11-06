@@ -36,6 +36,9 @@ type pageData struct {
 	Catalogue     catalog.Info
 	// AppName names the build in the window title.
 	AppName string
+	// PeerApp names the other app on this phone that favorites can be sent
+	// to, or is empty.
+	PeerApp string
 	// HasSetup offers the Setup tab: the backend has something to set up.
 	HasSetup bool
 	// Caps is what the backend can do, for the tab bar.

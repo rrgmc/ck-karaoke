@@ -37,6 +37,7 @@ var knownErrors = []struct {
 	{xmlbackup.ErrFormat, "This does not look like a favorites file."},
 	{xmlbackup.ErrVersion, "This file was made by a newer version of the app."},
 	{xmlbackup.ErrEmpty, "There are no songs in this file."},
+	{errNothingIncoming, "Nothing was received, or it was already added."},
 }
 
 // errorText words an error for the page. A known error gets its translated

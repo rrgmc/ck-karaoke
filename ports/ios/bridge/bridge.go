@@ -124,6 +124,8 @@ func CKStart(dataDir, name, addr *C.char) C.int {
 		LastAddrFile: filepath.Join(dir, lastAddr),
 		Name:         goName,
 		Logger:       logger,
+		// The other app's name when it is installed; Server.swift exports it.
+		PeerApp: cgoGetenv("CK_PEER_APP"),
 
 		// Go believes it is in UTC on iOS, so Swift sets these before calling in.
 		Local: server.LocalZone(cgoGetenv),

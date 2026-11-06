@@ -37,6 +37,10 @@ type Server struct {
 	allowFolderDelete bool
 	saveFile          func(name string, data []byte) (string, error)
 	appName           string
+	// peerApp names the other app on this phone that favorites can be sent
+	// to, or is empty. incoming holds a backup sent from it.
+	peerApp  string
+	incoming incoming
 	// tmpl is the English template set, and byLang holds one set per language.
 	// Each set binds its own "t" function, so a template translates without the
 	// language having to be threaded through every piece of data it is given.
@@ -80,6 +84,12 @@ type Options struct {
 	// AppName names the build in the window title and the web app manifest.
 	// Empty means "CK Karaoke".
 	AppName string
+
+	// PeerApp names the other app on this phone, CK Karaoke or CK Queue
+	// Remote, when it is installed. The favorites pages then offer to send a
+	// folder or a backup to it through a ckpeer: link, which the phone port
+	// handles. Empty hides those links.
+	PeerApp string
 }
 
 // New builds a Server and registers its callbacks on the backend. The backend
@@ -100,6 +110,7 @@ func New(dev Backend, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger
 		allowFolderDelete: opts.AllowFolderDelete,
 		saveFile:          opts.SaveFile,
 		appName:           opts.AppName,
+		peerApp:           opts.PeerApp,
 	}
 	if srv.appName == "" {
 		srv.appName = "CK Karaoke"
@@ -252,6 +263,11 @@ func (s *Server) Handler() http.Handler {
 	// Always one folder, named in the path, and always one side of the exchange
 	// at a time. Sync is reachable only from inside a folder: that is what
 	// removes the "which folder?" question from both ends of it.
+	// A folder sent from the other app on this phone. It names no folder here,
+	// so the page asks which one to add it to.
+	mux.HandleFunc("GET /favorites/sync/incoming", s.folderIncoming)
+	mux.HandleFunc("POST /favorites/sync/incoming", s.folderIncomingMerge)
+
 	mux.HandleFunc("GET /favorites/sync/{folder}", s.syncChoose)
 	mux.HandleFunc("GET /favorites/sync/{folder}/send", s.syncSend)
 	mux.HandleFunc("GET /favorites/sync/{folder}/receive", s.syncReceive)
@@ -267,6 +283,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /favorites/backup.xml", s.backupExport)
 	mux.HandleFunc("GET /favorites/backup/import", s.backupImport)
 	mux.HandleFunc("POST /favorites/backup/import", s.backupRestore)
+
+	// A backup sent from the other app on this phone. The port posts the file
+	// and then opens the confirm page; nothing is added until it is confirmed.
+	mux.HandleFunc("POST /favorites/backup/incoming", s.backupIncomingPost)
+	mux.HandleFunc("GET /favorites/backup/incoming", s.backupIncoming)
+	mux.HandleFunc("POST /favorites/backup/incoming/import", s.backupIncomingImport)
+	mux.HandleFunc("POST /favorites/backup/incoming/cancel", s.backupIncomingCancel)
 
 	mux.HandleFunc("POST /queue/{entry}/{action}", s.entryAction)
 
@@ -355,6 +378,7 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request, name string, data 
 	}
 	data.Nav = navFor(r.URL.Path)
 	data.AppName = s.appName
+	data.PeerApp = s.peerApp
 	_, data.HasSetup = s.setup()
 	data.Caps = s.caps()
 	_, data.HasHost = s.host()

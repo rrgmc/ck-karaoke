@@ -309,4 +309,17 @@ var portuguese = map[string]string{
 	"This does not look like a favorites file.":              "Isto não parece um arquivo de favoritos.",
 	"This file was made by a newer version of the app.":      "Este arquivo foi feito por uma versão mais nova do aplicativo.",
 	"There are no songs in this file.":                       "Não há músicas neste arquivo.",
+
+	// Favorites sent between CK Karaoke and CK Queue Remote on one phone.
+	"Send to %s": "Enviar para %s",
+	"Add these songs to a folder in %s on this phone": "Adicionar estas músicas a uma pasta do %s neste celular",
+	"Add every folder to %s on this phone":            "Adicionar todas as pastas ao %s neste celular",
+	"from %s":                                         "do %s",
+	"%s in %s":                                        "%s em %s",
+	"A new folder named %s":                           "Uma pasta nova chamada %s",
+	"Add the songs to":                                "Adicionar as músicas a",
+	"Add all":                                         "Adicionar tudo",
+	"Songs are only ever added. Nothing is removed here or in the other app.":                                          "As músicas são só adicionadas. Nada é removido aqui nem no outro aplicativo.",
+	"Folders that are missing here are created, songs that are already here stay as they are, and nothing is removed.": "As pastas que faltam aqui são criadas, as músicas que já estão aqui continuam como estão, e nada é removido.",
+	"Nothing was received, or it was already added.":                                                                   "Nada foi recebido, ou já foi adicionado.",
 }
