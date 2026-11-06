@@ -55,6 +55,7 @@ Then open the printed URL on any phone or computer on the same network.
 | `-name` | name the unit shows beside songs queued here (default: host name) |
 | `-discover-timeout` | how long to listen for a unit (default 3s) |
 | `-allow-folder-delete` | allow deleting favorites folders |
+| `-peer-app` | name of the other app on the phone; the favorites pages then offer to send to it (set by the Android app) |
 | `-v` | verbose logging, including every request |
 
 The server is unauthenticated. Bind it to a trusted network only.

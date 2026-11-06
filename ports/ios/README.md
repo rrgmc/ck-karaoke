@@ -27,6 +27,13 @@ queue app finds the queue manager by trying port 8177 on each local host,
 because mDNS from Go needs the multicast entitlement, as broadcast does for
 the unit. Pick the scheme in Xcode to run one or the other.
 
+With both apps installed, each can send favorites to the other (see
+[ARCHITECTURE.md](../../docs/ARCHITECTURE.md#two-backends-two-apps)).
+`Peer.swift` does it. Each target registers its own URL scheme and names the
+other's in `CKPeerScheme` and `CKPeerName`. A backup travels on a named
+pasteboard, which only apps of the same team can read, so both apps must be
+signed by the same team.
+
 ## Installing the release IPA
 
 Each release includes `ck-karaoke-<version>-ios-unsigned.ipa` and
