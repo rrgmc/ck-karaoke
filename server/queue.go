@@ -88,6 +88,7 @@ func runQueue(ctx context.Context, cfg Config, logger *slog.Logger) error {
 		AllowFolderDelete: cfg.AllowFolderDelete,
 		SaveFile:          cfg.SaveFile,
 		AppName:           "CK Queue Remote",
+		PeerApp:           cfg.PeerApp,
 	})
 	if err != nil {
 		return err

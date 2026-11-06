@@ -48,6 +48,12 @@ type syncData struct {
 	// tedious when what you want is simply to be done with it.
 	Back string
 
+	// Folders are this device's folders, offered as the target of a folder
+	// sent from the other app on this phone. NewName, when set, offers a new
+	// folder with the sender's folder name, because no folder here has it.
+	Folders []favorites.Folder
+	NewName string
+
 	// Result is a merge that happened, and is nil otherwise.
 	Result *mergeResult
 	// Err is shown above whatever form caused it.
@@ -96,13 +102,19 @@ func (s *Server) syncChoose(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.page(w, r, "sync.html", pageData{
-		Title: langOf(r).T("Sync %s", folder.Name),
-		Sync: syncData{
-			Folder: folder,
-			Back:   "/?mode=favorites&folder=" + strconv.Itoa(folder.ID),
-		},
-	})
+	data := syncData{Folder: folder}
+	if s.peerApp != "" {
+		// The code goes to the other app on this phone, which needs no QR
+		// image, so a folder too dense for one can still be sent.
+		code, err := s.folderCode(r.Context(), langOf(r), folder)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		data.Code = code.Code
+	}
+	data.Back = "/?mode=favorites&folder=" + strconv.Itoa(folder.ID)
+	s.page(w, r, "sync.html", pageData{Title: langOf(r).T("Sync %s", folder.Name), Sync: data})
 }
 
 // syncSend shows this folder's code.
@@ -166,17 +178,24 @@ func (s *Server) syncMerge(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ctx := r.Context()
-	data := syncData{Folder: folder, Back: "/favorites/sync/" + strconv.Itoa(folder.ID) + "/receive"}
+	s.mergeInto(w, r, folder, r.FormValue("code"),
+		"/favorites/sync/"+strconv.Itoa(folder.ID)+"/receive")
+}
 
-	scanned, err := qrshare.Decode(r.FormValue("code"))
+// mergeInto files the songs of a folder code into folder and shows the result.
+// back is where the confirm page's "‹ Back" goes if the merge fails.
+func (s *Server) mergeInto(w http.ResponseWriter, r *http.Request, folder favorites.Folder, code, back string) {
+	ctx := r.Context()
+	data := syncData{Folder: folder, Back: back}
+
+	scanned, err := qrshare.Decode(code)
 	if err != nil {
 		data.Err = errorText(langOf(r), err)
 		data.Back = data.Path()
 		s.page(w, r, "sync_receive.html", pageData{Title: langOf(r).T("Receive into %s", folder.Name), Sync: data})
 		return
 	}
-	data.Scanned, data.Raw = scanned, r.FormValue("code")
+	data.Scanned, data.Raw = scanned, code
 
 	// Drop anything this device's catalogue cannot show before it is written,
 	// rather than storing it and letting the folder's count drift away from what

@@ -1,0 +1,39 @@
+{{define "sync_incoming.html"}}
+{{template "head" .}}
+{{template "_synchead" .}}
+
+{{/* A folder sent from the other app on this phone. A scanned code goes into
+     the folder the scan started from; a sent one starts from no folder, so this
+     page asks which one. Nothing is written until the button is pressed. */}}
+{{if .Sync.Err}}
+<div class="alert alert-danger py-2">{{.Sync.Err}}</div>
+{{else}}
+<div class="sync-received">
+  <div class="sync-tick" aria-hidden="true">✓</div>
+  <div class="sync-received-what">
+    {{if .Sync.Scanned.Name}}<span class="sync-received-name">{{.Sync.Scanned.Name}}</span>{{end}}
+    <span class="song-sub">{{tn (len .Sync.Scanned.IDs) "%d song" "%d songs"}}{{if .PeerApp}} · {{t "from %s" .PeerApp}}{{end}}</span>
+  </div>
+</div>
+
+<form method="post" action="/favorites/sync/incoming" class="sync-merge">
+  <input type="hidden" name="code" value="{{.Sync.Raw}}">
+  <label class="form-label" for="incoming-folder">{{t "Add the songs to"}}</label>
+  <select class="form-select" name="folder" id="incoming-folder">
+    {{if .Sync.NewName}}
+    <option value="new" selected>{{t "A new folder named %s" .Sync.NewName}}</option>
+    {{end}}
+    {{range .Sync.Folders}}
+    <option value="{{.ID}}"{{if eq .ID $.Sync.Folder.ID}} selected{{end}}>{{.Name}}</option>
+    {{end}}
+  </select>
+  <button class="btn btn-primary btn-lg w-100" type="submit">{{t "Add"}}</button>
+</form>
+
+<p class="sync-intro">
+  {{t "Songs are only ever added. Nothing is removed here or in the other app."}}
+</p>
+{{end}}
+
+{{template "foot" .}}
+{{end}}

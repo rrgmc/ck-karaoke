@@ -58,6 +58,10 @@ type Config struct {
 	// SaveFile saves a file through the host's own dialog; see
 	// webui.Options.SaveFile. Nil sends files to the browser as downloads.
 	SaveFile func(name string, data []byte) (string, error)
+	// PeerApp names the other app on this phone when it is installed, so the
+	// favorites pages offer to send to it; see webui.Options.PeerApp. Only the
+	// phone ports set it.
+	PeerApp string
 	// Name is what the device shows beside songs queued here. Empty means the
 	// hostname.
 	Name string
@@ -240,6 +244,7 @@ func Run(ctx context.Context, cfg Config) error {
 	srv, err := webui.New(webui.UnitBackend(dev), songs, favs, logger, webui.Options{
 		AllowFolderDelete: cfg.AllowFolderDelete,
 		SaveFile:          cfg.SaveFile,
+		PeerApp:           cfg.PeerApp,
 	})
 	if err != nil {
 		return err

@@ -1,0 +1,33 @@
+{{define "backup_incoming.html"}}
+{{template "head" .}}
+{{template "_backuphead" .}}
+
+{{/* All the favorites of the other app on this phone, held until this page is
+     confirmed. Importing runs the same restore as a file, so it only adds. */}}
+{{if .Backup.Err}}
+<div class="alert alert-danger py-2">{{.Backup.Err}}</div>
+{{end}}
+
+{{with .Backup.Incoming}}
+<div class="sync-received">
+  <div class="sync-tick" aria-hidden="true">✓</div>
+  <div class="sync-received-what">
+    <span class="sync-received-name">{{t "%s in %s" (tn .Songs "%d song" "%d songs") (tn (len .Folders) "%d folder" "%d folders")}}</span>
+    {{if $.PeerApp}}<span class="song-sub">{{t "from %s" $.PeerApp}}</span>{{end}}
+  </div>
+</div>
+
+<form method="post" action="/favorites/backup/incoming/import" class="sync-merge">
+  <button class="btn btn-primary btn-lg w-100" type="submit">{{t "Add all"}}</button>
+</form>
+<form method="post" action="/favorites/backup/incoming/cancel">
+  <button class="btn btn-outline-secondary w-100" type="submit">{{t "Cancel"}}</button>
+</form>
+
+<p class="sync-intro">
+  {{t "Folders that are missing here are created, songs that are already here stay as they are, and nothing is removed."}}
+</p>
+{{end}}
+
+{{template "foot" .}}
+{{end}}
