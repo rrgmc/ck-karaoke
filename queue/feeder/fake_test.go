@@ -167,6 +167,18 @@ func (u *fakeUnit) End() {
 	u.Advance(time.Second)
 }
 
+// PushStaleQueue delivers a queue holding entries, as a push that was read
+// before the unit's current queue but arrives after it.
+func (u *fakeUnit) PushStaleQueue(entries ...fakeEntry) {
+	u.mu.Lock()
+	current := u.queue
+	u.queue = entries
+	p := u.queueLocked()
+	u.queue = current
+	u.mu.Unlock()
+	p()
+}
+
 func (u *fakeUnit) record(s string) {
 	u.log = append(u.log, s)
 }
