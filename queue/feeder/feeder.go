@@ -176,7 +176,10 @@ type Feeder struct {
 	pauseWant  bool
 	restarting bool
 	cut        bool // the playing song was cut short by a command
-	retryAt    time.Time
+	// cutAgain reports that a command cut the song short after a restart the
+	// unit has not shown yet.
+	cutAgain bool
+	retryAt  time.Time
 }
 
 // slot is an evening entry the feeder sent to the unit.
@@ -460,7 +463,8 @@ func (f *Feeder) onStatus(ctx context.Context, s *protocol.Status) {
 		// Our own PlayEx of the current song: the same song from the start.
 		f.restarting = false
 		f.playing.Started = now
-		f.cut = false
+		// A Skip or Stop sent after the restart still cuts the song short.
+		f.cut, f.cutAgain = f.cutAgain, false
 	case newSong:
 		n, _ := strconv.ParseUint(id, 10, 32)
 		f.songChanged(uint32(n), title, now)
@@ -549,12 +553,21 @@ func (f *Feeder) entryTitle(entry uint64) string {
 	return ""
 }
 
+// cutShort records that a command cut the playing song short.
+func (f *Feeder) cutShort() {
+	f.cut = true
+	if f.restarting {
+		f.cutAgain = true
+	}
+}
+
 // songEnded records the end of the playing song.
 func (f *Feeder) songEnded() {
 	ended := *f.playing
 	f.playing = nil
 	f.emit(SongEnded{Song: ended, Natural: !f.cut, Length: f.lastPos})
 	f.cut = false
+	f.cutAgain = false
 	f.restarting = false
 }
 
@@ -836,7 +849,7 @@ func (f *Feeder) Skip(ctx context.Context) error {
 		if f.playing == nil {
 			return nil
 		}
-		f.cut = true
+		f.cutShort()
 		if f.buffered != nil && f.buffered.confirmed {
 			return f.unit.NextSong(ctx)
 		}
@@ -879,6 +892,7 @@ func (f *Feeder) Restart(ctx context.Context) error {
 		}
 		f.restarting = true
 		f.cut = true
+		f.cutAgain = false
 		return nil
 	})
 }
@@ -895,7 +909,7 @@ func (f *Feeder) Stop(ctx context.Context) error {
 			f.publishState(f.now())
 			return nil
 		}
-		f.cut = true
+		f.cutShort()
 		if err := f.unit.Stop(ctx); err != nil {
 			return err
 		}

@@ -279,6 +279,32 @@ func TestFeederKeepsTheBufferedSongAfterAnOlderQueuePush(t *testing.T) {
 	h.waitFor("the songs start in turns", equal(h.started, 11, 21, 12))
 }
 
+// A Skip that the feeder handles before the unit shows an earlier Restart
+// still cuts the song short.
+func TestFeederSkipAfterARestartTheUnitHasNotShown(t *testing.T) {
+	h := startFeeder(t, fair.Arrival, nil)
+	h.singer("Ana")
+	h.ask("Ana", 11)
+	h.ask("Ana", 12)
+	h.unit.Advance(0)
+	h.waitFor("the next song waits", equal(h.unitQueue, "12 by Ana"))
+	h.waitFor("the feeder sees 12 on the unit", h.bufferedConfirmed(12))
+	ctx := context.Background()
+
+	h.unit.Advance(time.Minute)
+	h.unit.HoldNextPlayEx()
+	require.NoError(t, h.f.Restart(ctx))
+	require.NoError(t, h.f.Skip(ctx))
+	h.waitFor("the next song plays", h.playing(12))
+	h.unit.Advance(time.Second)
+	h.waitFor("the restart is no song of its own", equal(h.started, 11, 12))
+
+	ended := h.ended()
+	require.Len(t, ended, 1)
+	assert.Equal(t, uint32(11), ended[0].Song.Number)
+	assert.False(t, ended[0].Natural, "11 was skipped")
+}
+
 // A host moves another song ahead of the buffered one: the feeder swaps the
 // unit's next song.
 func TestFeederReplacesTheBufferedSongWhenTheOrderChanges(t *testing.T) {

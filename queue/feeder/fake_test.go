@@ -31,6 +31,10 @@ type fakeUnit struct {
 	key      int
 	tempo    int
 	volume   int
+	// holdPlayEx holds the pushes of the next PlayEx in held, which go out
+	// just before the next push, as from a unit slow to show the PlayEx.
+	holdPlayEx bool
+	held       []push
 }
 
 type fakeEntry struct {
@@ -68,6 +72,8 @@ type push func()
 // another (the next status), which the real unit never sends. The feeder's
 // callbacks only queue the push, so they do not call back into the unit.
 func (u *fakeUnit) deliver(ps []push) {
+	ps = append(u.held, ps...)
+	u.held = nil
 	for _, p := range ps {
 		p()
 	}
@@ -173,6 +179,14 @@ func (u *fakeUnit) End() {
 	u.Advance(time.Second)
 }
 
+// HoldNextPlayEx makes the unit send the pushes of the next PlayEx only just
+// before its next push.
+func (u *fakeUnit) HoldNextPlayEx() {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.holdPlayEx = true
+}
+
 // PushStaleQueue delivers a queue holding entries, as a push that was read
 // before the unit's current queue but arrives after it.
 func (u *fakeUnit) PushStaleQueue(entries ...fakeEntry) {
@@ -258,7 +272,11 @@ func (s *fakeSession) PlayNow(_ context.Context, id string) error {
 		u.idField = "0"
 		ps[0] = u.statusLocked(-1580327258)
 	}
-	u.deliver(ps)
+	if u.holdPlayEx {
+		u.holdPlayEx, u.held = false, ps
+	} else {
+		u.deliver(ps)
+	}
 	u.mu.Unlock()
 	return nil
 }
