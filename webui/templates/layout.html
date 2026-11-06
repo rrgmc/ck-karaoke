@@ -50,7 +50,9 @@
 
 {{define "foot"}}
 </main>
-<nav class="tabbar">
+{{/* With both the request and host tabs there are five labels, which do not
+     fit a phone's width beside their icons: stack them instead. */}}
+<nav class="tabbar{{if and .Caps.Requests .HasHost}} tabbar-stacked{{end}}">
   {{/* Absolutely positioned so it does not become a fourth tab: the three links
        are flex:1 each and share the bar evenly, and anything else in the flow
        would take a quarter of it. */}}
@@ -77,8 +79,10 @@
   </a>
   {{end}}
   {{if .HasSetup}}
-  <a href="/setup" class="{{if eq .Nav "setup"}}active{{end}}">
-    <span class="tab-icon">⚙</span><span>{{t "Setup"}}</span>
+  {{/* Icon only, at the right end: with the request and host tabs the bar
+       holds six tabs, and six labels do not fit a phone's width. */}}
+  <a href="/setup" class="tab-setup{{if eq .Nav "setup"}} active{{end}}" aria-label="{{t "Setup"}}" title="{{t "Setup"}}">
+    <span class="tab-icon" aria-hidden="true">⚙</span>
   </a>
   {{end}}
 </nav>
