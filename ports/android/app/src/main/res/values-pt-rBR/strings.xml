@@ -20,6 +20,10 @@
     <!-- Backup restore -->
     <string name="restore_unreadable">Não foi possível ler esse arquivo. Tente escolhê-lo de novo.</string>
 
+    <!-- Sending favorites to the other app -->
+    <string name="send_failed">Não foi possível abrir o %1$s.</string>
+    <string name="send_too_large">São favoritos demais para enviar assim. Salve um backup e restaure-o no outro aplicativo.</string>
+
     <!-- Notification -->
     <string name="notification_title">Controle remoto de karaokê</string>
     <string name="notification_text">Conectado ao aparelho de karaokê</string>
