@@ -335,13 +335,13 @@ func (s *Server) knownSongs(ctx context.Context, ids []int) (map[int]bool, error
 // In batches, because every id becomes a bound parameter and a whole favorites
 // database can be thousands of them.
 func (s *Server) lookupSongs(ctx context.Context, ids []int) (map[int]catalog.Song, error) {
-	if s.songs == nil {
+	if s.cat() == nil {
 		return nil, nil
 	}
 	out := make(map[int]catalog.Song, len(ids))
 	const batch = 500
 	for start := 0; start < len(ids); start += batch {
-		found, err := s.songs.Songs(ctx, ids[start:min(start+batch, len(ids))])
+		found, err := s.cat().Songs(ctx, ids[start:min(start+batch, len(ids))])
 		if err != nil {
 			return nil, err
 		}

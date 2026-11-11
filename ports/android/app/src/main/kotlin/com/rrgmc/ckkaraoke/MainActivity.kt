@@ -183,7 +183,8 @@ class MainActivity : Activity() {
      * re-fetched rather than the bytes being held from the download listener —
      * the listener only ever gets a URL, and this server is on loopback with
      * nothing to authenticate against, so asking for it again is a plain GET.
-     * A backup is measured in tens of kilobytes, so nothing here is progressive.
+     * A backup is tens of kilobytes and the song list a few megabytes, so
+     * nothing here is progressive.
      */
     private fun saveDownload(url: String, target: Uri) {
         Thread({
@@ -206,7 +207,7 @@ class MainActivity : Activity() {
 
             main.post {
                 if (error == null) {
-                    toast(getString(R.string.backup_saved))
+                    toast(getString(R.string.file_saved))
                 } else {
                     toast(getString(R.string.backup_failed, error))
                 }
@@ -500,10 +501,14 @@ class MainActivity : Activity() {
              */
             setDownloadListener { url, _, disposition, _, _ ->
                 pendingDownload = url
+                val name = downloadName(disposition)
+                // The favorites backup or the song list. The type decides
+                // which extension some providers add to the name.
+                val type = if (name.endsWith(".xml")) "text/xml" else "application/octet-stream"
                 val save = Intent(Intent.ACTION_CREATE_DOCUMENT)
                     .addCategory(Intent.CATEGORY_OPENABLE)
-                    .setType("text/xml")
-                    .putExtra(Intent.EXTRA_TITLE, downloadName(disposition))
+                    .setType(type)
+                    .putExtra(Intent.EXTRA_TITLE, name)
                 try {
                     startActivityForResult(save, REQ_SAVE)
                 } catch (e: ActivityNotFoundException) {

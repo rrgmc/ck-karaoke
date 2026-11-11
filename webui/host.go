@@ -42,8 +42,8 @@ func (s *Server) hostData(ctx context.Context, lang i18n.Lang) hostData {
 		}
 	}
 	var found map[int]struct{ Title, Artist string }
-	if s.songs != nil {
-		if songs, err := s.songs.Songs(ctx, ids); err == nil {
+	if s.cat() != nil {
+		if songs, err := s.cat().Songs(ctx, ids); err == nil {
 			found = make(map[int]struct{ Title, Artist string }, len(songs))
 			for id, song := range songs {
 				found[id] = struct{ Title, Artist string }{song.Title, song.Artist}

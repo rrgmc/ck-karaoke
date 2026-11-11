@@ -54,6 +54,8 @@ type pageData struct {
 	Setup  setupData
 	Mine   mineData
 	Host   hostData
+	// SongList is what the Songs tab shows while there is no song list.
+	SongList songListState
 }
 
 // playerData drives the Now tab and the SSE fragment.
@@ -376,9 +378,9 @@ func (s *Server) playerData(st *Status) playerData {
 
 	// The status carries the song name but not the artist, so fill it in from
 	// the catalogue.
-	if s.songs != nil && st.SongID != "" {
+	if s.cat() != nil && st.SongID != "" {
 		if id, err := strconv.Atoi(st.SongID); err == nil {
-			if song, err := s.songs.Song(context.Background(), id); err == nil {
+			if song, err := s.cat().Song(context.Background(), id); err == nil {
 				d.Artist = song.Artist
 				if d.Title == "" {
 					d.Title = song.Title
@@ -525,7 +527,7 @@ func (s *Server) rememberBrowse(w http.ResponseWriter, b browseData) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	}
-	if b.SongQuery == "" && b.FavQuery == "" && b.LanType == s.defaultLan && b.Letter == "" &&
+	if b.SongQuery == "" && b.FavQuery == "" && b.LanType == int(s.defaultLan.Load()) && b.Letter == "" &&
 		b.ArtistID == 0 && b.FolderID == 0 && b.Mode == modeSongs {
 		c.MaxAge = -1
 	} else {
@@ -562,7 +564,7 @@ func (s *Server) rememberBrowse(w http.ResponseWriter, b browseData) {
 
 // recallBrowse restores the remembered browse state.
 func (s *Server) recallBrowse(r *http.Request) browseData {
-	out := browseData{Mode: modeSongs, LanType: s.defaultLan}
+	out := browseData{Mode: modeSongs, LanType: int(s.defaultLan.Load())}
 	c, err := r.Cookie(browseCookie)
 	if err != nil {
 		return out
@@ -685,19 +687,24 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 	data.LangChoice = recallLang(r)
 	data.Caps = s.caps()
 
-	if s.songs == nil {
-		s.page(w, r, "browse.html", pageData{Title: data.title(), Browse: data})
+	if s.cat() == nil {
+		// Nothing to browse until a song list arrives: say what it is waiting
+		// for instead.
+		s.page(w, r, "songlist.html", pageData{
+			Title:    langOf(r).T("Songs"),
+			SongList: s.songListNow(),
+		})
 		return
 	}
 
-	langs, err := s.songs.Languages(r.Context())
+	langs, err := s.cat().Languages(r.Context())
 	if err != nil {
 		s.logger.Error("listing languages", "error", err)
 	}
 	data.Languages = langs
 
 	if data.ArtistID != 0 {
-		if a, err := s.songs.Artist(r.Context(), data.ArtistID); err == nil {
+		if a, err := s.cat().Artist(r.Context(), data.ArtistID); err == nil {
 			data.Artist = a
 		} else {
 			// The artist went away; fall back to the full list rather than an error.
@@ -843,14 +850,14 @@ func (s *Server) loadBrowse(r *http.Request, data *browseData) error {
 		data.Folders, data.Total, n = folders, len(folders), len(folders)
 
 	case data.ShowingArtists():
-		artists, total, err := s.songs.SearchArtists(r.Context(), q)
+		artists, total, err := s.cat().SearchArtists(r.Context(), q)
 		if err != nil {
 			return err
 		}
 		data.Artists, data.Total, n = artists, total, len(artists)
 
 	default:
-		songs, total, err := s.songs.Search(r.Context(), q)
+		songs, total, err := s.cat().Search(r.Context(), q)
 		if err != nil {
 			return err
 		}
@@ -943,8 +950,8 @@ func (s *Server) describeQueue(ctx context.Context, q *Queue) queueData {
 		}
 	}
 	var titles map[int]catalog.Song
-	if s.songs != nil {
-		titles, _ = s.songs.Songs(ctx, ids)
+	if s.cat() != nil {
+		titles, _ = s.cat().Songs(ctx, ids)
 	}
 
 	for i, e := range q.Entries {
@@ -1044,9 +1051,9 @@ func (s *Server) songAction(w http.ResponseWriter, r *http.Request) {
 	s.refreshQueue()
 
 	title := lang.T("Song %s", id)
-	if s.songs != nil {
+	if s.cat() != nil {
 		if n, err := strconv.Atoi(id); err == nil {
-			if song, err := s.songs.Song(r.Context(), n); err == nil {
+			if song, err := s.cat().Song(r.Context(), n); err == nil {
 				title = song.Title
 			}
 		}
@@ -1127,8 +1134,12 @@ func templateFuncs(lang i18n.Lang) template.FuncMap {
 			}
 			return template.HTML(lang.T(msg, args...))
 		},
-		"lang":  lang.Tag,
-		"asset": assetURL,
+		// errtext words an error in this language: a known error gets its
+		// message, anything else is shown as it is. For state rendered once
+		// per language, such as an event-stream update.
+		"errtext": func(err error) string { return errorText(lang, err) },
+		"lang":    lang.Tag,
+		"asset":   assetURL,
 		// The one URL that points outside the app. A helper rather than a
 		// string built in the template, because the query has to be
 		// percent-encoded and a template has no way to do that.

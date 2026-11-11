@@ -271,10 +271,10 @@ is what permits plain HTTP to it, and is the counterpart of Android's
 - **macOS may firewall the Go binary.** Each `go run` produces a new unsigned
   executable, and a blocked one fails unicast sends with `sendto: no route to
   host` while broadcast still works — which looks exactly like a bug in the sweep.
-- **A first run looks like a hang.** The server does not open its listener until
-  the catalogue is ready, so there is no port to load a page from before then. The
-  startup screen now counts the download up rather than only spinning, which is
-  what makes a slow run distinguishable from a broken one. `RootViewController`
+- **A first run opens on an empty Songs tab.** The server listens at once, and
+  the song list downloads over the first device session, with the progress on
+  that tab. The startup screen's download caption only appears for CK Queue
+  Remote, whose server still downloads before it listens. `RootViewController`
   also implements `didFailProvisionalNavigation`, so a load that genuinely fails
   says so instead of leaving a white screen.
 - **Most of a first run is spent waiting for silence, not for data.** A 2.2 MB

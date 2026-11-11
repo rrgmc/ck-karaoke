@@ -144,12 +144,9 @@ func run(ctx context.Context) error {
 	}
 
 	err = server.Run(ctx, cfg)
-	// The hints are flag-specific, so they are added here rather than raised
-	// from a server that may not have a command line at all.
-	switch {
-	case errors.Is(err, client.ErrNoDevice):
-		return fmt.Errorf("%w pass -addr to skip the search", err)
-	case errors.Is(err, server.ErrCatalogue):
+	// The hint is flag-specific, so it is added here rather than raised from a
+	// server that may not have a command line at all.
+	if errors.Is(err, server.ErrCatalogue) {
 		return fmt.Errorf("%w\n(supply one with -catalog if you already have song.db)", err)
 	}
 	return err

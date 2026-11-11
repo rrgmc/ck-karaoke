@@ -1,0 +1,26 @@
+{{define "songlist_import.html"}}
+{{template "head" .}}
+<div class="sync-bar-head">
+  <a class="btn btn-sm btn-outline-secondary sync-back" href="/">‹ {{t "Back"}}</a>
+  <h2 class="h5 m-0 sync-head-title">{{.Title}}</h2>
+</div>
+
+{{with .SongList.Err}}
+<div class="alert alert-danger py-2">{{errtext .}}</div>
+{{end}}
+
+{{/* Plain navigation, not htmx: the server answers with a redirect to the
+     Songs tab, which then has a list to show. No accept filter: the file has
+     no MIME type the phones' pickers know, and filtering on one hides it. */}}
+<form method="post" action="/songlist/import" enctype="multipart/form-data"
+      class="sync-merge">
+  <input type="file" name="file" id="songlist-file" class="form-control" required>
+  <button class="btn btn-primary btn-lg w-100" type="submit">{{t "Import"}}</button>
+</form>
+
+<p class="sync-intro">
+  {{t "Choose the song.db file from another installation of this app that has already downloaded the song list from the same model of karaoke device."}}
+</p>
+
+{{template "foot" .}}
+{{end}}

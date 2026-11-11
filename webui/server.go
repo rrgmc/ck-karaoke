@@ -28,10 +28,16 @@ var staticFS embed.FS
 
 // Server is the web UI.
 type Server struct {
-	dev    Backend
-	songs  *catalog.DB
-	favs   *favorites.DB
-	logger *slog.Logger
+	dev Backend
+	// songs is the song list, nil until one is loaded; see songlist.go.
+	songs atomic.Pointer[catalog.DB]
+	// songListPath is where a downloaded or imported song list is written,
+	// or empty when the caller offers neither.
+	songListPath string
+	listMu       sync.Mutex
+	listState    songListState
+	favs         *favorites.DB
+	logger       *slog.Logger
 	// allowFolderDelete gates folder deletion, which is the one irreversible
 	// action in the UI and is off unless the operator asked for it.
 	allowFolderDelete bool
@@ -50,7 +56,7 @@ type Server struct {
 	// defaultLan is the language a first-time visitor sees. Resolved from the
 	// catalogue by name rather than hardcoded, since the ids come from the
 	// device's own table.
-	defaultLan int
+	defaultLan atomic.Int64
 	// stopping is closed when shutdown begins, so the event streams let go of
 	// their connections.
 	stopping chan struct{}
@@ -85,6 +91,11 @@ type Options struct {
 	// Empty means "CK Karaoke".
 	AppName string
 
+	// SongListPath is where the song list is written when it is downloaded
+	// from the device or imported from a file. Both happen only while New was
+	// given no song list. Empty offers neither.
+	SongListPath string
+
 	// PeerApp names the other app on this phone, CK Karaoke or CK Queue
 	// Remote, when it is installed. The favorites pages then offer to send a
 	// folder or a backup to it through a ckpeer: link, which the phone port
@@ -104,8 +115,9 @@ func New(dev Backend, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger
 		byLang[lang] = tmpl
 	}
 	srv := &Server{
-		dev: dev, songs: songs, favs: favs, logger: logger,
-		tmpl: byLang[i18n.English], byLang: byLang,
+		dev: dev, favs: favs, logger: logger,
+		songListPath: opts.SongListPath,
+		tmpl:         byLang[i18n.English], byLang: byLang,
 		hub: newHub(), stopping: make(chan struct{}),
 		allowFolderDelete: opts.AllowFolderDelete,
 		saveFile:          opts.SaveFile,
@@ -116,7 +128,8 @@ func New(dev Backend, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger
 		srv.appName = "CK Karaoke"
 	}
 	if songs != nil {
-		srv.defaultLan = songs.LanTypeNamed(context.Background(), DefaultLanguage)
+		srv.songs.Store(songs)
+		srv.defaultLan.Store(int64(songs.LanTypeNamed(context.Background(), DefaultLanguage)))
 	}
 	if dev != nil {
 		dev.OnStatus(srv.PublishStatus)
@@ -173,6 +186,7 @@ func (s *Server) watchConnection(dev Backend) {
 		switch {
 		case online:
 			s.notify(toastGood, "Device connected")
+			s.downloadSongList()
 		case errors.Is(reason, client.ErrBusy):
 			// Worth spelling out: the usual cause is another
 			// remote still holding the single connection slot.
@@ -181,6 +195,9 @@ func (s *Server) watchConnection(dev Backend) {
 			s.notify(toastWarn, "The karaoke machine is not connected to the queue manager.")
 		case errors.Is(reason, ErrQueueManager):
 			s.notify(toastWarn, "Queue manager unreachable — retrying")
+		case errors.Is(reason, ErrNoDevice):
+			// The banner already says the app is looking; a toast on top
+			// of it on every start with no device nearby is noise.
 		case reason != nil:
 			s.notify(toastWarn, "Device unreachable — retrying")
 		default:
@@ -209,6 +226,7 @@ const (
 	reasonUnreachable  = "unreachable"
 	reasonAway         = "away"
 	reasonQueueManager = "queue-manager"
+	reasonSearching    = "searching"
 )
 
 // offlineReason classifies a dial failure, so the banner can say "busy" rather
@@ -223,6 +241,8 @@ func offlineReason(err error) string {
 		return reasonAway
 	case errors.Is(err, ErrQueueManager):
 		return reasonQueueManager
+	case errors.Is(err, ErrNoDevice):
+		return reasonSearching
 	default:
 		return reasonUnreachable
 	}
@@ -247,6 +267,10 @@ func (s *Server) Handler() http.Handler {
 		}
 		http.Redirect(w, r, target, http.StatusMovedPermanently)
 	})
+
+	mux.HandleFunc("GET /songlist/import", s.songListImportPage)
+	mux.HandleFunc("POST /songlist/import", s.songListImport)
+	mux.HandleFunc("GET /songlist/song.db", s.songListExport)
 
 	mux.HandleFunc("GET /events", s.serveSSE)
 	mux.HandleFunc("GET /fragment/player", s.playerFragment)
@@ -316,10 +340,10 @@ func (s *Server) Handler() http.Handler {
 // catalogue returns the song database's metadata, or a zero value when none is
 // loaded.
 func (s *Server) catalogue() catalog.Info {
-	if s.songs == nil {
+	if s.cat() == nil {
 		return catalog.Info{}
 	}
-	return s.songs.Info()
+	return s.cat().Info()
 }
 
 // langOf is the language to answer a request in: the one picked on this device,
@@ -373,8 +397,8 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request, name string, data 
 	if q := s.dev.Queue(); q != nil {
 		data.QueueCount = q.Total
 	}
-	if s.songs != nil {
-		data.Catalogue = s.songs.Info()
+	if s.cat() != nil {
+		data.Catalogue = s.cat().Info()
 	}
 	data.Nav = navFor(r.URL.Path)
 	data.AppName = s.appName

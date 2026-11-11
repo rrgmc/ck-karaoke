@@ -26,10 +26,10 @@ import (
 	"github.com/rrgmc/ck-karaoke/webui"
 )
 
-// ErrCatalogue reports that the song database is missing and the device could
-// not be reached to download it. It is a sentinel so a caller can add its own
-// advice — the command line can suggest a flag, an app cannot.
-var ErrCatalogue = errors.New("cannot reach the device to fetch the song database")
+// ErrCatalogue reports that the song database is missing and the queue
+// manager could not be reached to download it. It is a sentinel so a caller
+// can add its own advice: the command line can suggest a flag, an app cannot.
+var ErrCatalogue = errors.New("cannot reach the queue manager to fetch the song database")
 
 // Config is everything the server needs. The zero value is not usable: SongDB
 // and FavDB have no defaults here, because working them out from the location of
@@ -48,7 +48,8 @@ type Config struct {
 	DiscoverTimeout time.Duration
 	// Listen is the address to serve on.
 	Listen string
-	// SongDB is the song catalogue file, downloaded from the device if missing.
+	// SongDB is the song catalogue file. When it is missing, the web UI
+	// downloads it over the first device session, or imports a copy.
 	SongDB string
 	// FavDB is the favorites database file.
 	FavDB string
@@ -102,7 +103,9 @@ type Config struct {
 
 	// WaitForDevice keeps searching when a search fails and there is no
 	// remembered address to fall back on, instead of returning an error. Run
-	// then returns only when a device answers or ctx is cancelled.
+	// then returns only when a queue manager answers or ctx is cancelled. Only
+	// BackendQueue reads it: the unit backend serves at once and searches in
+	// the background.
 	//
 	// The apps set it. On a first launch nothing is remembered, and macOS and iOS
 	// block the app's local network traffic until the user answers the permission
@@ -122,15 +125,14 @@ type Config struct {
 	SweepNetworks []*net.IPNet
 
 	// Searching is called each time a search finds nothing and WaitForDevice
-	// starts another one, so a caller can say what the wait is for.
+	// starts another one, so a caller can say what the wait is for. Only
+	// BackendQueue reads it.
 	Searching func()
 
 	// Progress reports how much of the song catalogue has been downloaded.
 	//
-	// Only a first run has anything to report — the catalogue is kept — but that
-	// run takes several seconds, longer on a slow network, which is long enough
-	// that a caller showing a bare spinner cannot be told apart from one that
-	// has hung.
+	// Deprecated: nothing calls it. The song list now downloads after the
+	// server is serving, and the web UI shows the progress.
 	Progress func(have, total int)
 
 	// OnDevice hands over the session as soon as it exists, so a caller can
@@ -189,50 +191,52 @@ func Run(ctx context.Context, cfg Config) error {
 			return client.Resolve(ctx, cfg.Addr, cfg.DiscoverTimeout)
 		}
 	}
-	// With a catalogue and a remembered address, serve at once and leave the
-	// search to the device session. A search lasts the whole discovery timeout,
-	// and the song list and the favorites need no device.
-	songs, device := quickStart(cfg, logger)
-	quick := songs != nil
-	if !quick {
-		var err error
-		if device, err = searchDevice(ctx, cfg, resolve, logger); err != nil {
-			return err
-		}
-		if songs, err = openCatalogue(ctx, device, identity, cfg.SongDB, logger, cfg.Progress); err != nil {
-			return err
-		}
-	}
-	defer songs.Close()
+
+	// Nothing here waits for the device. The song list and the favorites need
+	// none, and a search lasts the whole discovery timeout. The session
+	// searches in the background, and the song list, when there is none yet,
+	// comes over that session or from an imported file.
+	device := startAddr(cfg)
+	songs := openSongs(cfg.SongDB, logger)
 
 	favs, err := favorites.Open(cfg.FavDB)
 	if err != nil {
+		if songs != nil {
+			songs.Close()
+		}
 		return err
 	}
 	defer favs.Close()
 	logger.Info("favorites ready", "file", favs.Path(), "folderDelete", cfg.AllowFolderDelete)
 
-	info := songs.Info()
-	logger.Info("song catalogue ready",
-		"file", songs.Path(), "songs", info.Songs, "artists", info.Singers, "version", info.DBVersion)
-
 	// webui.New registers its callbacks on the device, and the session opens
 	// only when dev.Run starts below, so no update is missed.
 	dev := webui.NewDevice(device, identity, logger, nil)
 	if cfg.Addr == "" {
-		// A discovered address is searched for again whenever it stops
-		// answering, and before the first dial when it is only remembered. An
+		// A discovered address is searched for before the first dial, because
+		// it is only remembered, and again whenever it stops answering. An
 		// address the caller gave is the caller's to keep.
-		dev.SetResolver(deviceResolver(cfg, resolve, logger), quick)
+		dev.SetResolver(deviceResolver(cfg, resolve, logger), true)
 	}
 	srv, err := webui.New(webui.UnitBackend(dev), songs, favs, logger, webui.Options{
 		AllowFolderDelete: cfg.AllowFolderDelete,
 		SaveFile:          cfg.SaveFile,
 		PeerApp:           cfg.PeerApp,
+		SongListPath:      cfg.SongDB,
 	})
 	if err != nil {
+		if songs != nil {
+			songs.Close()
+		}
 		return err
 	}
+	// The song list may arrive while serving, so it is the server's to hand
+	// back rather than this function's.
+	defer func() {
+		if db := srv.Catalogue(); db != nil {
+			db.Close()
+		}
+	}()
 	if cfg.OnDevice != nil {
 		cfg.OnDevice(dev)
 	}
@@ -306,51 +310,35 @@ func serve(ctx context.Context, cfg Config, logger *slog.Logger, srv *webui.Serv
 	}
 }
 
-// quickStart opens the catalogue and returns it with the remembered address,
-// when the caller asked for discovery and both exist. Otherwise it returns nil,
-// and Run searches before serving.
-func quickStart(cfg Config, logger *slog.Logger) (*catalog.DB, string) {
-	if cfg.Addr != "" || cfg.LastAddrFile == "" || cfg.SongDB == "" {
-		return nil, ""
+// startAddr is the address the device session starts on: the one the caller
+// gave, or the one the device was last found at, or empty when it has never
+// been found.
+func startAddr(cfg Config) string {
+	if cfg.Addr != "" {
+		return client.WithDefaultPort(cfg.Addr)
 	}
-	addr := readAddr(cfg.LastAddrFile)
-	if addr == "" {
-		return nil, ""
-	}
-	songs, err := catalog.Open(cfg.SongDB)
-	if err != nil {
-		return nil, ""
-	}
-	logger.Info("starting with the last known address; searching for the device in the background",
-		"addr", addr)
-	return songs, addr
+	return readAddr(cfg.LastAddrFile)
 }
 
-// searchDevice finds the device before Run serves anything. When nothing
-// answers and a catalogue exists, it returns the remembered address, so the
-// server starts offline and the device session keeps trying.
-func searchDevice(ctx context.Context, cfg Config,
-	resolve func(context.Context) (string, []client.Device, error),
-	logger *slog.Logger) (string, error) {
-	device, found, err := findDevice(ctx, cfg, resolve, logger)
+// openSongs opens the song list, or returns nil when there is none yet. An
+// unusable file is left for the next download or import to replace.
+func openSongs(path string, logger *slog.Logger) *catalog.DB {
+	if path == "" {
+		return nil
+	}
+	db, err := catalog.Open(path)
 	if err != nil {
-		fallback := fallbackAddr(err, cfg.LastAddrFile, cfg.SongDB)
-		switch {
-		case fallback != "":
-			logger.Warn("no device answered; starting offline with the last known address",
-				"addr", fallback)
-			return fallback, nil
-		case errors.Is(err, client.ErrNoDevice):
-			return "", fmt.Errorf("%w; is it switched on and on this network?", err)
-		default:
-			return "", err
+		if !errors.Is(err, os.ErrNotExist) {
+			logger.Warn("song database unusable; it will be downloaded again", "file", path, "error", err)
+		} else {
+			logger.Info("no song database yet; it will be downloaded from the device", "file", path)
 		}
+		return nil
 	}
-	if cfg.LastAddrFile != "" {
-		rememberAddr(cfg.LastAddrFile, device, logger)
-	}
-	logFound(logger, device, found)
-	return device, nil
+	info := db.Info()
+	logger.Info("song catalogue ready",
+		"file", db.Path(), "songs", info.Songs, "artists", info.Singers, "version", info.DBVersion)
+	return db
 }
 
 // deviceResolver is the device session's search. It keeps the current address
@@ -390,70 +378,4 @@ func logFound(logger *slog.Logger, device string, found []client.Device) {
 		}
 		logger.Info("found several devices", "using", device, "others", strings.Join(others, ", "))
 	}
-}
-
-// searchPause is the wait between searches while WaitForDevice keeps looking.
-var searchPause = 2 * time.Second
-
-// findDevice runs resolve, and with cfg.WaitForDevice runs it again for as long
-// as it fails and there is no remembered address to fall back on.
-func findDevice(ctx context.Context, cfg Config,
-	resolve func(context.Context) (string, []client.Device, error),
-	logger *slog.Logger) (string, []client.Device, error) {
-	for {
-		device, found, err := resolve(ctx)
-		if err == nil || !cfg.WaitForDevice || ctx.Err() != nil ||
-			fallbackAddr(err, cfg.LastAddrFile, cfg.SongDB) != "" {
-			return device, found, err
-		}
-		logger.Info("no device found; still looking", "error", err)
-		if cfg.Searching != nil {
-			cfg.Searching()
-		}
-		select {
-		case <-ctx.Done():
-			return "", nil, ctx.Err()
-		case <-time.After(searchPause):
-		}
-	}
-}
-
-// openCatalogue opens the song database, downloading it from the device if it is
-// missing or unusable.
-func openCatalogue(ctx context.Context, addr string, identity protocol.Identity, path string,
-	logger *slog.Logger, progress func(have, total int)) (*catalog.DB, error) {
-	if db, err := catalog.Open(path); err == nil {
-		return db, nil
-	} else if !os.IsNotExist(errors.Unwrap(err)) && !os.IsNotExist(err) {
-		logger.Warn("existing song database unusable, re-downloading", "file", path, "error", err)
-	}
-
-	logger.Info("downloading song database from the device", "device", addr)
-	dialCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-
-	c, err := client.Dial(dialCtx, addr, client.Options{Identity: &identity, Logger: logger})
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrCatalogue, err)
-	}
-	defer c.Close()
-
-	var lastPct int
-	err = catalog.Fetch(ctx, c, path, func(have, total int) {
-		if progress != nil {
-			progress(have, total)
-		}
-		if total == 0 {
-			return
-		}
-		// Logged in tenths, because every chunk would be hundreds of lines.
-		if pct := have * 100 / total; pct >= lastPct+10 {
-			lastPct = pct
-			logger.Info("downloading", "percent", pct, "bytes", have, "of", total)
-		}
-	})
-	if err != nil {
-		return nil, err
-	}
-	return catalog.Open(path)
 }

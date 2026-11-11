@@ -1,0 +1,25 @@
+{{/* The panel inside songlist.html, swapped over the event stream. Always
+     emits an element; see _queuecount.html for why. */}}
+{{define "_songlist.html"}}
+<div class="songlist-panel">
+{{if .Ready}}
+  {{/* The list has arrived: reload, so the Songs tab shows it. The link is
+       for a page where the script did not run. */}}
+  <p>{{t "The song list is ready."}}</p>
+  <a class="btn btn-primary" href="/">{{t "Show the songs"}}</a>
+  <script>location.replace("/")</script>
+{{else if .Downloading}}
+  <p>{{t "Downloading the song list from the karaoke device…"}}</p>
+  <div class="progress" role="progressbar" aria-valuenow="{{.Percent}}" aria-valuemin="0" aria-valuemax="100">
+    <div class="progress-bar" style="width: {{.Percent}}%">{{.Percent}}%</div>
+  </div>
+{{else}}
+  {{with .Err}}<div class="alert alert-danger py-2">{{errtext .}}</div>{{end}}
+  <p>{{t "The song list comes from the karaoke device. It downloads by itself the first time this app connects to one, which takes a few seconds."}}</p>
+  {{if .CanImport}}
+  <p>{{t "No device nearby? Import a song list file copied from another installation of this app."}}</p>
+  <a class="btn btn-outline-primary" href="/songlist/import">{{t "Import a song list"}}</a>
+  {{end}}
+{{end}}
+</div>
+{{end}}

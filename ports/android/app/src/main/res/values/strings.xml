@@ -4,7 +4,7 @@
 
     <!-- Startup and failure screens -->
     <string name="starting_title">Starting the karaoke server…</string>
-    <string name="starting_detail">The first run downloads the song catalogue from the device, which takes a few seconds. Later launches are immediate.</string>
+    <string name="starting_detail">This takes a moment.</string>
     <string name="failure_title">Could not start the karaoke server.</string>
     <string name="try_again">Try again</string>
     <string name="server_slow">the server is taking longer than expected to start</string>
@@ -13,7 +13,7 @@
     <string name="server_exited">the server exited before it started listening (code %1$d)</string>
 
     <!-- Backup download -->
-    <string name="backup_saved">Backup saved.</string>
+    <string name="file_saved">Saved.</string>
     <string name="backup_failed">Could not save it: %1$s</string>
     <string name="no_save_app">This phone has no app that can save a file.</string>
     <string name="save_no_output">nothing would open %1$s for writing</string>

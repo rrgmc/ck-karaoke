@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -181,17 +182,22 @@ func (a *App) ServerError() string {
 }
 
 // saveFile is the server's native save path: the web view has no download
-// handling of its own on every platform, so a backup goes through the system's
-// save dialog instead.
+// handling of its own on every platform, so a favorites backup or the song
+// list goes through the system's save dialog instead.
 func (a *App) saveFile(name string, data []byte) (string, error) {
 	a.mu.Lock()
 	lang := a.lang
 	a.mu.Unlock()
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	opts := runtime.SaveDialogOptions{
 		Title:           lang.T("Save favorites backup"),
 		DefaultFilename: name,
 		Filters:         []runtime.FileFilter{{DisplayName: lang.T("Favorites backup (*.xml)"), Pattern: "*.xml"}},
-	})
+	}
+	if strings.HasSuffix(name, ".db") {
+		opts.Title = lang.T("Save the song list file")
+		opts.Filters = []runtime.FileFilter{{DisplayName: lang.T("Song list (*.db)"), Pattern: "*.db"}}
+	}
+	path, err := runtime.SaveFileDialog(a.ctx, opts)
 	if err != nil || path == "" {
 		return "", err
 	}
