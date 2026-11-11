@@ -193,7 +193,7 @@ get one:
   allows one connection at a time, so the download shares the session rather
   than dialling its own.
 - **Import.** The user uploads a `song.db` saved by another installation
-  (Favorites, Backup, Save the song list). The file is checked with
+  (Settings, Save the song list). The file is checked with
   `catalog.Verify` and `catalog.Open` before it replaces anything.
 
 Either way the list goes from absent to present while the server runs. It is

@@ -78,13 +78,11 @@
     <span class="tab-icon">★</span><span>{{t "Host"}}</span>
   </a>
   {{end}}
-  {{if .HasSetup}}
   {{/* Icon only, at the right end: with the request and host tabs the bar
        holds six tabs, and six labels do not fit a phone's width. */}}
-  <a href="/setup" class="tab-setup{{if eq .Nav "setup"}} active{{end}}" aria-label="{{t "Setup"}}" title="{{t "Setup"}}">
+  <a href="/setup" class="tab-setup{{if eq .Nav "setup"}} active{{end}}" aria-label="{{t "Settings"}}" title="{{t "Settings"}}">
     <span class="tab-icon" aria-hidden="true">⚙</span>
   </a>
-  {{end}}
 </nav>
 {{/* Asks the hx-confirm questions in place of the browser's confirm(), which
      WKWebView answers with Cancel and shows nothing unless the app implements a

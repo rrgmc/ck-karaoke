@@ -10,13 +10,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTheUnitHasNoSetupPage(t *testing.T) {
+// The unit has the Settings page, but none of the queue manager's part of it.
+func TestTheUnitHasNoQueueManagerSetup(t *testing.T) {
 	s := backupServer(t)
 	h := s.Handler()
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/setup", nil))
-	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.NotContains(t, rec.Body.String(), `hx-post="/setup/code"`, "no access code")
 
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/setup/code", nil))
@@ -25,7 +27,7 @@ func TestTheUnitHasNoSetupPage(t *testing.T) {
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/queue", nil))
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.NotContains(t, rec.Body.String(), `href="/setup"`, "no Setup tab")
+	assert.Contains(t, rec.Body.String(), `href="/setup"`, "the Settings tab")
 	assert.NotContains(t, rec.Body.String(), `href="/mine"`, "no My songs tab")
 	assert.Contains(t, rec.Body.String(), "· CK Karaoke</title>")
 

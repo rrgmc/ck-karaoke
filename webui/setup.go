@@ -2,18 +2,56 @@ package webui
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/rrgmc/ck-karaoke/catalog"
 	"github.com/rrgmc/ck-karaoke/i18n"
+	"github.com/rrgmc/ck-karaoke/protocol"
 )
 
-// setupData drives the Setup page.
+// setupData drives the Settings page. Info and Error are the queue manager's
+// part, shown only when the backend has a Setup.
 type setupData struct {
 	Lang i18n.Lang
 	Info SetupInfo
 	// Error is a message about the last code entered, already translated.
 	Error string
+}
+
+// settingsData drives the parts of the Settings page every build has.
+type settingsData struct {
+	// LangChoice is the language picked on this device, or empty for the
+	// system's.
+	LangChoice i18n.Lang
+	// HasName offers the name the unit shows beside songs queued from here.
+	// Only the unit backend has one.
+	HasName bool
+	Name    string
+	// NameErr is why the last name was refused, already translated.
+	NameErr string
+	// Songs describes the song list, and HasSongs says whether there is one.
+	Songs    catalog.Info
+	HasSongs bool
+}
+
+// errNoName refuses a name that is empty once cleaned.
+var errNoName = errors.New("the name is empty")
+
+// settings returns the state the Settings page shows.
+func (s *Server) settings(r *http.Request) settingsData {
+	out := settingsData{LangChoice: recallLang(r)}
+	if unit, ok := s.dev.(unitBackend); ok && s.nameFile != "" {
+		out.HasName = true
+		out.Name = unit.dev.Identity().Name
+	}
+	if db := s.cat(); db != nil {
+		out.Songs, out.HasSongs = db.Info(), true
+	}
+	return out
 }
 
 // setup returns the backend's Setup, if it has one.
@@ -30,15 +68,86 @@ func (s *Server) setupInfo(ctx context.Context) SetupInfo {
 }
 
 func (s *Server) setupPage(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.setup(); !ok {
+	lang := langOf(r)
+	data := pageData{
+		Title:    lang.T("Settings"),
+		Settings: s.settings(r),
+	}
+	if _, ok := s.setup(); ok {
+		data.Setup = setupData{Lang: lang, Info: s.setupInfo(r.Context())}
+	}
+	s.page(w, r, "setup.html", data)
+}
+
+// setSessionName changes the name the unit shows beside songs queued from here, keeps
+// it for the next start, and answers with the refreshed name block.
+func (s *Server) setSessionName(w http.ResponseWriter, r *http.Request) {
+	unit, ok := s.dev.(unitBackend)
+	if !ok || s.nameFile == "" {
 		http.NotFound(w, r)
 		return
 	}
 	lang := langOf(r)
-	s.page(w, r, "setup.html", pageData{
-		Title: lang.T("Setup"),
-		Setup: setupData{Lang: lang, Info: s.setupInfo(r.Context())},
-	})
+	// Checked before cleaning: CleanName turns an empty name into a default.
+	raw := strings.TrimSpace(r.FormValue("name"))
+	name := protocol.CleanName(raw)
+	var err error
+	if raw == "" {
+		err = errNoName
+	} else {
+		err = writeName(s.nameFile, name)
+	}
+	data := s.settings(r)
+	if err != nil {
+		if errors.Is(err, errNoName) {
+			data.NameErr = lang.T("Type a name first.")
+		} else {
+			s.logger.Error("saving the session name", "error", err)
+			data.NameErr = errorText(lang, err)
+		}
+		s.fragment(w, r, "_settings_name.html", data)
+		return
+	}
+	unit.dev.SetName(name)
+	data.Name = name
+	withToast(w, toastGood, lang.T("Name saved. The karaoke machine shows it from the next song you add."))
+	s.fragment(w, r, "_settings_name.html", data)
+}
+
+// writeName saves the session name for the next start. Written through a
+// temporary file, so a start never reads half a name.
+func writeName(path, name string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".name-*")
+	if err != nil {
+		return err
+	}
+	_, werr := tmp.WriteString(name + "\n")
+	cerr := tmp.Close()
+	if err := errors.Join(werr, cerr); err != nil {
+		os.Remove(tmp.Name())
+		return err
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		os.Remove(tmp.Name())
+		return err
+	}
+	return nil
+}
+
+// ReadName returns the session name saved on the Settings page, or "" when
+// none was saved. The caller that assembles the server reads it at start.
+func ReadName(path string) string {
+	if path == "" {
+		return ""
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return protocol.CleanName(strings.TrimSpace(string(b)))
 }
 
 // enterCode exchanges a code and answers with the refreshed setup block.

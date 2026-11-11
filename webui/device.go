@@ -253,9 +253,12 @@ func (d *Device) Run(ctx context.Context) {
 		// in Dial and never comes back, so the session is dead while the
 		// reconnect loop still looks healthy. A stale DHCP lease is enough to
 		// reach that, which is the ordinary way this device moves.
+		d.mu.RLock()
+		identity := d.identity
+		d.mu.RUnlock()
 		dialCtx, cancelDial := context.WithTimeout(ctx, DialTimeout)
 		c, err := client.Dial(dialCtx, addr, client.Options{
-			Identity: &d.identity,
+			Identity: &identity,
 			Logger:   d.logger,
 		})
 		cancelDial()
@@ -429,7 +432,31 @@ func (d *Device) Addr() string {
 }
 
 // Identity returns the client identity this device session presents.
-func (d *Device) Identity() protocol.Identity { return d.identity }
+func (d *Device) Identity() protocol.Identity {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.identity
+}
+
+// SetName changes the name the device shows beside songs queued from this
+// session. The device reads it when the session opens, so an open session is
+// closed and Run opens a new one under the new name.
+func (d *Device) SetName(name string) {
+	d.mu.Lock()
+	if d.identity.Name == name {
+		d.mu.Unlock()
+		return
+	}
+	d.identity.Name = name
+	c := d.client
+	d.mu.Unlock()
+	d.logger.Info("session name changed; reconnecting", "name", name)
+	if c != nil {
+		// On its own goroutine: Close waits for the disconnect to go out, and
+		// the caller is a request someone is waiting on.
+		go c.Close()
+	}
+}
 
 // Status returns the last state the device pushed, or nil.
 func (d *Device) Status() *protocol.Status {
