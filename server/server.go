@@ -181,49 +181,27 @@ func Run(ctx context.Context, cfg Config) error {
 		identity.Name = protocol.CleanName(cfg.Name)
 	}
 
-	// Find the device before anything else needs its address. Hardcoding one
-	// only ever worked on the network it was written on.
+	// The device is found by searching. Hardcoding an address only ever worked
+	// on the network it was written on.
 	resolve := cfg.Resolve
 	if resolve == nil {
 		resolve = func(ctx context.Context) (string, []client.Device, error) {
 			return client.Resolve(ctx, cfg.Addr, cfg.DiscoverTimeout)
 		}
 	}
-	device, found, err := findDevice(ctx, cfg, resolve, logger)
-	if err != nil {
-		// Nothing answered. If we have been here before and still hold a
-		// catalogue, serve it: the unit being off is no reason to withhold the
-		// song list and the favorites, and Device keeps retrying in the background
-		// so it connects by itself when the unit comes back.
-		fallback := fallbackAddr(err, cfg.LastAddrFile, cfg.SongDB)
-		switch {
-		case fallback != "":
-			logger.Warn("no device answered; starting offline with the last known address",
-				"addr", fallback)
-			device, found = fallback, nil
-		case errors.Is(err, client.ErrNoDevice):
-			return fmt.Errorf("%w; is it switched on and on this network?", err)
-		default:
+	// With a catalogue and a remembered address, serve at once and leave the
+	// search to the device session. A search lasts the whole discovery timeout,
+	// and the song list and the favorites need no device.
+	songs, device := quickStart(cfg, logger)
+	quick := songs != nil
+	if !quick {
+		var err error
+		if device, err = searchDevice(ctx, cfg, resolve, logger); err != nil {
 			return err
 		}
-	} else if cfg.LastAddrFile != "" {
-		rememberAddr(cfg.LastAddrFile, device, logger)
-	}
-	switch {
-	case len(found) == 1:
-		logger.Info("found device", "addr", device, "info", found[0].Info.String())
-	case len(found) > 1:
-		others := make([]string, 0, len(found)-1)
-		for _, d := range found[1:] {
-			others = append(others, d.Addr)
+		if songs, err = openCatalogue(ctx, device, identity, cfg.SongDB, logger, cfg.Progress); err != nil {
+			return err
 		}
-		logger.Info("found several devices; using the first",
-			"addr", device, "info", found[0].Info.String(), "others", strings.Join(others, ", "))
-	}
-
-	songs, err := openCatalogue(ctx, device, identity, cfg.SongDB, logger, cfg.Progress)
-	if err != nil {
-		return err
 	}
 	defer songs.Close()
 
@@ -241,6 +219,12 @@ func Run(ctx context.Context, cfg Config) error {
 	// webui.New registers its callbacks on the device, and the session opens
 	// only when dev.Run starts below, so no update is missed.
 	dev := webui.NewDevice(device, identity, logger, nil)
+	if cfg.Addr == "" {
+		// A discovered address is searched for again whenever it stops
+		// answering, and before the first dial when it is only remembered. An
+		// address the caller gave is the caller's to keep.
+		dev.SetResolver(deviceResolver(cfg, resolve, logger), quick)
+	}
 	srv, err := webui.New(webui.UnitBackend(dev), songs, favs, logger, webui.Options{
 		AllowFolderDelete: cfg.AllowFolderDelete,
 		SaveFile:          cfg.SaveFile,
@@ -319,6 +303,92 @@ func serve(ctx context.Context, cfg Config, logger *slog.Logger, srv *webui.Serv
 			logger.Warn("the session did not close in time")
 		}
 		return err
+	}
+}
+
+// quickStart opens the catalogue and returns it with the remembered address,
+// when the caller asked for discovery and both exist. Otherwise it returns nil,
+// and Run searches before serving.
+func quickStart(cfg Config, logger *slog.Logger) (*catalog.DB, string) {
+	if cfg.Addr != "" || cfg.LastAddrFile == "" || cfg.SongDB == "" {
+		return nil, ""
+	}
+	addr := readAddr(cfg.LastAddrFile)
+	if addr == "" {
+		return nil, ""
+	}
+	songs, err := catalog.Open(cfg.SongDB)
+	if err != nil {
+		return nil, ""
+	}
+	logger.Info("starting with the last known address; searching for the device in the background",
+		"addr", addr)
+	return songs, addr
+}
+
+// searchDevice finds the device before Run serves anything. When nothing
+// answers and a catalogue exists, it returns the remembered address, so the
+// server starts offline and the device session keeps trying.
+func searchDevice(ctx context.Context, cfg Config,
+	resolve func(context.Context) (string, []client.Device, error),
+	logger *slog.Logger) (string, error) {
+	device, found, err := findDevice(ctx, cfg, resolve, logger)
+	if err != nil {
+		fallback := fallbackAddr(err, cfg.LastAddrFile, cfg.SongDB)
+		switch {
+		case fallback != "":
+			logger.Warn("no device answered; starting offline with the last known address",
+				"addr", fallback)
+			return fallback, nil
+		case errors.Is(err, client.ErrNoDevice):
+			return "", fmt.Errorf("%w; is it switched on and on this network?", err)
+		default:
+			return "", err
+		}
+	}
+	if cfg.LastAddrFile != "" {
+		rememberAddr(cfg.LastAddrFile, device, logger)
+	}
+	logFound(logger, device, found)
+	return device, nil
+}
+
+// deviceResolver is the device session's search. It keeps the current address
+// when the device still answers there, and remembers whatever it settles on.
+func deviceResolver(cfg Config, resolve func(context.Context) (string, []client.Device, error),
+	logger *slog.Logger) webui.Resolver {
+	return func(ctx context.Context, current string) (string, error) {
+		device, found, err := resolve(ctx)
+		if err != nil {
+			return "", err
+		}
+		for _, d := range found {
+			if d.Addr == current {
+				device = current
+				break
+			}
+		}
+		if cfg.LastAddrFile != "" {
+			rememberAddr(cfg.LastAddrFile, device, logger)
+		}
+		logFound(logger, device, found)
+		return device, nil
+	}
+}
+
+// logFound reports what a search found.
+func logFound(logger *slog.Logger, device string, found []client.Device) {
+	switch {
+	case len(found) == 1:
+		logger.Info("found device", "addr", device, "info", found[0].Info.String())
+	case len(found) > 1:
+		others := make([]string, 0, len(found)-1)
+		for _, d := range found {
+			if d.Addr != device {
+				others = append(others, d.Addr)
+			}
+		}
+		logger.Info("found several devices", "using", device, "others", strings.Join(others, ", "))
 	}
 }
 
