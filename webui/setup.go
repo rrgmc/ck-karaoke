@@ -33,6 +33,12 @@ type settingsData struct {
 	Name    string
 	// NameErr is why the last name was refused, already translated.
 	NameErr string
+	// HasDevice shows the karaoke machine's address and whether the session
+	// is up. Only the unit backend has one; the queue manager's Setup shows
+	// its own.
+	HasDevice    bool
+	DeviceAddr   string
+	DeviceOnline bool
 	// Songs describes the song list, and HasSongs says whether there is one.
 	Songs    catalog.Info
 	HasSongs bool
@@ -44,6 +50,11 @@ var errNoName = errors.New("the name is empty")
 // settings returns the state the Settings page shows.
 func (s *Server) settings(r *http.Request) settingsData {
 	out := settingsData{LangChoice: recallLang(r)}
+	if _, ok := s.dev.(unitBackend); ok {
+		out.HasDevice = true
+		out.DeviceAddr = s.dev.Addr()
+		out.DeviceOnline = s.dev.Online()
+	}
 	if unit, ok := s.dev.(unitBackend); ok && s.nameFile != "" {
 		out.HasName = true
 		out.Name = unit.dev.Identity().Name

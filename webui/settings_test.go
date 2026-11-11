@@ -7,8 +7,27 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rrgmc/ck-karaoke/protocol"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestSettingsPageShowsTheKaraokeMachineAddress(t *testing.T) {
+	s, _ := settingsServer(t)
+	s.dev = UnitBackend(NewDevice("192.168.1.50:19132", protocol.Identity{}, s.logger, nil))
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/setup", nil))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Not connected. Trying 192.168.1.50:19132.")
+}
+
+func TestSettingsPageSaysWhenNoKaraokeMachineIsFound(t *testing.T) {
+	s, _ := settingsServer(t)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/setup", nil))
+
+	assert.Contains(t, w.Body.String(), "Not found yet. The app keeps looking on this network.")
+}
 
 // settingsServer is emptyServer with a file to keep the session name in.
 func settingsServer(t *testing.T) (*Server, string) {
