@@ -363,7 +363,14 @@ entries, for example `("0", "10")`. The reply is a status frame (section 7.2).
 The device also pushes the queue unprompted when it changes.
 
 `DelOrder` removes the named song and keeps the order of the others. `UpOrder`
-and `DownOrder` are echoed but change nothing, so reordering is not supported.
+and `DownOrder` are echoed but change nothing.
+
+A client reorders the queue by removing entries and adding them back with
+`AddOrder` and `FirstOrder`. `AddOrder` of a song that is still queued is
+refused, so the re-adds wait until a queue push shows the removals. On an idle
+or stopped unit, `AddOrder` starts the song at once, so the queue can only be
+reordered while a song plays. Re-added entries show the name of the session
+that added them back. See `client.PlanReorder`.
 
 ### 6.5 Queue entries
 
