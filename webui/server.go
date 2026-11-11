@@ -3,6 +3,7 @@ package webui
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"embed"
 	"errors"
 	"fmt"
@@ -73,6 +74,9 @@ type Server struct {
 	// refreshing guards against piling up queue requests, which take about two
 	// seconds each.
 	refreshing atomic.Bool
+	// runID identifies this run of the server. The ⋯ toggle's cookie carries
+	// it, so the toggle starts off each time the app starts.
+	runID string
 }
 
 // DefaultLanguage is what the language filter starts on. The catalogue is
@@ -143,6 +147,7 @@ func New(dev Backend, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger
 		saveFile:          opts.SaveFile,
 		appName:           opts.AppName,
 		peerApp:           opts.PeerApp,
+		runID:             rand.Text(),
 	}
 	if srv.appName == "" {
 		srv.appName = "CK Karaoke"

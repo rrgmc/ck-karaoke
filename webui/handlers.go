@@ -447,12 +447,17 @@ const browseCookie = "ck_browse"
 //
 // It is deliberately separate from browseCookie, which clears itself whenever
 // the browse state returns to its default — that would take this preference
-// with it. Being a cookie also makes it per-device, which is the point: the
-// phone that sets it keeps the extra actions, and every other phone that opens
-// the page gets the safe default.
+// with it. Being a cookie also makes it per-device: the phone that sets it
+// keeps the extra actions, and every other phone that opens the page gets the
+// safe default.
+//
+// Its value is the server's runID, so it holds only for the current run. The
+// app starts with the extra actions hidden, whatever they were when it last
+// closed. A session cookie would not do this: the app webviews keep session
+// cookies across restarts.
 const actionsCookie = "ck_actions"
 
-func rememberShowActions(w http.ResponseWriter, on bool) {
+func (s *Server) rememberShowActions(w http.ResponseWriter, on bool) {
 	c := &http.Cookie{
 		Name:     actionsCookie,
 		Path:     "/",
@@ -460,17 +465,16 @@ func rememberShowActions(w http.ResponseWriter, on bool) {
 		SameSite: http.SameSiteLaxMode,
 	}
 	if on {
-		c.Value = "1"
-		c.MaxAge = int((365 * 24 * time.Hour).Seconds())
+		c.Value = s.runID
 	} else {
 		c.MaxAge = -1
 	}
 	http.SetCookie(w, c)
 }
 
-func recallShowActions(r *http.Request) bool {
+func (s *Server) recallShowActions(r *http.Request) bool {
 	c, err := r.Cookie(actionsCookie)
-	return err == nil && c.Value == "1"
+	return err == nil && c.Value == s.runID
 }
 
 // langCookie holds the language chosen on this device, overriding the one the
@@ -681,10 +685,10 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 	// otherwise drop the preference. The list fragments read it from the cookie
 	// too, so "load more" keeps whatever the page was showing without having to
 	// carry it in every URL.
-	data.ShowExtraActions = recallShowActions(r)
+	data.ShowExtraActions = s.recallShowActions(r)
 	if v := q.Get("actions"); v != "" {
 		data.ShowExtraActions = v == "1"
-		rememberShowActions(w, data.ShowExtraActions)
+		s.rememberShowActions(w, data.ShowExtraActions)
 	}
 	data.Lang = langOf(r)
 	data.LangChoice = recallLang(r)
