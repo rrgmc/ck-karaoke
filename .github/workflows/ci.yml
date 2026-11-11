@@ -9,10 +9,17 @@ run-name: >-
   && format('PR #{0}: {1}', github.event.pull_request.number, github.event.pull_request.title)
   || '' }}
 
+# A change to version/VERSION alone does not run CI. The tag that follows a
+# version bump runs it through the release workflow, before anything is built.
+# A pull request that changes any other file runs CI as usual. This is safe
+# only while branch protection on master requires no status checks: a required
+# check that never starts blocks the merge.
 on:
   push:
     branches: [master]
+    paths-ignore: [version/VERSION]
   pull_request:
+    paths-ignore: [version/VERSION]
   workflow_call:
 
 permissions:
