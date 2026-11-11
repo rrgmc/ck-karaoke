@@ -40,9 +40,13 @@ type Server struct {
 	// fetchSongList brings a song list from the backend; see FetchSongList.
 	fetchSongList SongListFetcher
 	listMu        sync.Mutex
-	listState     songListState
-	favs          *favorites.DB
-	logger        *slog.Logger
+	// fetches counts song list downloads under way, and closing stops new
+	// ones; see Close.
+	fetches   sync.WaitGroup
+	closing   bool
+	listState songListState
+	favs      *favorites.DB
+	logger    *slog.Logger
 	// allowFolderDelete gates folder deletion, which is the one irreversible
 	// action in the UI and is off unless the operator asked for it.
 	allowFolderDelete bool
@@ -167,6 +171,20 @@ func New(dev Backend, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger
 // streams close themselves and shutdown finishes at once.
 func (s *Server) BeginShutdown() {
 	s.stopOnce.Do(func() { close(s.stopping) })
+}
+
+// Close ends the server's background work, waits for a song list download
+// under way to stop, and closes the song list. Call it once the HTTP server
+// has stopped serving.
+func (s *Server) Close() {
+	s.BeginShutdown()
+	s.listMu.Lock()
+	s.closing = true
+	s.listMu.Unlock()
+	s.fetches.Wait()
+	if db := s.cat(); db != nil {
+		db.Close()
+	}
 }
 
 // AllowFolderDelete reports whether the delete control should be offered.
