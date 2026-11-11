@@ -119,7 +119,13 @@ EOF
         fi
 
         dmg="$out/ck-queue-manager-$version-macos-universal.dmg"
-        hdiutil create -volname "CK Queue Manager" -srcfolder "$app" -ov -format UDZO "$dmg"
+        # The image holds the app and a link to /Applications, so the user can
+        # drag one onto the other. ditto keeps the app's signature intact.
+        stage=$(mktemp -d)
+        ditto "$app" "$stage/$(basename "$app")"
+        ln -s /Applications "$stage/Applications"
+        hdiutil create -volname "CK Queue Manager" -srcfolder "$stage" -ov -format UDZO "$dmg"
+        rm -rf "$stage"
         hdiutil verify "$dmg"
         if [ -n "${MACOS_SIGN_IDENTITY:-}" ]; then
             codesign --force --timestamp --sign "$MACOS_SIGN_IDENTITY" "$dmg"
