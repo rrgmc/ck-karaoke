@@ -22,6 +22,16 @@
     <option value="pt-BR" lang="pt-BR" {{if eq .LangChoice "pt-BR"}}selected{{end}}>Português</option>
   </select>
 
+  {{if .HasDevice}}
+  {{/* The karaoke machine this app talks to, as the page was loaded. */}}
+  <h3 class="h6 mt-3">{{t "Karaoke machine"}}</h3>
+  <p class="text-secondary small" id="settings-device">
+    {{- if .DeviceOnline}}{{t "Connected at %s" .DeviceAddr}}
+    {{- else if .DeviceAddr}}{{t "Not connected. Trying %s." .DeviceAddr}}
+    {{- else}}{{t "Not found yet. The app keeps looking on this network."}}{{end -}}
+  </p>
+  {{end}}
+
   {{if .HasName}}
   <div id="settings-name">
     {{template "_settings_name.html" .}}
