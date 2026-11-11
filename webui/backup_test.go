@@ -85,13 +85,14 @@ func backupServer(t *testing.T) *Server {
 	t.Cleanup(func() { favs.Close() })
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return &Server{
+	s := &Server{
 		favs:   favs,
-		songs:  catalogue(t),
 		dev:    UnitBackend(NewDevice("127.0.0.1:0", protocol.Identity{}, logger, nil)),
 		tmpl:   templates(t),
 		logger: logger,
 	}
+	s.songs.Store(catalogue(t))
+	return s
 }
 
 // fill files songs into a named folder, creating it.

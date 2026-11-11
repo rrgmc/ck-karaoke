@@ -1,0 +1,11 @@
+{{/* The Songs tab while there is no song list. The panel follows the event
+     stream, so it shows the download as it happens and reloads the page once
+     the list is in. */}}
+{{define "songlist.html"}}
+{{template "head" .}}
+<h2 class="h5 mt-3">{{t "No song list yet"}}</h2>
+<div id="songlist" sse-swap="songlist">
+  {{template "_songlist.html" .SongList}}
+</div>
+{{template "foot" .}}
+{{end}}

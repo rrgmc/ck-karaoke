@@ -261,8 +261,8 @@ func (s *Server) renderSheet(w http.ResponseWriter, r *http.Request, songID int,
 		return
 	}
 
-	if s.songs != nil {
-		if song, err := s.songs.Song(r.Context(), songID); err == nil {
+	if s.cat() != nil {
+		if song, err := s.cat().Song(r.Context(), songID); err == nil {
 			data.Title, data.Artist = song.Title, song.Artist
 		}
 	}

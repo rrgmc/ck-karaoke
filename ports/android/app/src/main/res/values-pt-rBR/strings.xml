@@ -2,7 +2,7 @@
 <resources>
     <!-- Startup and failure screens -->
     <string name="starting_title">Iniciando o servidor de karaokê…</string>
-    <string name="starting_detail">Na primeira vez, a lista de músicas é baixada do aparelho, o que leva alguns segundos. Nas próximas vezes, a abertura é imediata.</string>
+    <string name="starting_detail">Isto leva um instante.</string>
     <string name="failure_title">Não foi possível iniciar o servidor de karaokê.</string>
     <string name="try_again">Tentar de novo</string>
     <string name="server_slow">o servidor está demorando mais que o esperado para iniciar</string>
@@ -11,7 +11,7 @@
     <string name="server_exited">o servidor terminou antes de começar a escutar (código %1$d)</string>
 
     <!-- Backup download -->
-    <string name="backup_saved">Backup salvo.</string>
+    <string name="file_saved">Salvo.</string>
     <string name="backup_failed">Não foi possível salvar: %1$s</string>
     <string name="no_save_app">Este celular não tem um app que possa salvar arquivos.</string>
     <string name="save_no_output">nada pôde abrir %1$s para gravação</string>

@@ -2,6 +2,7 @@
 {{if not .Online}}
 <div class="offline-banner">
   {{if eq .Reason "busy"}}{{t "Device busy — it serves two clients at once, so a slot may be taken by another remote — retrying %s" .DeviceAddr}}
+  {{else if eq .Reason "searching"}}{{t "Looking for a karaoke device on this network…"}}
   {{else if eq .Reason "unreachable"}}{{t "Device unreachable — retrying %s" .DeviceAddr}}
   {{else if eq .Reason "queue-manager"}}{{t "Queue manager unreachable — retrying %s" .DeviceAddr}}
   {{else if eq .Reason "away"}}{{t "The karaoke machine is not connected to the queue manager at %s" .DeviceAddr}}

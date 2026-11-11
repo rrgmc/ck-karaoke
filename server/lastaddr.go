@@ -7,31 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/rrgmc/ck-karaoke/client"
 )
-
-// fallbackAddr is the address to fall back to when discovery finds nothing, or
-// "" if there is nothing sensible to fall back to.
-//
-// Three conditions, all necessary:
-//
-//   - The failure has to be a silent network rather than something else. A
-//     malformed address or a broken socket is a real error and should surface.
-//   - There has to be a remembered address, which there is only after a run that
-//     did reach the device.
-//   - The catalogue has to already exist. Without it the device is genuinely
-//     required — it is the only place the song list comes from — so pretending we
-//     can carry on would just move the failure somewhere less clear.
-func fallbackAddr(err error, lastAddrFile, songDB string) string {
-	if !errors.Is(err, client.ErrNoDevice) || lastAddrFile == "" || songDB == "" {
-		return ""
-	}
-	if _, statErr := os.Stat(songDB); statErr != nil {
-		return ""
-	}
-	return readAddr(lastAddrFile)
-}
 
 // readAddr returns the remembered address, or "" if there is none or it is not
 // one. Validated on the way out rather than trusted: this file is on disk between

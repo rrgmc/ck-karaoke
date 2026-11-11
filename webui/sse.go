@@ -26,6 +26,9 @@ const (
 	// the bottom.
 	eventConn  = "conn"
 	eventToast = "toast"
+	// eventSongList carries the Songs tab's panel while there is no song list:
+	// the download's progress, and the moment the list is ready.
+	eventSongList = "songlist"
 )
 
 // update is one thing to send to the browsers.
@@ -105,7 +108,7 @@ func (h *hub) subscribe(lang i18n.Lang) (<-chan update, func()) {
 	id := h.next
 	h.next++
 	ch := make(chan update, 8)
-	for _, event := range []string{eventPlayer, eventQueue, eventQueueCount, eventBanner, eventConn} {
+	for _, event := range []string{eventPlayer, eventQueue, eventQueueCount, eventBanner, eventConn, eventSongList} {
 		if render := h.latest[event]; render != nil {
 			if html := render(lang); html != "" {
 				ch <- update{event, html}

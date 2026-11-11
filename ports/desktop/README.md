@@ -71,10 +71,11 @@ The icon comes from `build/appicon.png`, which `internal/cmd/genicon` renders.
   on Windows, `~/Library/Application Support/CK Karaoke` on macOS,
   `~/.config/CK Karaoke` on Linux. It holds `song.db`, `favorites.db` and
   `device.addr`.
-- **Discovery** uses broadcast. The first run needs the unit switched on, to
-  download the song list. Until a unit answers, the startup page keeps searching
-  and says what to check, including macOS's Local Network permission. Later runs
-  start offline on the last known address and connect when the unit comes back.
+- **Discovery** uses broadcast, in the background: the app opens at once. On a
+  first run the Songs tab waits for a unit to download the song list from, or
+  imports a `song.db` saved by another installation. Later runs start on the
+  last known address and connect when the unit comes back. On a Mac, the first
+  searches fail until Local Network access is allowed.
 - **The device name** is the computer's host name.
 - **Backups** are saved through the system's Save dialog (`server.Config.SaveFile`),
   because not every desktop web view handles downloads. The page stays where it

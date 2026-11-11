@@ -164,26 +164,44 @@ restarts; the port moves every time.
 
 ## The device can be off
 
-Browsing, searching and favorites need no device. `Config.LastAddrFile`
-remembers where the device was last found. When a catalogue already exists and
-an address is remembered, the server does not search before it serves: it
-starts on the remembered address straight away, so the app opens on the song
-list. `webui.Device` then searches in the background before its first dial, and
-again after every failed dial, because the unit's address comes from DHCP and
-can change. A search that finds the unit at a new address moves the session
-there and remembers it. A search that finds nothing keeps the old address,
-because some networks drop broadcasts while a direct dial still works. An
-address given with `Config.Addr` is never searched for.
+Browsing, searching and favorites need no device, so `server.Run` never waits
+for one. It opens the song list if there is one, starts the device session, and
+serves at once.
 
-With no catalogue the server searches first, because the device is the only
-source of one. When that search finds nothing but a catalogue file exists, the
-server starts offline on the remembered address.
+`Config.LastAddrFile` remembers where the device was last found, and the
+session starts on that address. With `Config.Addr` empty, `webui.Device`
+searches before its first dial and again after every failed dial, because the
+unit's address comes from DHCP and can change. A search that finds the unit at
+a new address moves the session there and remembers it. A search that finds
+nothing keeps the old address, because some networks drop broadcasts while a
+direct dial still works. An address given with `Config.Addr` is never searched
+for.
 
-With no catalogue, `Config.WaitForDevice` keeps searching instead of failing,
-and `Config.Searching` tells the caller each time a search comes back empty. The
-desktop and iOS apps set it. On their first launch the system blocks local
-network traffic until the user answers the permission prompt, and a single
-search ends long before that.
+With no address at all, the session searches every few seconds and does not
+dial. The short pause matters on macOS and iOS: on a first launch the system
+blocks local network traffic until the user answers the permission prompt, so
+the first searches fail.
+
+### The song list
+
+The song list is the device's own song database (`song.db`). With none, the
+Songs tab says that the app is looking for a device, and offers two ways to
+get one:
+
+- **Download.** When the device session comes up, the web UI downloads the
+  list over that session (`catalog.Fetch`) and shows the progress. The device
+  allows one connection at a time, so the download shares the session rather
+  than dialling its own.
+- **Import.** The user uploads a `song.db` saved by another installation
+  (Favorites, Backup, Save the song list). The file is checked with
+  `catalog.Verify` and `catalog.Open` before it replaces anything.
+
+Either way the list goes from absent to present while the server runs. It is
+never replaced afterwards, so handlers read it without a lock.
+
+The queue backend (`runQueue`) still finds the queue manager and downloads the
+list before it serves. `Config.WaitForDevice` and `Config.Searching` apply only
+to it.
 
 `webui.Device` dials with a timeout (`webui.DialTimeout`). A stale address does
 not fail fast: nothing answers, and RakNet's MTU discovery would otherwise wait

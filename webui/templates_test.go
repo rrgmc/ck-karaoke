@@ -289,7 +289,8 @@ func TestFavoritesKeepsItsOwnSearchText(t *testing.T) {
 // cookie — it is both "all" and the zero value — so the key has to be written
 // even when it is zero, or picking All would silently revert to the default.
 func TestLanguageCookieDistinguishesAllFromUnset(t *testing.T) {
-	srv := &Server{defaultLan: 4}
+	srv := &Server{}
+	srv.defaultLan.Store(4)
 
 	rec := httptest.NewRecorder()
 	srv.rememberBrowse(rec, browseData{Mode: modeSongs, LanType: 0})
@@ -367,7 +368,8 @@ func TestLetterSurvivesATabWithNoLetterSelect(t *testing.T) {
 // needs no "written even when zero" dance, since empty has no default to
 // revert to.
 func TestLetterRoundTripsThroughTheCookie(t *testing.T) {
-	srv := &Server{defaultLan: 4}
+	srv := &Server{}
+	srv.defaultLan.Store(4)
 
 	rec := httptest.NewRecorder()
 	srv.rememberBrowse(rec, browseData{Mode: modeSongs, LanType: 4, Letter: "S"})

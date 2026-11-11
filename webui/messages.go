@@ -18,6 +18,7 @@ var knownErrors = []struct {
 	msg string
 }{
 	{ErrOffline, "The device is offline."},
+	{ErrNoDevice, "No karaoke device has been found yet."},
 	{client.ErrBusy, "The device is not accepting connections."},
 	{ErrQueueManager, "The queue manager is not answering."},
 	{ErrAway, "The karaoke machine is not connected to the queue manager."},
@@ -38,6 +39,10 @@ var knownErrors = []struct {
 	{xmlbackup.ErrVersion, "This file was made by a newer version of the app."},
 	{xmlbackup.ErrEmpty, "There are no songs in this file."},
 	{errNothingIncoming, "Nothing was received, or it was already added."},
+	{errSongListDownload, "The song list could not be downloaded. It will be tried again when the device connects."},
+	{errSongListTooLarge, "That file is too large to be a song list."},
+	{errNotSongList, "That file is not a song list from a karaoke device."},
+	{errNoFile, "No file was chosen."},
 }
 
 // errorText words an error for the page. A known error gets its translated

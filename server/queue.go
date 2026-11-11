@@ -105,6 +105,10 @@ func runQueue(ctx context.Context, cfg Config, logger *slog.Logger) error {
 // answered. One that did not answer is returned only when a song database is
 // already there to browse, so the pages can open and the backend keeps
 // trying; without one, and with cfg.WaitForDevice, the search goes on.
+
+// searchPause is the wait between searches while WaitForDevice keeps looking.
+var searchPause = 2 * time.Second
+
 func findQueueManager(ctx context.Context, cfg Config, logger *slog.Logger) (string, bool, error) {
 	if cfg.Addr != "" {
 		base := remote.BaseURL(cfg.Addr)

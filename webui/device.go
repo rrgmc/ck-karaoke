@@ -233,6 +233,19 @@ func (d *Device) Run(ctx context.Context) {
 		suspendC, addr := d.suspendC, d.addr
 		d.mu.RUnlock()
 
+		// No address yet: the app has never found the device, and this search
+		// did not either. Search again soon rather than on the slow ladder,
+		// because on macOS and iOS the first searches fail until the user
+		// answers the local network prompt.
+		if addr == "" {
+			d.reportDialFailure(ErrNoDevice)
+			d.setDown(ErrNoDevice)
+			if !sleep(ctx, noAddressPause, suspendC) {
+				return
+			}
+			continue
+		}
+
 		// Bounded, because Run's context is the process lifetime and carries no
 		// deadline of its own — and go-raknet only sets a socket deadline when
 		// the context has one. Against an address that answers nothing at all,
@@ -272,6 +285,13 @@ func (d *Device) Run(ctx context.Context) {
 		d.watch(ctx, c, suspendC)
 	}
 }
+
+// ErrNoDevice reports that no device has been found yet, so there is no
+// address to dial.
+var ErrNoDevice = errors.New("no karaoke device found yet")
+
+// noAddressPause is the wait between searches while no device has been found.
+var noAddressPause = 3 * time.Second
 
 // StaleAfter is how long the device may go silent before the session is treated
 // as dead. It pushes state about every 1.5s, so this is a wide margin.

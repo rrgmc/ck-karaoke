@@ -61,8 +61,8 @@ func (s *Server) mineData(ctx context.Context, lang i18n.Lang) mineData {
 		}
 	}
 	titles := map[int]struct{ Title, Artist string }{}
-	if s.songs != nil {
-		if found, err := s.songs.Songs(ctx, ids); err == nil {
+	if s.cat() != nil {
+		if found, err := s.cat().Songs(ctx, ids); err == nil {
 			for id, song := range found {
 				titles[id] = struct{ Title, Artist string }{song.Title, song.Artist}
 			}

@@ -33,8 +33,9 @@ docs/                  protocol specification, architecture notes, this file
 
 ## Running the debug server
 
-The quickest way to try it is the command-line server. It finds the unit by
-broadcast, downloads the song list on first run, and serves the UI:
+The quickest way to try it is the command-line server. It serves the UI at
+once, finds the unit by broadcast in the background, and downloads the song
+list the first time it connects:
 
 ```bash
 go run ./cmd/ck-karaoke-server
