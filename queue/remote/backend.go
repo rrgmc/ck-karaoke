@@ -39,6 +39,8 @@ type Backend struct {
 	// runs each time the event stream opens; see OnReached.
 	resolve   Resolver
 	onReached func()
+	// hooks counts OnReached calls under way, which Run waits for.
+	hooks sync.WaitGroup
 }
 
 // Resolver searches for the queue manager. current is the base address in
@@ -57,7 +59,7 @@ func (b *Backend) SetResolver(fn Resolver) {
 }
 
 // OnReached registers fn to run, on its own goroutine, each time the event
-// stream to the queue manager opens. It is how the song list is checked
+// stream to the queue manager opens. Run waits for it before returning. It is how the song list is checked
 // against the queue manager's without holding up the start. Call it before
 // Run.
 func (b *Backend) OnReached(fn func()) {
@@ -107,6 +109,9 @@ func (b *Backend) Client() *kmclient.Client { return b.client }
 
 // Run follows the event stream until ctx ends, reconnecting with a backoff.
 func (b *Backend) Run(ctx context.Context) {
+	// Returning with a hook still running would let the caller close what the
+	// hook is using.
+	defer b.hooks.Wait()
 	backoff := time.Second
 	const maxBackoff = 30 * time.Second
 	for ctx.Err() == nil {
@@ -142,7 +147,11 @@ func (b *Backend) Run(ctx context.Context) {
 				fn := b.onReached
 				b.mu.Unlock()
 				if fn != nil {
-					go fn()
+					b.hooks.Add(1)
+					go func() {
+						defer b.hooks.Done()
+						fn()
+					}()
 				}
 			}
 			b.handle(ctx, e)

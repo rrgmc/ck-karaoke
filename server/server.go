@@ -233,11 +233,7 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	// The song list may arrive while serving, so it is the server's to hand
 	// back rather than this function's.
-	defer func() {
-		if db := srv.Catalogue(); db != nil {
-			db.Close()
-		}
-	}()
+	defer srv.Close()
 	if cfg.OnDevice != nil {
 		cfg.OnDevice(dev)
 	}

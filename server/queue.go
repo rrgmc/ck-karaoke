@@ -96,11 +96,7 @@ func runQueue(ctx context.Context, cfg Config, logger *slog.Logger) error {
 		}
 		return err
 	}
-	defer func() {
-		if db := srv.Catalogue(); db != nil {
-			db.Close()
-		}
-	}()
+	defer srv.Close()
 
 	// Each time the queue manager is reached: fetch the song list if there
 	// is none, or else check the one there is, once per run.

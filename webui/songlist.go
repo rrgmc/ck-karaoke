@@ -125,15 +125,19 @@ func (s *Server) FetchSongList() {
 		return
 	}
 	s.listMu.Lock()
-	if s.listState.Downloading {
+	if s.listState.Downloading || s.closing {
 		s.listMu.Unlock()
 		return
 	}
 	s.listState = songListState{Downloading: true}
+	// Under listMu, so Close cannot start waiting between the check above
+	// and this.
+	s.fetches.Add(1)
 	s.listMu.Unlock()
 	s.publish(eventSongList, "_songlist.html", s.songListNow())
 
 	go func() {
+		defer s.fetches.Done()
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		go func() {
@@ -159,6 +163,13 @@ func (s *Server) FetchSongList() {
 			lastPct = pct
 			s.setSongListState(func(st *songListState) { st.Have, st.Total = have, total })
 		})
+		select {
+		case <-s.stopping:
+			// Shutting down: opening the list now would leave it open after
+			// Close, which on Windows keeps the file from being removed.
+			return
+		default:
+		}
 		var db *catalog.DB
 		if err == nil {
 			db, err = catalog.Open(s.songListPath)
