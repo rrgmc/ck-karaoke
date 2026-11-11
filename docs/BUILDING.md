@@ -108,10 +108,12 @@ request. It tests the library on Linux, Windows and macOS, vets and builds the
 desktop app on all three, builds the Android APK, and builds the iOS app for
 the simulator. It produces no downloads.
 
-Branch protection on `master` requires every CI check to pass before a pull
-request merges, so a pull request that changes only `version/VERSION` runs CI
-too. A push to `master` that changes only that file does not: it already passed
-as a pull request, and the release tag runs CI again before anything is built.
+Branch protection on `master` requires one check, `CI passed`, before a pull
+request merges. The last CI job reports it, and it passes when every other job
+passed or was skipped. A pull request that changes only `version/VERSION` skips
+the build jobs, so it passes in under a minute. A push to `master` that changes
+only that file runs no CI; the release tag runs the full CI before anything is
+built.
 
 The version lives in [version/VERSION](../version/VERSION). The Go binaries
 embed it (package `version`; `ck-karaoke-server -version` prints it), and the
