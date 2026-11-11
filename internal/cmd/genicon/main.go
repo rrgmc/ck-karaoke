@@ -29,10 +29,15 @@ import (
 
 const canvas = 108
 
-// Gradient endpoints, top-left to bottom-right.
+// A background gradient's endpoints, top-left to bottom-right.
+type gradient struct{ from, to color.NRGBA }
+
 var (
-	gradientFrom = color.NRGBA{0x37, 0x30, 0xA3, 0xFF} // indigo
-	gradientTo   = color.NRGBA{0x0D, 0x94, 0x88, 0xFF} // teal
+	// CK Karaoke: indigo to teal.
+	unitGradient = gradient{color.NRGBA{0x37, 0x30, 0xA3, 0xFF}, color.NRGBA{0x0D, 0x94, 0x88, 0xFF}}
+	// CK Queue Remote: amber to rose, as in
+	// ports/android/app/src/queue/res/drawable/ic_launcher_background.xml.
+	queueGradient = gradient{color.NRGBA{0xB4, 0x53, 0x09, 0xFF}, color.NRGBA{0xBE, 0x12, 0x3C, 0xFF}}
 )
 
 // stroke is the width of every line in the artwork.
@@ -86,17 +91,29 @@ var targets = []target{
 	{"ports/queue-desktop/appicon.ico", 256, 256, 1.2, false, true},
 }
 
+// queueTargets are CK Queue Remote's desktop icons, on its own background.
+// ports/desktop/package.sh --queue puts them in place of CK Karaoke's.
+var queueTargets = []target{
+	{"ports/desktop/build/queue/appicon.png", 1024, 1024, 1.2, false, false},
+	{"ports/desktop/build/queue/icon.ico", 256, 256, 1.2, false, true},
+}
+
 func main() {
-	for _, t := range targets {
-		if err := write(t); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+	for _, set := range []struct {
+		targets []target
+		bg      gradient
+	}{{targets, unitGradient}, {queueTargets, queueGradient}} {
+		for _, t := range set.targets {
+			if err := write(t, set.bg); err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+				os.Exit(1)
+			}
+			fmt.Printf("wrote %s (%dx%d)\n", t.path, t.width, t.height)
 		}
-		fmt.Printf("wrote %s (%dx%d)\n", t.path, t.width, t.height)
 	}
 }
 
-func write(t target) error {
+func write(t target, bg gradient) error {
 	if err := os.MkdirAll(filepath.Dir(t.path), 0o755); err != nil {
 		return err
 	}
@@ -106,7 +123,7 @@ func write(t target) error {
 	}
 	defer f.Close()
 	// Fully opaque: an iOS app icon may not have transparency.
-	img := render(t.width, t.height, t.scale)
+	img := render(t.width, t.height, t.scale, bg)
 	switch {
 	case t.rgba:
 		return encodeRGBA(f, img)
@@ -146,7 +163,7 @@ const samples = 4
 
 // render draws the gradient over the whole image and the artwork at its centre,
 // sized by the image's height.
-func render(width, height int, scale float64) *image.NRGBA {
+func render(width, height int, scale float64, bg gradient) *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, width, height))
 	unit := float64(canvas) / float64(height)
 	aspect := float64(width) / float64(height)
@@ -170,9 +187,9 @@ func render(width, height int, scale float64) *image.NRGBA {
 			const n = samples * samples
 			a, t := covered/n, t/n
 			img.SetNRGBA(px, py, color.NRGBA{
-				R: blend(lerp(gradientFrom.R, gradientTo.R, t), a),
-				G: blend(lerp(gradientFrom.G, gradientTo.G, t), a),
-				B: blend(lerp(gradientFrom.B, gradientTo.B, t), a),
+				R: blend(lerp(bg.from.R, bg.to.R, t), a),
+				G: blend(lerp(bg.from.G, bg.to.G, t), a),
+				B: blend(lerp(bg.from.B, bg.to.B, t), a),
 				A: 0xFF,
 			})
 		}

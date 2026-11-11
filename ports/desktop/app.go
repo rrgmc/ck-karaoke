@@ -77,10 +77,11 @@ func (a *App) startup(ctx context.Context) {
 	logger.Info("data directory", "path", dir)
 
 	cfg := server.Config{
+		Backend:      variant.backend,
 		Listen:       "127.0.0.1:0",
 		SongDB:       filepath.Join(dir, "song.db"),
 		FavDB:        filepath.Join(dir, "favorites.db"),
-		LastAddrFile: filepath.Join(dir, "device.addr"),
+		LastAddrFile: filepath.Join(dir, variant.lastAddrFile),
 		Name:         protocol.HostName(),
 		Logger:       logger,
 		SaveFile:     a.saveFile,
@@ -129,7 +130,7 @@ func (a *App) fail(err error) {
 	}
 	_, _ = runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
 		Type:    runtime.ErrorDialog,
-		Title:   lang.T("CK Karaoke stopped"),
+		Title:   variant.text(lang).dialogTitle,
 		Message: err.Error(),
 	})
 	runtime.Quit(a.ctx)
@@ -157,7 +158,8 @@ func (a *App) ServerURL() string {
 
 // SetLanguage takes the web view's preferred languages, which the startup page
 // reads from navigator.languages, and returns that page's text in the best
-// match. The native dialogs use the same language from then on.
+// match, with the app's name and background. The native dialogs use the same
+// language from then on.
 //
 // The web view is asked rather than the system, because it is what the web UI
 // follows through Accept-Language, and the dialogs should agree with it.
@@ -166,10 +168,13 @@ func (a *App) SetLanguage(prefs []string) map[string]string {
 	a.mu.Lock()
 	a.lang = lang
 	a.mu.Unlock()
+	text := variant.text(lang)
 	return map[string]string{
-		"looking":     lang.T("Looking for your karaoke device…"),
-		"hint":        lang.T("No device has answered yet. Check that it is switched on and on the same network as this computer. On a Mac, also check that CK Karaoke is allowed in System Settings, Privacy & Security, Local Network."),
-		"downloading": lang.T("Downloading the song list…"),
+		"name":        variant.name,
+		"background":  variant.gradient,
+		"looking":     text.looking,
+		"hint":        text.hint,
+		"downloading": text.downloading,
 		"stopped":     lang.T("The server stopped:"),
 	}
 }
@@ -214,7 +219,7 @@ func dataDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("finding the configuration directory: %w", err)
 	}
-	dir := filepath.Join(base, "CK Karaoke")
+	dir := filepath.Join(base, variant.dataDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("creating %s: %w", dir, err)
 	}

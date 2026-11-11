@@ -35,7 +35,7 @@
 </head>
 <body>
 <main>
-  <h1>CK Karaoke</h1>
+  <h1 id="name">CK Karaoke</h1>
   <p id="status">Looking for your karaoke device…</p>
   <p id="hint">No device has answered yet. Check that it is switched on and on the
     same network as this computer. On a Mac, also check that CK Karaoke is
@@ -59,6 +59,10 @@
     var downloading = false;
     window.go.main.App.SetLanguage(navigator.languages || [navigator.language]).then(function (t) {
       text = t;
+      // One page serves CK Karaoke and CK Queue Remote.
+      document.title = t.name;
+      document.getElementById("name").textContent = t.name;
+      document.body.style.background = t.background;
       if (!downloading) status.textContent = t.looking;
       hint.textContent = t.hint;
     });

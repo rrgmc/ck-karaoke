@@ -123,8 +123,9 @@ Binaries are built only for a release. To make one, set the new version in
 refuses direct pushes), then tag the merged commit and push the tag. The tag
 starts the [release workflow](../.github/workflows/release.yml), which checks
 that it matches `version/VERSION`, runs CI, then publishes a GitHub release with
-the Android APK and App Bundle of both apps, the Windows installer, the macOS disk image, the Linux `.deb`
-package, an unsigned iOS IPA of both apps, the queue manager's tray app for Windows (installer),
+the Android APK and App Bundle of both apps, the Windows installer and the macOS
+disk image of both apps, the Linux `.deb` package of CK Karaoke, an unsigned iOS
+IPA of both apps, the queue manager's tray app for Windows (installer),
 macOS (disk image, signed and notarized like the app) and Linux (`.deb`), and
 a `SHA256SUMS.txt`. The release notes start with one download table per
 application, made by [.github/release-notes.sh](../.github/release-notes.sh);

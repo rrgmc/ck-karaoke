@@ -65,6 +65,22 @@ go build -tags desktop,production,webkit2_41 -o build/bin/ck-karaoke .
 The icon comes from `build/appicon.png`, which `internal/cmd/genicon` renders.
 `wails build` derives `build/windows/icon.ico` from it.
 
+## CK Queue Remote
+
+The same module builds CK Queue Remote, the guest app for a CK Queue Manager,
+with the `queue` build tag. `variant_unit.go` and `variant_queue.go` hold what
+differs: the backend, the name, the data directory and the startup page's text
+and colours. The backend is fixed at build time, so CK Queue Remote has no way
+to reach the unit around the queue manager.
+
+`./package.sh --queue <dir> [version]` packages it for Windows and macOS:
+`ck-queue-remote-<version>-windows-amd64-setup.exe` and
+`ck-queue-remote-<version>-macos-universal.dmg`. For that build only, it sets
+the name in `wails.json`, puts the icons from `build/queue/` in place, and gives
+the macOS bundle the identifier `com.rrgmc.ckqueueremote` and its own local
+network string. Both apps install side by side, and CK Queue Remote keeps its
+data in `CK Queue Remote` beside `CK Karaoke`, so the favorites stay apart.
+
 ## Behaviour
 
 - **Data** lives in the per-user configuration directory: `%AppData%\CK Karaoke`

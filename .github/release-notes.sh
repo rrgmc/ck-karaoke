@@ -60,6 +60,9 @@ row "Linux" "ck-queue-manager-$version-linux-amd64.deb" \
 
 header "CK Queue Remote" "The guest app for the queue manager."
 row "Android 8 or later" "ck-queue-remote-$version-android.apk" "Installs beside CK Karaoke."
+row "Windows 10 or 11" "ck-queue-remote-$version-windows-amd64-setup.exe" "$smartscreen"
+row "macOS 10.13 or later" "ck-queue-remote-$version-macos-universal.dmg" \
+    "Drag the app to Applications."
 row "iPhone and iPad, iOS 15 or later" "ck-queue-remote-$version-ios-unsigned.ipa" \
     "Sign it as for CK Karaoke."
 

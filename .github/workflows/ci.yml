@@ -126,6 +126,8 @@ jobs:
           path: ~/apt-archives
           key: apt-webkitgtk-${{ runner.os }}-${{ runner.arch }}-v1
       - run: go vet -tags ${{ matrix.tags }} .
+      # CK Queue Remote, the same module with the queue backend.
+      - run: go vet -tags ${{ matrix.tags }},queue .
       - name: Install Wails
         run: go install "github.com/wailsapp/wails/v2/cmd/wails@$WAILS_VERSION"
       - name: Install NSIS
@@ -137,6 +139,9 @@ jobs:
       # disk image shows up here rather than on a tag. Nothing is uploaded.
       - name: Package
         run: ./package.sh "$RUNNER_TEMP/dist"
+      - name: Package CK Queue Remote
+        if: runner.os != 'Linux'
+        run: ./package.sh --queue "$RUNNER_TEMP/dist"
 
   # The queue manager's tray app: its own module, with fyne.io/systray and a
   # Wails configuration window. It needs cgo on macOS and Linux; Linux also
