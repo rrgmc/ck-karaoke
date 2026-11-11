@@ -143,13 +143,7 @@ func run(ctx context.Context) error {
 		},
 	}
 
-	err = server.Run(ctx, cfg)
-	// The hint is flag-specific, so it is added here rather than raised from a
-	// server that may not have a command line at all.
-	if errors.Is(err, server.ErrCatalogue) {
-		return fmt.Errorf("%w\n(supply one with -catalog if you already have song.db)", err)
-	}
-	return err
+	return server.Run(ctx, cfg)
 }
 
 // dataPath resolves a database location. An explicit path is used as given;

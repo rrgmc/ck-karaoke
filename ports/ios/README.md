@@ -273,8 +273,8 @@ is what permits plain HTTP to it, and is the counterpart of Android's
   host` while broadcast still works — which looks exactly like a bug in the sweep.
 - **A first run opens on an empty Songs tab.** The server listens at once, and
   the song list downloads over the first device session, with the progress on
-  that tab. The startup screen's download caption only appears for CK Queue
-  Remote, whose server still downloads before it listens. `RootViewController`
+  that tab. The startup screen's search and download captions no longer
+  appear for either app. `RootViewController`
   also implements `didFailProvisionalNavigation`, so a load that genuinely fails
   says so instead of leaving a white screen.
 - **Most of a first run is spent waiting for silence, not for data.** A 2.2 MB

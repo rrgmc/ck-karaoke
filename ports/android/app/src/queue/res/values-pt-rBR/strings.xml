@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="starting_title">Procurando o gerenciador de fila…</string>
-    <string name="starting_detail">Na primeira vez, a lista de músicas é baixada do gerenciador de fila, o que leva alguns segundos. Nas próximas vezes, a abertura é imediata.</string>
+    <string name="starting_title">Iniciando o CK Queue Remote…</string>
+    <string name="starting_detail">Isto leva um instante.</string>
     <string name="failure_title">Não foi possível iniciar o controle da fila.</string>
 
     <string name="notification_title">Controle da fila</string>

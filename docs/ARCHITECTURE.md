@@ -199,9 +199,17 @@ get one:
 Either way the list goes from absent to present while the server runs. It is
 never replaced afterwards, so handlers read it without a lock.
 
-The queue backend (`runQueue`) still finds the queue manager and downloads the
-list before it serves. `Config.WaitForDevice` and `Config.Searching` apply only
-to it.
+The queue backend (`runQueue`) works the same way. `remote.Backend` searches
+for the queue manager before each attempt to open the event stream: first the
+current address, then mDNS, or a sweep of the local network on the phones.
+When the stream opens, a missing song list is downloaded from the queue
+manager. A song list that differs from the queue manager's is downloaded
+beside the one in use, as `song.db.new`, and installed at the next start. The
+one in use stays open while the app runs, and Windows cannot replace an open
+file.
+
+`Config.WaitForDevice` and `Config.Searching` are deprecated, and nothing reads
+them.
 
 `webui.Device` dials with a timeout (`webui.DialTimeout`). A stale address does
 not fail fast: nothing answers, and RakNet's MTU discovery would otherwise wait

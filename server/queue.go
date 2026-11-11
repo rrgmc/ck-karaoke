@@ -2,13 +2,12 @@ package server
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"github.com/rrgmc/ck-karaoke/catalog"
@@ -42,57 +41,81 @@ const (
 )
 
 // runQueue is Run for BackendQueue. It never opens a session with the unit.
+//
+// Like the unit backend it serves at once: the song list and the favorites
+// need no queue manager. The backend finds the queue manager in the
+// background, and the song list comes from it, or from an imported file,
+// when there is none yet.
 func runQueue(ctx context.Context, cfg Config, logger *slog.Logger) error {
-	base, reached, err := findQueueManager(ctx, cfg, logger)
-	if err != nil {
-		return err
+	promoteSongs(cfg.SongDB, logger)
+	songs := openSongs(cfg.SongDB, logger)
+
+	base := ""
+	switch {
+	case cfg.Addr != "":
+		base = remote.BaseURL(cfg.Addr)
+	case cfg.LastAddrFile != "":
+		if addr := readAddr(cfg.LastAddrFile); addr != "" {
+			base = remote.BaseURL(addr)
+		}
 	}
 	c := kmclient.New(base, &http.Client{Timeout: 10 * time.Second})
 
-	if reached {
-		if cfg.LastAddrFile != "" {
-			if u, err := url.Parse(base); err == nil {
-				rememberAddr(cfg.LastAddrFile, u.Host, logger)
-			}
-		}
-		downloaded, err := remote.SyncCatalogue(ctx, c, cfg.SongDB)
-		switch {
-		case err != nil && !exists(cfg.SongDB):
-			return fmt.Errorf("%w: %w", ErrCatalogue, err)
-		case err != nil:
-			logger.Warn("cannot update the song database; keeping the one there is", "error", err)
-		case downloaded:
-			logger.Info("downloaded the song database from the queue manager", "file", cfg.SongDB)
-		}
-	}
-
-	songs, err := catalog.Open(cfg.SongDB)
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrCatalogue, err)
-	}
-	defer songs.Close()
 	favs, err := favorites.Open(cfg.FavDB)
 	if err != nil {
+		if songs != nil {
+			songs.Close()
+		}
 		return err
 	}
 	defer favs.Close()
-	info := songs.Info()
-	logger.Info("song catalogue ready", "file", songs.Path(), "songs", info.Songs, "version", info.DBVersion)
 
 	backend := remote.New(c, logger)
 	// Beside the song database, which every port puts in the app's own
 	// storage, so the code entered on the Setup page is kept with the rest.
 	backend.UseTokenFile(filepath.Join(filepath.Dir(cfg.SongDB), "access.json"))
 	backend.UseSingerFile(filepath.Join(filepath.Dir(cfg.SongDB), "singer.json"))
+	if cfg.Addr == "" {
+		// An address the caller gave is the caller's to keep.
+		backend.SetResolver(queueResolver(cfg, logger))
+	}
 	srv, err := webui.New(backend, songs, favs, logger, webui.Options{
 		AllowFolderDelete: cfg.AllowFolderDelete,
 		SaveFile:          cfg.SaveFile,
 		AppName:           "CK Queue Remote",
 		PeerApp:           cfg.PeerApp,
+		SongListPath:      cfg.SongDB,
+		FetchSongList: func(ctx context.Context, path string, _ func(have, total int)) error {
+			_, err := remote.SyncCatalogueTo(ctx, c, path, path)
+			return err
+		},
 	})
 	if err != nil {
+		if songs != nil {
+			songs.Close()
+		}
 		return err
 	}
+	defer func() {
+		if db := srv.Catalogue(); db != nil {
+			db.Close()
+		}
+	}()
+
+	// Each time the queue manager is reached: fetch the song list if there
+	// is none, or else check the one there is, once per run.
+	var checked atomic.Bool
+	backend.OnReached(func() {
+		if srv.Catalogue() == nil {
+			srv.FetchSongList()
+			return
+		}
+		if checked.Swap(true) {
+			return
+		}
+		stageSongs(ctx, c, cfg.SongDB, logger)
+	})
+
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -101,39 +124,52 @@ func runQueue(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	return serve(ctx, cfg, logger, srv, base, done, time.Second)
 }
 
-// findQueueManager returns the queue manager's base URL and whether it
-// answered. One that did not answer is returned only when a song database is
-// already there to browse, so the pages can open and the backend keeps
-// trying; without one, and with cfg.WaitForDevice, the search goes on.
+// stagedSuffix names a newer song list waiting for the next start. The one in
+// use stays open while the app runs, and Windows cannot replace an open file.
+const stagedSuffix = ".new"
 
-// searchPause is the wait between searches while WaitForDevice keeps looking.
-var searchPause = 2 * time.Second
-
-func findQueueManager(ctx context.Context, cfg Config, logger *slog.Logger) (string, bool, error) {
-	if cfg.Addr != "" {
-		base := remote.BaseURL(cfg.Addr)
-		if _, err := remote.Check(ctx, base); err != nil {
-			if !exists(cfg.SongDB) {
-				return "", false, fmt.Errorf("the queue manager at %s: %w", base, err)
-			}
-			logger.Warn("the queue manager does not answer; starting with the song database there is",
-				"addr", base, "error", err)
-			return base, false, nil
-		}
-		return base, true, nil
+// stageSongs downloads the queue manager's song list beside the one in use
+// when the two differ, for promoteSongs to install at the next start.
+func stageSongs(ctx context.Context, c *kmclient.Client, path string, logger *slog.Logger) {
+	staged := path + stagedSuffix
+	changed, err := remote.SyncCatalogueTo(ctx, c, path, staged)
+	switch {
+	case err != nil:
+		logger.Warn("cannot check the song database against the queue manager", "error", err)
+	case changed:
+		logger.Info("downloaded a newer song database; it is used from the next start", "file", staged)
+	default:
+		// The queue manager has the list in use, so an older download that
+		// is still waiting would only go backwards.
+		os.Remove(staged)
 	}
+}
 
-	remembered := ""
-	if cfg.LastAddrFile != "" {
-		if addr := readAddr(cfg.LastAddrFile); addr != "" {
-			remembered = remote.BaseURL(addr)
-			if f, err := remote.Check(ctx, remembered); err == nil {
-				logger.Info("found the queue manager", "addr", f.URL, "name", f.Name)
-				return remembered, true, nil
-			}
-		}
+// promoteSongs installs a song list stageSongs left, before anything opens
+// the one in use. A staged file that does not verify is dropped.
+func promoteSongs(path string, logger *slog.Logger) {
+	if path == "" {
+		return
 	}
+	staged := path + stagedSuffix
+	if !exists(staged) {
+		return
+	}
+	if err := catalog.Verify(staged); err != nil {
+		logger.Warn("dropping a damaged song database download", "file", staged, "error", err)
+		os.Remove(staged)
+		return
+	}
+	if err := os.Rename(staged, path); err != nil {
+		logger.Warn("cannot install the newer song database", "file", staged, "error", err)
+		return
+	}
+	logger.Info("installed the newer song database", "file", path)
+}
 
+// queueResolver is the backend's search. It keeps the current address while
+// the queue manager answers there, and remembers whatever it settles on.
+func queueResolver(cfg Config, logger *slog.Logger) remote.Resolver {
 	search := remote.Browse
 	timeout := queueSearch
 	if cfg.QueueSweep {
@@ -145,35 +181,29 @@ func findQueueManager(ctx context.Context, cfg Config, logger *slog.Logger) (str
 	if cfg.DiscoverTimeout > 0 {
 		timeout = cfg.DiscoverTimeout
 	}
-	for {
-		found, err := search(ctx, timeout)
-		if err == nil {
-			logger.Info("found the queue manager", "addr", found[0].URL, "name", found[0].Name,
-				"others", len(found)-1)
-			return found[0].URL, true, nil
-		}
-		if ctx.Err() != nil {
-			return "", false, ctx.Err()
-		}
-		if remembered != "" && exists(cfg.SongDB) {
-			logger.Warn("no queue manager answered; starting with the last known address", "addr", remembered)
-			return remembered, false, nil
-		}
-		if !cfg.WaitForDevice {
-			if errors.Is(err, remote.ErrNoQueueManager) {
-				return "", false, fmt.Errorf("%w; is it running on this network?", err)
+	return func(ctx context.Context, current string) (string, error) {
+		if current != "" {
+			if _, err := remote.Check(ctx, current); err == nil {
+				return current, nil
 			}
-			return "", false, err
 		}
-		logger.Info("no queue manager found; still looking", "error", err)
-		if cfg.Searching != nil {
-			cfg.Searching()
+		found, err := search(ctx, timeout)
+		if err != nil {
+			return "", err
 		}
-		select {
-		case <-ctx.Done():
-			return "", false, ctx.Err()
-		case <-time.After(searchPause):
+		base := found[0].URL
+		for _, f := range found {
+			if f.URL == current {
+				base = current
+			}
 		}
+		logger.Info("found the queue manager", "addr", base, "name", found[0].Name, "others", len(found)-1)
+		if cfg.LastAddrFile != "" {
+			if u, err := url.Parse(base); err == nil {
+				rememberAddr(cfg.LastAddrFile, u.Host, logger)
+			}
+		}
+		return base, nil
 	}
 }
 

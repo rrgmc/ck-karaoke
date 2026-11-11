@@ -34,10 +34,12 @@ type Server struct {
 	// songListPath is where a downloaded or imported song list is written,
 	// or empty when the caller offers neither.
 	songListPath string
-	listMu       sync.Mutex
-	listState    songListState
-	favs         *favorites.DB
-	logger       *slog.Logger
+	// fetchSongList brings a song list from the backend; see FetchSongList.
+	fetchSongList SongListFetcher
+	listMu        sync.Mutex
+	listState     songListState
+	favs          *favorites.DB
+	logger        *slog.Logger
 	// allowFolderDelete gates folder deletion, which is the one irreversible
 	// action in the UI and is off unless the operator asked for it.
 	allowFolderDelete bool
@@ -92,9 +94,13 @@ type Options struct {
 	AppName string
 
 	// SongListPath is where the song list is written when it is downloaded
-	// from the device or imported from a file. Both happen only while New was
-	// given no song list. Empty offers neither.
+	// or imported from a file. Both happen only while New was given no song
+	// list. Empty offers neither.
 	SongListPath string
+
+	// FetchSongList downloads the song list. Nil, with the unit backend, means
+	// over the device session.
+	FetchSongList SongListFetcher
 
 	// PeerApp names the other app on this phone, CK Karaoke or CK Queue
 	// Remote, when it is installed. The favorites pages then offer to send a
@@ -116,8 +122,9 @@ func New(dev Backend, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger
 	}
 	srv := &Server{
 		dev: dev, favs: favs, logger: logger,
-		songListPath: opts.SongListPath,
-		tmpl:         byLang[i18n.English], byLang: byLang,
+		songListPath:  opts.SongListPath,
+		fetchSongList: opts.FetchSongList,
+		tmpl:          byLang[i18n.English], byLang: byLang,
 		hub: newHub(), stopping: make(chan struct{}),
 		allowFolderDelete: opts.AllowFolderDelete,
 		saveFile:          opts.SaveFile,
@@ -126,6 +133,9 @@ func New(dev Backend, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger
 	}
 	if srv.appName == "" {
 		srv.appName = "CK Karaoke"
+	}
+	if unit, ok := dev.(unitBackend); ok && srv.fetchSongList == nil {
+		srv.fetchSongList = unitFetcher(unit.dev)
 	}
 	if songs != nil {
 		srv.songs.Store(songs)
@@ -186,7 +196,9 @@ func (s *Server) watchConnection(dev Backend) {
 		switch {
 		case online:
 			s.notify(toastGood, "Device connected")
-			s.downloadSongList()
+			if _, ok := s.dev.(unitBackend); ok {
+				s.FetchSongList()
+			}
 		case errors.Is(reason, client.ErrBusy):
 			// Worth spelling out: the usual cause is another
 			// remote still holding the single connection slot.
@@ -195,7 +207,7 @@ func (s *Server) watchConnection(dev Backend) {
 			s.notify(toastWarn, "The karaoke machine is not connected to the queue manager.")
 		case errors.Is(reason, ErrQueueManager):
 			s.notify(toastWarn, "Queue manager unreachable — retrying")
-		case errors.Is(reason, ErrNoDevice):
+		case errors.Is(reason, ErrNoDevice), errors.Is(reason, ErrNoQueueManager):
 			// The banner already says the app is looking; a toast on top
 			// of it on every start with no device nearby is noise.
 		case reason != nil:
@@ -227,6 +239,8 @@ const (
 	reasonAway         = "away"
 	reasonQueueManager = "queue-manager"
 	reasonSearching    = "searching"
+	// reasonSearchingQueue is reasonSearching for the queue manager.
+	reasonSearchingQueue = "searching-queue"
 )
 
 // offlineReason classifies a dial failure, so the banner can say "busy" rather
@@ -243,6 +257,8 @@ func offlineReason(err error) string {
 		return reasonQueueManager
 	case errors.Is(err, ErrNoDevice):
 		return reasonSearching
+	case errors.Is(err, ErrNoQueueManager):
+		return reasonSearchingQueue
 	default:
 		return reasonUnreachable
 	}

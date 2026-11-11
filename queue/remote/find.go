@@ -118,8 +118,18 @@ func candidates(e *zeroconf.ServiceEntry) []string {
 // downloads nothing when the local file has the same hash, and replaces the
 // file only after the new one passes catalog.Verify.
 func SyncCatalogue(ctx context.Context, c *kmclient.Client, path string) (downloaded bool, err error) {
-	local, _ := fileHash(path)
-	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+	return SyncCatalogueTo(ctx, c, path, path)
+}
+
+// SyncCatalogueTo compares the song database at current with the queue
+// manager's, and writes the queue manager's to dest when they differ. dest
+// may be current itself.
+func SyncCatalogueTo(ctx context.Context, c *kmclient.Client, current, dest string) (downloaded bool, err error) {
+	local, _ := fileHash(current)
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return false, err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(dest), filepath.Base(dest)+".*.tmp")
 	if err != nil {
 		return false, err
 	}
@@ -134,7 +144,7 @@ func SyncCatalogue(ctx context.Context, c *kmclient.Client, path string) (downlo
 	if err := catalog.Verify(tmp.Name()); err != nil {
 		return false, fmt.Errorf("the downloaded song database is damaged: %w", err)
 	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
+	if err := os.Rename(tmp.Name(), dest); err != nil {
 		return false, err
 	}
 	return true, nil

@@ -35,6 +35,61 @@ type Backend struct {
 	onStatus     func(*webui.Status)
 	onQueue      func(*webui.Queue)
 	onConnection func(bool, error)
+	// resolve finds the queue manager again; see SetResolver. onReached
+	// runs each time the event stream opens; see OnReached.
+	resolve   Resolver
+	onReached func()
+}
+
+// Resolver searches for the queue manager. current is the base address in
+// use, empty when none is known, and a resolver keeps it while the queue
+// manager still answers there. It returns the base address to use, or an
+// error when nothing answered.
+type Resolver func(ctx context.Context, current string) (string, error)
+
+// SetResolver makes Run search for the queue manager before each attempt to
+// open the event stream, and move to the address the search finds. Call it
+// before Run.
+func (b *Backend) SetResolver(fn Resolver) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.resolve = fn
+}
+
+// OnReached registers fn to run, on its own goroutine, each time the event
+// stream to the queue manager opens. It is how the song list is checked
+// against the queue manager's without holding up the start. Call it before
+// Run.
+func (b *Backend) OnReached(fn func()) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.onReached = fn
+}
+
+// noAddressPause is the wait between searches while no queue manager has
+// been found.
+var noAddressPause = 3 * time.Second
+
+// research runs the resolver, if there is one, and moves to the address it
+// finds. A failed search keeps the current address.
+func (b *Backend) research(ctx context.Context) {
+	b.mu.Lock()
+	fn := b.resolve
+	b.mu.Unlock()
+	if fn == nil {
+		return
+	}
+	current := b.client.Base()
+	base, err := fn(ctx, current)
+	if err != nil {
+		b.log.Debug("queue manager search found nothing; keeping the address", "addr", current, "error", err)
+		return
+	}
+	if base == "" || base == current {
+		return
+	}
+	b.client.SetBase(base)
+	b.log.Info("queue manager found at a new address", "addr", base, "was", current)
 }
 
 var _ webui.Backend = (*Backend)(nil)
@@ -55,6 +110,22 @@ func (b *Backend) Run(ctx context.Context) {
 	backoff := time.Second
 	const maxBackoff = 30 * time.Second
 	for ctx.Err() == nil {
+		b.research(ctx)
+		if ctx.Err() != nil {
+			return
+		}
+		if b.client.Base() == "" {
+			// Nothing found yet, so nothing to connect to. Search again
+			// soon: on macOS and iOS the first searches fail until the user
+			// answers the local network prompt.
+			b.setStream(false, kmclient.ErrNoServer)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(noAddressPause):
+			}
+			continue
+		}
 		b.identify(ctx)
 		b.refreshLevel(ctx)
 		// The queue is read once per connection: the stream only carries it
@@ -62,8 +133,18 @@ func (b *Backend) Run(ctx context.Context) {
 		if q, err := b.client.Queue(ctx); err == nil {
 			b.setQueue(&q)
 		}
+		reached := false
 		err := b.client.Follow(ctx, func(e kmclient.Event) {
 			backoff = time.Second
+			if !reached {
+				reached = true
+				b.mu.Lock()
+				fn := b.onReached
+				b.mu.Unlock()
+				if fn != nil {
+					go fn()
+				}
+			}
 			b.handle(ctx, e)
 		})
 		if ctx.Err() != nil {
@@ -142,6 +223,8 @@ func (b *Backend) setStream(up bool, cause error) {
 func (b *Backend) updateErrLocked() (changed, online bool, reason error) {
 	var err error
 	switch {
+	case !b.streaming && b.client.Base() == "":
+		err = webui.ErrNoQueueManager
 	case !b.streaming:
 		err = webui.ErrQueueManager
 	case b.state != nil && !b.state.PlayerOnline:
@@ -163,7 +246,8 @@ func (b *Backend) Online() bool {
 // Addr is the queue manager's address.
 func (b *Backend) Addr() string { return b.client.Base() }
 
-// LastError is webui.ErrQueueManager, webui.ErrAway or nil.
+// LastError is webui.ErrNoQueueManager, webui.ErrQueueManager, webui.ErrAway
+// or nil.
 func (b *Backend) LastError() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()

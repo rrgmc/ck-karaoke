@@ -3,8 +3,8 @@
 <resources>
     <string name="app_name" translatable="false">CK Queue Remote</string>
 
-    <string name="starting_title">Looking for the queue manager…</string>
-    <string name="starting_detail">The first run downloads the song list from the queue manager, which takes a few seconds. Later launches are immediate.</string>
+    <string name="starting_title">Starting CK Queue Remote…</string>
+    <string name="starting_detail">This takes a moment.</string>
     <string name="failure_title">Could not start the queue remote.</string>
 
     <string name="notification_title">Queue remote</string>

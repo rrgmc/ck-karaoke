@@ -26,11 +26,6 @@ import (
 	"github.com/rrgmc/ck-karaoke/webui"
 )
 
-// ErrCatalogue reports that the song database is missing and the queue
-// manager could not be reached to download it. It is a sentinel so a caller
-// can add its own advice: the command line can suggest a flag, an app cannot.
-var ErrCatalogue = errors.New("cannot reach the queue manager to fetch the song database")
-
 // Config is everything the server needs. The zero value is not usable: SongDB
 // and FavDB have no defaults here, because working them out from the location of
 // the executable is a desktop idea — on a phone the binary lives in a read-only
@@ -101,16 +96,10 @@ type Config struct {
 	// address usually comes from discovery. This is how the caller learns both.
 	Ready func(listen net.Addr, device string)
 
-	// WaitForDevice keeps searching when a search fails and there is no
-	// remembered address to fall back on, instead of returning an error. Run
-	// then returns only when a queue manager answers or ctx is cancelled. Only
-	// BackendQueue reads it: the unit backend serves at once and searches in
-	// the background.
+	// WaitForDevice is ignored.
 	//
-	// The apps set it. On a first launch nothing is remembered, and macOS and iOS
-	// block the app's local network traffic until the user answers the permission
-	// prompt. A search then either hears nothing or fails to send, and it ends
-	// before the user has read the prompt.
+	// Deprecated: both backends serve at once and search in the background,
+	// for as long as they run.
 	WaitForDevice bool
 
 	// QueueSweep finds a queue manager by trying port 8177 on every local
@@ -124,9 +113,10 @@ type Config struct {
 	// Android passes its network, because Go cannot list the interfaces there.
 	SweepNetworks []*net.IPNet
 
-	// Searching is called each time a search finds nothing and WaitForDevice
-	// starts another one, so a caller can say what the wait is for. Only
-	// BackendQueue reads it.
+	// Searching is never called.
+	//
+	// Deprecated: the searching happens after the server is serving, and the
+	// web UI shows it.
 	Searching func()
 
 	// Progress reports how much of the song catalogue has been downloaded.
@@ -331,7 +321,7 @@ func openSongs(path string, logger *slog.Logger) *catalog.DB {
 		if !errors.Is(err, os.ErrNotExist) {
 			logger.Warn("song database unusable; it will be downloaded again", "file", path, "error", err)
 		} else {
-			logger.Info("no song database yet; it will be downloaded from the device", "file", path)
+			logger.Info("no song database yet; it will be downloaded", "file", path)
 		}
 		return nil
 	}
