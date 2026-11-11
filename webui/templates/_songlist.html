@@ -9,15 +9,26 @@
   <a class="btn btn-primary" href="/">{{t "Show the songs"}}</a>
   <script>location.replace("/")</script>
 {{else if .Downloading}}
+  {{if .FromQueue}}
+  <p>{{t "Downloading the song list from the queue manager…"}}</p>
+  {{else}}
   <p>{{t "Downloading the song list from the karaoke device…"}}</p>
+  {{end}}
+  {{/* A bar only once the size is known: the queue manager does not say. */}}
+  {{if .Total}}
   <div class="progress" role="progressbar" aria-valuenow="{{.Percent}}" aria-valuemin="0" aria-valuemax="100">
     <div class="progress-bar" style="width: {{.Percent}}%">{{.Percent}}%</div>
   </div>
+  {{end}}
 {{else}}
   {{with .Err}}<div class="alert alert-danger py-2">{{errtext .}}</div>{{end}}
+  {{if .FromQueue}}
+  <p>{{t "The song list comes from the queue manager. It downloads by itself the first time this app reaches one, which takes a few seconds."}}</p>
+  {{else}}
   <p>{{t "The song list comes from the karaoke device. It downloads by itself the first time this app connects to one, which takes a few seconds."}}</p>
+  {{end}}
   {{if .CanImport}}
-  <p>{{t "No device nearby? Import a song list file copied from another installation of this app."}}</p>
+  <p>{{t "Not reachable from here? Import a song list file copied from another installation of this app."}}</p>
   <a class="btn btn-outline-primary" href="/songlist/import">{{t "Import a song list"}}</a>
   {{end}}
 {{end}}

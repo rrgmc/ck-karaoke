@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -45,44 +47,81 @@ func songDB(t *testing.T) string {
 	return path
 }
 
-func TestRunQueueDownloadsTheCatalogueAndServes(t *testing.T) {
-	served := songDB(t)
-	qm := kmapitest.New(t, kmapi.Queue, served)
-	dir := t.TempDir()
-	cfg := Config{
-		Backend:      BackendQueue,
-		Addr:         qm.URL,
-		Listen:       "127.0.0.1:0",
-		SongDB:       filepath.Join(dir, "song.db"),
-		FavDB:        filepath.Join(dir, "favorites.db"),
-		LastAddrFile: filepath.Join(dir, "queue-manager.addr"),
-		Logger:       slog.New(slog.DiscardHandler),
-	}
-	ready := make(chan string, 1)
-	cfg.Ready = func(a net.Addr, device string) {
-		assert.Equal(t, qm.URL, device)
-		ready <- a.String()
-	}
+// startQueue runs a queue build until the test ends and returns the address
+// it serves on and the queue manager address it reported.
+func startQueue(t *testing.T, cfg Config) (listen, device string, stop func()) {
+	t.Helper()
+	cfg.Backend = BackendQueue
+	cfg.Listen = "127.0.0.1:0"
+	cfg.Logger = slog.New(slog.DiscardHandler)
+	type ready struct{ listen, device string }
+	readyC := make(chan ready, 1)
+	cfg.Ready = func(a net.Addr, device string) { readyC <- ready{a.String(), device} }
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- Run(ctx, cfg) }()
-
-	var addr string
+	var once sync.Once
+	stop = func() {
+		once.Do(func() {
+			cancel()
+			select {
+			case err := <-done:
+				assert.NoError(t, err)
+			case <-time.After(10 * time.Second):
+				t.Error("Run did not return after its context ended")
+			}
+		})
+	}
+	t.Cleanup(stop)
 	select {
-	case addr = <-ready:
+	case r := <-readyC:
+		return r.listen, r.device, stop
 	case err := <-done:
 		t.Fatalf("Run returned before serving: %v", err)
 	case <-time.After(10 * time.Second):
 		t.Fatal("Run never became ready")
 	}
+	return "", "", stop
+}
+
+// waitForSongs waits until the server at addr browses a song list, which the
+// queue build downloads after it starts serving.
+func waitForSongs(t *testing.T, addr string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		resp, err := http.Get("http://" + strings.TrimPrefix(addr, "http://") + "/")
+		if err != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		page, _ := io.ReadAll(resp.Body)
+		return strings.Contains(string(page), "PRESENTE DE DEUS")
+	}, 10*time.Second, 20*time.Millisecond, "the song list never loaded")
+}
+
+// The song list arrives after the server is serving, once the queue manager
+// is reached.
+func TestRunQueueDownloadsTheCatalogueAndServes(t *testing.T) {
+	served := songDB(t)
+	qm := kmapitest.New(t, kmapi.Queue, served)
+	dir := t.TempDir()
+	songs := filepath.Join(dir, "song.db")
+	addr, device, _ := startQueue(t, Config{
+		Addr:   qm.URL,
+		SongDB: songs,
+		FavDB:  filepath.Join(dir, "favorites.db"),
+	})
+	assert.Equal(t, qm.URL, device)
 
 	want, err := os.ReadFile(served)
 	require.NoError(t, err)
-	got, err := os.ReadFile(cfg.SongDB)
-	require.NoError(t, err)
-	assert.Equal(t, want, got, "the queue manager's song database")
-	assert.Equal(t, strings.TrimPrefix(qm.URL, "http://"), readAddr(cfg.LastAddrFile))
+	require.Eventually(t, func() bool {
+		got, err := os.ReadFile(songs)
+		return err == nil && bytes.Equal(want, got)
+	}, 10*time.Second, 20*time.Millisecond, "the queue manager's song database")
+
+	waitForSongs(t, addr)
 
 	resp, err := http.Post("http://"+addr+"/song/1001/reserve", "", nil)
 	require.NoError(t, err)
@@ -90,27 +129,93 @@ func TestRunQueueDownloadsTheCatalogueAndServes(t *testing.T) {
 	resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode, string(body))
 	assert.Empty(t, qm.Player.Calls(), "queueing goes to the queue manager, not to the unit")
-
-	cancel()
-	select {
-	case err := <-done:
-		assert.NoError(t, err)
-	case <-time.After(10 * time.Second):
-		t.Fatal("Run did not return after its context ended")
-	}
 }
 
-func TestRunQueueNeedsACatalogue(t *testing.T) {
+// With no queue manager and no song list, the build still serves, and the
+// Songs tab offers the import.
+func TestRunQueueServesWithoutACatalogue(t *testing.T) {
 	dir := t.TempDir()
-	err := Run(context.Background(), Config{
-		Backend: BackendQueue,
-		Addr:    "http://127.0.0.1:1",
-		Listen:  "127.0.0.1:0",
-		SongDB:  filepath.Join(dir, "song.db"),
-		FavDB:   filepath.Join(dir, "favorites.db"),
-		Logger:  slog.New(slog.DiscardHandler),
+	addr, _, _ := startQueue(t, Config{
+		Addr:   "http://127.0.0.1:1",
+		SongDB: filepath.Join(dir, "song.db"),
+		FavDB:  filepath.Join(dir, "favorites.db"),
 	})
-	assert.Error(t, err)
+
+	resp, err := http.Get("http://" + addr + "/")
+	require.NoError(t, err)
+	page, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Contains(t, string(page), `href="/songlist/import"`)
+	assert.Contains(t, string(page), "The song list comes from the queue manager.")
+}
+
+// A remembered address is kept while the queue manager answers there, which
+// needs no search at all.
+func TestRunQueueUsesTheRememberedAddress(t *testing.T) {
+	qm := kmapitest.New(t, kmapi.Queue, songDB(t))
+	dir := t.TempDir()
+	lastAddrFile := filepath.Join(dir, "queue-manager.addr")
+	host := strings.TrimPrefix(qm.URL, "http://")
+	require.NoError(t, os.WriteFile(lastAddrFile, []byte(host+"\n"), 0o644))
+
+	_, device, _ := startQueue(t, Config{
+		SongDB:       filepath.Join(dir, "song.db"),
+		FavDB:        filepath.Join(dir, "favorites.db"),
+		LastAddrFile: lastAddrFile,
+	})
+	assert.Equal(t, qm.URL, device)
+	require.Eventually(t, func() bool { return exists(filepath.Join(dir, "song.db")) },
+		10*time.Second, 20*time.Millisecond, "the song list came from the remembered address")
+	assert.Equal(t, host, readAddr(lastAddrFile))
+}
+
+// A song list that differs from the queue manager's is downloaded beside it,
+// and installed by the next start.
+func TestRunQueueStagesANewerCatalogue(t *testing.T) {
+	served := songDB(t)
+	qm := kmapitest.New(t, kmapi.Queue, served)
+	dir := t.TempDir()
+	songs := filepath.Join(dir, "song.db")
+	old := songDB(t)
+	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(old))
+	require.NoError(t, err)
+	_, err = db.Exec(`insert into TableSong values (1002, 'OUTRA', 'FERNANDINHO', 1, 'OUTRA', 15)`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+	content, err := os.ReadFile(old)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(songs, content, 0o644))
+
+	cfg := Config{Addr: qm.URL, SongDB: songs, FavDB: filepath.Join(dir, "favorites.db")}
+	_, _, stop := startQueue(t, cfg)
+	require.Eventually(t, func() bool { return exists(songs + stagedSuffix) },
+		10*time.Second, 20*time.Millisecond, "the newer list waits beside the one in use")
+	got, err := os.ReadFile(songs)
+	require.NoError(t, err)
+	assert.Equal(t, content, got, "the list in use is left alone while it is open")
+
+	stop()
+	promoteSongs(songs, quietLogger())
+	want, err := os.ReadFile(served)
+	require.NoError(t, err)
+	got, err = os.ReadFile(songs)
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+	assert.False(t, exists(songs+stagedSuffix))
+}
+
+func TestPromoteSongsDropsADamagedDownload(t *testing.T) {
+	dir := t.TempDir()
+	songs := filepath.Join(dir, "song.db")
+	require.NoError(t, os.WriteFile(songs, []byte("in use"), 0o644))
+	require.NoError(t, os.WriteFile(songs+stagedSuffix, []byte("not really sqlite"), 0o644))
+
+	promoteSongs(songs, quietLogger())
+	got, err := os.ReadFile(songs)
+	require.NoError(t, err)
+	assert.Equal(t, "in use", string(got))
+	assert.False(t, exists(songs+stagedSuffix))
 }
 
 func TestTheQueueBuildHasASetupPage(t *testing.T) {
@@ -231,6 +336,7 @@ func TestTheQueueBuildRequestsForThisPhone(t *testing.T) {
 		return string(b)
 	}
 
+	waitForSongs(t, base)
 	songs := get("/")
 	assert.Contains(t, songs, `hx-post="/song/1001/request"`, "+ requests the song")
 	assert.NotContains(t, songs, "/song/1001/reserve")

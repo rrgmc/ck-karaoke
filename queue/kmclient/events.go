@@ -48,7 +48,11 @@ var ErrSilent = errors.New("the event stream went silent")
 // ctx ends or the stream fails. It always returns an error: ctx's, ErrSilent,
 // or why the stream closed. Reconnecting is the caller's choice.
 func (c *Client) Follow(ctx context.Context, fn func(Event)) error {
-	url := "ws" + strings.TrimPrefix(c.base, "http") + "/api/v1/events"
+	base, err := c.url("")
+	if err != nil {
+		return err
+	}
+	url := "ws" + strings.TrimPrefix(base, "http") + "/api/v1/events"
 	dialCtx, cancel := context.WithTimeout(ctx, Silence)
 	conn, _, err := websocket.Dial(dialCtx, url, &websocket.DialOptions{HTTPClient: c.http})
 	cancel()

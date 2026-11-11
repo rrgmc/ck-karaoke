@@ -51,10 +51,10 @@ func (e *Error) Is(target error) bool {
 
 // Client talks to one server. It is safe for concurrent use.
 type Client struct {
-	base string
 	http *http.Client
 
 	mu    sync.Mutex
+	base  string
 	token string
 }
 
@@ -68,8 +68,33 @@ func New(base string, hc *http.Client) *Client {
 	return &Client{base: strings.TrimRight(base, "/"), http: hc}
 }
 
-// Base is the server's address, as given to New.
-func (c *Client) Base() string { return c.base }
+// Base is the server's address: the one given to New, or to SetBase since.
+// Empty means the server has not been found yet, and every call fails.
+func (c *Client) Base() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.base
+}
+
+// SetBase moves the client to another server, such as a queue manager found
+// at a new address. Calls already under way finish against the old one.
+func (c *Client) SetBase(base string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.base = strings.TrimRight(base, "/")
+}
+
+// ErrNoServer reports a call made before the server's address is known.
+var ErrNoServer = errors.New("the queue manager has not been found yet")
+
+// url is the full address of path under base, or ErrNoServer.
+func (c *Client) url(path string) (string, error) {
+	base := c.Base()
+	if base == "" {
+		return "", ErrNoServer
+	}
+	return base + path, nil
+}
 
 // SetToken sets the bearer token sent with every call. Empty sends none.
 func (c *Client) SetToken(token string) {
@@ -96,7 +121,11 @@ func (c *Client) call(ctx context.Context, method, path string, body, out any) e
 		}
 		rd = bytes.NewReader(b)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.base+"/api/v1"+path, rd)
+	target, err := c.url("/api/v1" + path)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, method, target, rd)
 	if err != nil {
 		return err
 	}
@@ -176,7 +205,11 @@ func (c *Client) CKCatalog(ctx context.Context) (wire.CKCatalog, error) {
 // DownloadSongDB writes the unit's song database to w, unless its hash is
 // sha256, in which case it writes nothing and reports false.
 func (c *Client) DownloadSongDB(ctx context.Context, sha256 string, w io.Writer) (bool, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/api/v1/ck/catalog/song.db", nil)
+	target, err := c.url("/api/v1/ck/catalog/song.db")
+	if err != nil {
+		return false, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return false, err
 	}

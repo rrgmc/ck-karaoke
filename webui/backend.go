@@ -178,6 +178,9 @@ var ErrNotAcknowledged = errors.New("command not acknowledged")
 var (
 	// ErrQueueManager: the queue manager does not answer.
 	ErrQueueManager = errors.New("the queue manager is unreachable")
+	// ErrNoQueueManager: no queue manager has been found yet, so there is
+	// no address to try.
+	ErrNoQueueManager = errors.New("no queue manager found yet")
 	// ErrAway: the queue manager answers, but the karaoke unit is not
 	// connected to it.
 	ErrAway = errors.New("the karaoke unit is not connected to the queue manager")

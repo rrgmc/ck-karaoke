@@ -13,7 +13,8 @@ import (
 )
 
 // The song list is the device's own song database. It normally comes from the
-// device over the session, the first time one comes up. Until then the Songs
+// device over the session, the first time one comes up, or for CK Queue
+// Remote from the queue manager. Until then the Songs
 // tab says what it is waiting for, and offers to import a copy of the file
 // instead, so an app that has never reached a device still has a way to a
 // song list.
@@ -39,6 +40,9 @@ type songListState struct {
 	Ready bool
 	// CanImport offers the import, which needs somewhere to write the file.
 	CanImport bool
+	// FromQueue words the page for the queue manager, which is where CK Queue
+	// Remote gets its song list, rather than for the device.
+	FromQueue bool
 }
 
 // Errors the song list pages show.
@@ -81,6 +85,8 @@ func (s *Server) songListNow() songListState {
 	defer s.listMu.Unlock()
 	st := s.listState
 	st.CanImport = s.songListPath != ""
+	_, unit := s.dev.(unitBackend)
+	st.FromQueue = !unit
 	return st
 }
 
@@ -92,19 +98,30 @@ func (s *Server) setSongListState(change func(*songListState)) {
 	s.publish(eventSongList, "_songlist.html", s.songListNow())
 }
 
-// downloadSongList fetches the song list over the device session, when there
-// is none and nothing is fetching it already. It runs when the session comes
-// up, and returns at once otherwise.
-func (s *Server) downloadSongList() {
-	if s.cat() != nil || s.songListPath == "" {
-		return
+// SongListFetcher writes the backend's song list to path. progress reports
+// the bytes so far and in all; total is 0 while it is unknown, and a fetcher
+// that cannot tell may never call it.
+type SongListFetcher func(ctx context.Context, path string, progress func(have, total int)) error
+
+// unitFetcher downloads the song list over the device session. The device
+// allows one connection at a time, so the download shares the session rather
+// than dialling its own.
+func unitFetcher(dev *Device) SongListFetcher {
+	return func(ctx context.Context, path string, progress func(have, total int)) error {
+		c, err := dev.get()
+		if err != nil {
+			return err
+		}
+		return catalog.Fetch(ctx, c, path, progress)
 	}
-	unit, ok := s.dev.(unitBackend)
-	if !ok {
-		return
-	}
-	c, err := unit.dev.get()
-	if err != nil {
+}
+
+// FetchSongList fetches the song list, when there is none and nothing is
+// fetching it already, and returns at once. The unit backend calls it itself
+// when the device session comes up; the queue backend's caller calls it when
+// the queue manager is reached.
+func (s *Server) FetchSongList() {
+	if s.cat() != nil || s.songListPath == "" || s.fetchSongList == nil {
 		return
 	}
 	s.listMu.Lock()
@@ -114,6 +131,7 @@ func (s *Server) downloadSongList() {
 	}
 	s.listState = songListState{Downloading: true}
 	s.listMu.Unlock()
+	s.publish(eventSongList, "_songlist.html", s.songListNow())
 
 	go func() {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -126,9 +144,9 @@ func (s *Server) downloadSongList() {
 			}
 		}()
 
-		s.logger.Info("downloading the song database from the device", "device", s.dev.Addr())
+		s.logger.Info("downloading the song database", "from", s.dev.Addr())
 		var lastPct int
-		err := catalog.Fetch(ctx, c, s.songListPath, func(have, total int) {
+		err := s.fetchSongList(ctx, s.songListPath, func(have, total int) {
 			// Published in whole percents: every chunk would be hundreds of
 			// updates to every open page.
 			pct := 0
