@@ -1,8 +1,8 @@
 {{define "setup.html"}}
 {{template "head" .}}
 
-{{/* No page heading: the ⚙ tab says where this is, and a phone has no room
-     to spare. */}}
+<h2 class="h5 my-2">{{t "Settings"}}</h2>
+
 {{if .HasSetup}}
 <div id="setup">
   {{template "_setup.html" .Setup}}
