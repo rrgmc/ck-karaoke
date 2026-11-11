@@ -9,13 +9,17 @@ run-name: >-
   && format('PR #{0}: {1}', github.event.pull_request.number, github.event.pull_request.title)
   || '' }}
 
-# Every pull request runs CI, a version bump included. Branch protection on
-# master requires these checks, and a required check that never starts blocks
-# the merge, so pull_request must have no path filter.
+# Branch protection on master requires one check, "CI passed", which the last
+# job reports. It passes when every other job passed or was skipped, so adding
+# or renaming a job needs no change to the protection.
 #
-# A push of version/VERSION alone does not run CI. It is a bump that already
-# passed CI as a pull request, and the tag that follows runs CI again through
-# the release workflow, before anything is built.
+# A pull request that changes only version/VERSION skips the build jobs: the
+# changes job finds nothing else changed. The workflow itself still runs on
+# every pull request, because a required check that never starts blocks the
+# merge, so pull_request must have no path filter.
+#
+# A push of version/VERSION alone does not run CI at all. The tag that follows a
+# bump runs the full CI through the release workflow, before anything is built.
 on:
   push:
     branches: [master]
@@ -34,8 +38,37 @@ concurrency:
   cancel-in-progress: ${{ github.event_name != 'workflow_call' }}
 
 jobs:
+  # Decides whether the build jobs run: "true" unless this is a pull request
+  # that changes only version/VERSION. A pull request is checked out as its
+  # merge into the base branch, whose first parent is the base, so a diff
+  # against that parent lists the pull request's changes. Pushes and release
+  # runs always build.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.diff.outputs.build }}
+    steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 2
+      - id: diff
+        run: |
+          build=true
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            changed=$(git diff --name-only HEAD^1 HEAD)
+            echo "Changed files:"; echo "$changed"
+            if [ "$changed" = version/VERSION ]; then
+              build=false
+            fi
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
   go:
     name: Go (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -72,6 +105,8 @@ jobs:
 
   desktop:
     name: Desktop (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -149,6 +184,8 @@ jobs:
   # needs WebKitGTK, from the packages the desktop job caches.
   queue-desktop:
     name: Queue manager tray (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -202,6 +239,8 @@ jobs:
 
   android:
     name: Android
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -219,6 +258,8 @@ jobs:
 
   ios:
     name: iOS
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -243,3 +284,23 @@ jobs:
         run: |
           XCODE="$(xcode-select -p | sed 's#/Contents/Developer##')" \
             ./ports/ios/package.sh "$RUNNER_TEMP/dist"
+
+  # The one check branch protection requires. always() makes it run even when a
+  # job it needs failed or was skipped, and it then fails unless every job
+  # passed or was skipped. Every job above must be listed in needs.
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [changes, go, desktop, queue-desktop, android, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for result in $RESULTS; do
+            case $result in
+              success|skipped) ;;
+              *) echo "A job did not pass."; exit 1 ;;
+            esac
+          done
