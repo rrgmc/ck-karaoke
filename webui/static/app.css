@@ -11,6 +11,11 @@
      but should not compete with the song name. */
   --muted-light: #868e96;
   --accent: #0d6efd;
+  /* Favorites' own colour, amber like the star. --fav-ink is the darker shade
+     for text and outlines on white, where amber itself is too faint to read. */
+  --fav: #f0a500;
+  --fav-ink: #9a6400;
+  --fav-bg: #fff6df;
 
   /* How much to keep clear at the bottom for the phone's gesture bar.
      env() is the right answer in a browser, but a plain Android WebView does
@@ -270,6 +275,52 @@ body {
 }
 
 .mode-toggle .btn { flex: 1; }
+
+/* Favorites in amber -------------------------------------------------------
+
+   Songs, artists and favorites share one layout: the same search box, the same
+   rows of a name and a count. In blue on white the three were easy to mix up,
+   so favorites takes the star's colour. The control block becomes an amber band
+   that runs to the screen edges (the shadow paints past the page padding and
+   clip-path keeps it from spilling above or below), and the blue controls in
+   it turn amber too. */
+.browse-favorites .browse-bar {
+  background: var(--fav-bg);
+  box-shadow: 0 0 0 100vmax var(--fav-bg);
+  clip-path: inset(0 -100vmax);
+  border-bottom: 2px solid var(--fav);
+  margin-bottom: 0.5rem;
+}
+
+.browse-favorites .browse-bar .btn-primary {
+  background: var(--fav);
+  border-color: var(--fav);
+  color: #000;
+}
+
+.browse-favorites .browse-bar .btn-outline-primary {
+  color: var(--fav-ink);
+  border-color: var(--fav);
+}
+
+.browse-favorites .browse-bar .btn-outline-primary:hover,
+.browse-favorites .browse-bar .btn-outline-primary:active {
+  background: var(--fav);
+  border-color: var(--fav);
+  color: #000;
+}
+
+/* The ★ tab keeps a hint of amber in the other two modes, so it reads as a
+   different kind of place before it is tapped. */
+.mode-toggle .btn-outline-primary:last-child { color: var(--fav-ink); }
+
+.folder-icon { color: var(--fav); flex: none; display: flex; }
+
+/* Inside a folder, the name is starred, like the tab that leads there. */
+.browse-favorites .artist-name::before {
+  content: "★ ";
+  color: var(--fav);
+}
 
 /* Leaving an artist or a folder was a plain text link, which read as part of
    the heading rather than as the way out. It is a bordered button now, and the
@@ -736,9 +787,9 @@ body:has(.htmx-request) { cursor: progress; }
    that is a browser quirk rather than a design, and it would not survive the
    next tap elsewhere. */
 .reveal-input:checked + .newfolder-btn {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  background: var(--fav);
+  border-color: var(--fav);
+  color: #000;
 }
 
 /* The checkbox carries no visible box, so its focus ring has to be drawn on the
@@ -751,15 +802,25 @@ body:has(.htmx-request) { cursor: progress; }
 .newfolder-form { display: none; margin-top: 0.4rem; }
 .browse-bar:has(.reveal-input:checked) .newfolder-form { display: flex; }
 
-/* Renaming, folded away inside the folder it belongs to. */
-.rename-folder { margin-top: 0.5rem; }
-.rename-folder summary {
-  color: var(--accent);
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding: 0.15rem 0;
+/* Rename follows Sync, and the pair sits at the right of the row like + Folder
+   and Backup on the folder list. Its panel opens the same way as the new-folder
+   one. */
+.filter-row .sync-btn { margin-left: auto; }
+.rename-btn { flex: none; min-width: 2.2rem; }
+
+.reveal-input:checked + .rename-btn {
+  background: var(--fav);
+  border-color: var(--fav);
+  color: #000;
 }
-.rename-folder form { margin-top: 0.4rem; }
+
+.reveal-input:focus-visible + .rename-btn {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.rename-form { display: none; margin-top: 0.4rem; }
+.browse-bar:has(#renamefolder:checked) .rename-form { display: flex; }
 
 .sync-intro,
 .sync-note {

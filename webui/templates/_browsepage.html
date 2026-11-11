@@ -4,8 +4,12 @@
      the toggle's active state and the search placeholder as well as the list,
      and it must carry whatever is currently *typed* in the box — hx-include
      reads the live input, where a server-rendered href would carry a stale
-     value from the last page render. */}}
-<div id="browse">
+     value from the last page render.
+
+     The mode class gives favorites a colour of its own. The three modes share
+     one layout, and without it the folders read as artists and a folder's
+     songs as the song list. */}}
+<div id="browse" class="browse-{{.Mode}}">
   <div class="browse-bar">
     <div class="mode-toggle" role="group">
       {{range modes}}
@@ -116,6 +120,15 @@
         <a class="btn btn-sm btn-outline-primary sync-btn" href="/favorites/sync/{{.FolderID}}"
            title="{{t "Sync %s with another device" .Folder.Name}}"
            aria-label="{{t "Sync this folder with another device"}}">⇄ {{t "Sync"}}</a>
+
+        {{/* Renaming lives inside the folder rather than on the list: it is the
+             one place the name is already the subject. A checkbox and label
+             like + Folder, for the same reason: the panel it opens has to live
+             outside this form. An icon alone, because the row is full on a
+             phone; the title and the label name it. */}}
+        <input type="checkbox" id="renamefolder" class="reveal-input">
+        <label for="renamefolder" class="btn btn-sm btn-outline-primary rename-btn"
+               title="{{t "Rename"}}" aria-label="{{t "Rename"}}">✎</label>
         {{end}}
       </div>
     </form>
@@ -148,19 +161,16 @@
       <a class="btn btn-sm btn-outline-primary back-btn" href="/?mode=favorites">‹ {{t "All folders"}}</a>
       <span class="artist-name">{{.Folder.Name}}</span>
     </div>
-    {{/* Renaming lives inside the folder rather than on the list: it is the one
-         place the name is already the subject, and it keeps a rarely-used
-         control off every row. Folded away for the same reason. */}}
-    <details class="rename-folder">
-      <summary>{{t "Rename"}}</summary>
-      <form class="input-group input-group-sm"
-            hx-post="/favorites/folders/{{.FolderID}}/rename?mode=favorites&folder={{.FolderID}}&fragment=browse"
-            hx-target="#browse" hx-swap="outerHTML" hx-push-url="false">
-        <input name="name" class="form-control" value="{{.Folder.Name}}" maxlength="60"
-               autocomplete="off" autocapitalize="words" enterkeyhint="done">
-        <button class="btn btn-outline-primary" type="submit">{{t "Save"}}</button>
-      </form>
-    </details>
+    {{/* Opened by the ✎ button in the row above, like the new-folder panel.
+         Placed after the folder name, so it opens right below what it changes. */}}
+    <form class="rename-form input-group input-group-sm"
+          hx-post="/favorites/folders/{{.FolderID}}/rename?mode=favorites&folder={{.FolderID}}&fragment=browse"
+          hx-target="#browse" hx-swap="outerHTML" hx-push-url="false">
+      <input name="name" class="form-control" value="{{.Folder.Name}}" maxlength="60"
+             autocomplete="off" autocapitalize="words" enterkeyhint="done"
+             aria-label="{{t "Rename"}}">
+      <button class="btn btn-outline-primary" type="submit">{{t "Save"}}</button>
+    </form>
     {{end}}
   </div>
 

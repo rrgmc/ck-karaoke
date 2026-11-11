@@ -1,9 +1,11 @@
 {{define "_rows.html"}}
 {{if .ShowingFolders}}
   {{/* Folders are the same shape of row as artists: a name, a count and a
-       chevron through to the songs inside. */}}
+       chevron through to the songs inside. The folder icon is what tells the
+       two lists apart at a glance. */}}
   {{range .Folders}}
-  <li class="queue-row">
+  <li class="queue-row folder-row">
+    <span class="folder-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3 5.5A1.5 1.5 0 0 1 4.5 4h5l2 2.5h8A1.5 1.5 0 0 1 21 8v10.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg></span>
     <a class="artist-link" href="/?mode=favorites&folder={{.ID}}">
       <span class="song-name">{{.Name}}</span>
       <span class="song-sub">{{tn .Songs "%d song" "%d songs"}}</span>

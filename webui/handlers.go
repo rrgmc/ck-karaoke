@@ -1159,7 +1159,9 @@ func templateFuncs(lang i18n.Lang) template.FuncMap {
 			return []struct{ Mode, Label string }{
 				{modeSongs, lang.T("Songs")},
 				{modeArtists, lang.T("Artists")},
-				{modeFavorites, "★"},
+				// Named as well as starred: a star alone left this tab easy
+				// to take for another view of the catalogue.
+				{modeFavorites, "★ " + lang.T("Favorites")},
 			}
 		},
 		// letters drives the initial-letter select, and is static for the same
