@@ -21,6 +21,7 @@ var knownErrors = []struct {
 	{ErrNoDevice, "No karaoke device has been found yet."},
 	{ErrNoQueueManager, "No queue manager has been found yet."},
 	{client.ErrBusy, "The device is not accepting connections."},
+	{client.ErrNotPlaying, "The queue can be reordered only while a song plays."},
 	{ErrQueueManager, "The queue manager is not answering."},
 	{ErrAway, "The karaoke machine is not connected to the queue manager."},
 	{ErrNeedsCode, "This needs an access code. Enter one on the Setup page."},

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rrgmc/ck-karaoke/i18n"
 )
@@ -17,10 +18,15 @@ func (s *Server) caps() Capabilities {
 	return s.dev.Capabilities()
 }
 
+// entryActionTimeout bounds moving or removing one queue entry.
+const entryActionTimeout = 15 * time.Second
+
 // entryAction moves or removes one queue entry and answers with the queue.
 func (s *Server) entryAction(w http.ResponseWriter, r *http.Request) {
 	lang := langOf(r)
-	ctx, cancel := deviceCtx()
+	// Longer than other commands: the unit moves a song by removing entries,
+	// waiting for its queue to show that, and adding them back.
+	ctx, cancel := context.WithTimeout(context.Background(), entryActionTimeout)
 	defer cancel()
 	if err := s.dev.EntryAction(ctx, r.PathValue("action"), r.PathValue("entry")); err != nil {
 		withToast(w, toastBad, errorText(lang, err))

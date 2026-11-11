@@ -24,8 +24,10 @@
             <button class="btn btn-outline-secondary icon-btn" title="{{t "Move up"}}" aria-label="{{t "Move up"}}"
                     hx-post="/queue/{{.EntryID}}/up" hx-target="#queue" hx-swap="innerHTML">↑</button>
             {{end}}
+            {{if lt .Position $.Total}}
             <button class="btn btn-outline-secondary icon-btn" title="{{t "Move down"}}" aria-label="{{t "Move down"}}"
                     hx-post="/queue/{{.EntryID}}/down" hx-target="#queue" hx-swap="innerHTML">↓</button>
+            {{end}}
             <button class="btn btn-outline-danger icon-btn"
                     title="{{t "Remove from queue"}}" aria-label="{{t "Remove from queue"}}"
                     hx-post="/queue/{{.EntryID}}/remove" hx-target="#queue"
