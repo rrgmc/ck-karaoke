@@ -108,6 +108,11 @@ request. It tests the library on Linux, Windows and macOS, vets and builds the
 desktop app on all three, builds the Android APK, and builds the iOS app for
 the simulator. It produces no downloads.
 
+A push or pull request that changes only `version/VERSION` does not run CI.
+The release tag runs it instead, before anything is built. This relies on
+branch protection requiring no status checks: a required check that never
+starts would block the merge.
+
 The version lives in [version/VERSION](../version/VERSION). The Go binaries
 embed it (package `version`; `ck-karaoke-server -version` prints it), and the
 Android, iOS and desktop builds take their version from it. The Android version
