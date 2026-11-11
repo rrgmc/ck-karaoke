@@ -63,6 +63,8 @@ requests, never to the unit. Its favorites are kept apart from CK Karaoke's.
 | Platform | File | Notes |
 |---|---|---|
 | Android 8 or later | `ck-queue-remote-<version>-android.apk` | Installs beside CK Karaoke. |
+| Windows 10 or 11 | `ck-queue-remote-<version>-windows-amd64-setup.exe` | Installs beside CK Karaoke. If SmartScreen warns you, choose **More info**, then **Run anyway**. |
+| macOS 10.13 or later | `ck-queue-remote-<version>-macos-universal.dmg` | Drag the app to Applications. Allow it to find devices on your local network. |
 | iPhone and iPad, iOS 15 or later | `ck-queue-remote-<version>-ios-unsigned.ipa` | Sign it as for CK Karaoke. |
 
 ## Getting started

@@ -69,6 +69,8 @@ dele ficam separados dos do CK Karaoke.
 | Plataforma | Arquivo | Observações |
 |---|---|---|
 | Android 8 ou superior | `ck-queue-remote-<versão>-android.apk` | É instalado ao lado do CK Karaoke. |
+| Windows 10 ou 11 | `ck-queue-remote-<versão>-windows-amd64-setup.exe` | É instalado ao lado do CK Karaoke. Se o SmartScreen avisar, escolha **Mais informações** e depois **Executar assim mesmo**. |
+| macOS 10.13 ou superior | `ck-queue-remote-<versão>-macos-universal.dmg` | Arraste o aplicativo para Aplicativos. Permita que ele encontre dispositivos na rede local. |
 | iPhone e iPad, iOS 15 ou superior | `ck-queue-remote-<versão>-ios-unsigned.ipa` | Assine-o como o do CK Karaoke. |
 
 ## Primeiros passos

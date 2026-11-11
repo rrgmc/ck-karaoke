@@ -1,4 +1,5 @@
-// Command desktop is CK Karaoke for Windows, macOS and Linux.
+// Command desktop is CK Karaoke for Windows, macOS and Linux, and with
+// -tags queue CK Queue Remote; see variant.go.
 //
 // It runs the same server as the phone ports, in-process on a goroutine, bound
 // to loopback on a free port. A Wails window shows a startup page from its own
@@ -31,14 +32,14 @@ func main() {
 
 	app := newApp()
 	err = wails.Run(&options.App{
-		Title:     "CK Karaoke",
+		Title:     variant.name,
 		Width:     480,
 		Height:    860,
 		MinWidth:  360,
 		MinHeight: 480,
 		// The startup page's own background, so the window does not flash white
 		// before it paints.
-		BackgroundColour: &options.RGBA{R: 0x37, G: 0x30, B: 0xA3, A: 0xFF},
+		BackgroundColour: &variant.background,
 		AssetServer:      &assetserver.Options{Assets: assets},
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,

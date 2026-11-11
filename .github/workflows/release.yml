@@ -105,8 +105,9 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  # CK Karaoke and CK Queue Remote, both from ports/desktop.
   windows:
-    name: Windows installer
+    name: Windows installers
     needs: [ci, version]
     runs-on: windows-latest
     defaults:
@@ -127,7 +128,9 @@ jobs:
           choco install nsis -y --no-progress
           echo "C:/Program Files (x86)/NSIS" >> "$GITHUB_PATH"
       - name: Package
-        run: ./package.sh ../../dist
+        run: |
+          ./package.sh ../../dist
+          ./package.sh --queue ../../dist
       - uses: actions/upload-artifact@v7
         with:
           name: windows
@@ -135,7 +138,7 @@ jobs:
           if-no-files-found: error
 
   macos:
-    name: macOS disk image
+    name: macOS disk images
     needs: [ci, version]
     runs-on: macos-latest
     defaults:
@@ -188,6 +191,7 @@ jobs:
             fi
           done
           ./package.sh ../../dist
+          ./package.sh --queue ../../dist
       - uses: actions/upload-artifact@v7
         with:
           name: macos

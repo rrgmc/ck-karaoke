@@ -219,6 +219,7 @@ var portuguese = map[string]string{
 	"Downloading the song list…": "Baixando a lista de músicas…",
 	"The server stopped:":        "O servidor parou:",
 	"CK Karaoke stopped":         "O CK Karaoke parou",
+	"CK Queue Remote stopped":    "O CK Queue Remote parou",
 	"Save favorites backup":      "Salvar backup dos favoritos",
 	"Favorites backup (*.xml)":   "Backup dos favoritos (*.xml)",
 
