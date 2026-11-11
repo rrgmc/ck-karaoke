@@ -23,7 +23,6 @@ var ErrOffline = errors.New("device is offline")
 // status possible at all: the device pushes state continuously and only to a
 // connected client.
 type Device struct {
-	addr     string
 	identity protocol.Identity
 	logger   *slog.Logger
 	onStatus func(*protocol.Status)
@@ -34,10 +33,16 @@ type Device struct {
 	// sending on request.
 	onQueue func(*protocol.Queue)
 
-	mu     sync.RWMutex
-	client *client.Client
-	err    error
-	since  time.Time
+	mu sync.RWMutex
+	// addr is where the device is dialled. A resolver may change it.
+	addr string
+	// resolve finds the device again after its address stopped answering.
+	// searchFirst makes Run search before its first dial as well.
+	resolve     Resolver
+	searchFirst bool
+	client      *client.Client
+	err         error
+	since       time.Time
 	// lastDialErr suppresses repeat notifications while reconnecting.
 	lastDialErr string
 	// lastStatus is when the device last pushed state. It broadcasts roughly
@@ -64,6 +69,50 @@ func NewDevice(addr string, identity protocol.Identity, logger *slog.Logger, onS
 		err:      ErrOffline,
 		suspendC: make(chan struct{}),
 	}
+}
+
+// Resolver searches the network for the device. current is the address in
+// use, which a resolver should keep when the device still answers there. It
+// returns the address to dial, or an error when no device answered.
+type Resolver func(ctx context.Context, current string) (string, error)
+
+// SetResolver makes Run search for the device whenever a dial fails, and
+// switch to the address the search finds. The device gets its address by DHCP,
+// so the one it was last seen at can go stale while the app is closed.
+//
+// With searchFirst, Run also searches before its first dial. That is for a
+// session started on a remembered address: dialling an address nothing answers
+// on takes up to DialTimeout to fail, while a search takes a few seconds.
+//
+// Call it before Run.
+func (d *Device) SetResolver(fn Resolver, searchFirst bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.resolve, d.searchFirst = fn, searchFirst
+}
+
+// research runs the resolver, if there is one, and moves to the address it
+// finds. A failed search keeps the current address: broadcasts can be dropped
+// on networks where a direct dial still works.
+func (d *Device) research(ctx context.Context) {
+	d.mu.RLock()
+	fn, current := d.resolve, d.addr
+	d.mu.RUnlock()
+	if fn == nil {
+		return
+	}
+	addr, err := fn(ctx, current)
+	if err != nil {
+		d.logger.Debug("device search found nothing; keeping the address", "addr", current, "error", err)
+		return
+	}
+	if addr == "" || addr == current {
+		return
+	}
+	d.mu.Lock()
+	d.addr = addr
+	d.mu.Unlock()
+	d.logger.Info("device found at a new address", "addr", addr, "was", current)
 }
 
 // Suspend closes the session and stops reconnecting until Resume is called.
@@ -164,14 +213,24 @@ func (d *Device) Run(ctx context.Context) {
 	backoff := time.Second
 	const maxBackoff = 30 * time.Second
 
+	d.mu.RLock()
+	search := d.searchFirst
+	d.mu.RUnlock()
+
 	for ctx.Err() == nil {
 		// Suspended sessions stay closed. Checked before dialling rather than
 		// after, so being suspended costs nothing at all.
 		if !d.waitResume(ctx) {
 			return
 		}
+		if search {
+			d.research(ctx)
+			if ctx.Err() != nil {
+				return
+			}
+		}
 		d.mu.RLock()
-		suspendC := d.suspendC
+		suspendC, addr := d.suspendC, d.addr
 		d.mu.RUnlock()
 
 		// Bounded, because Run's context is the process lifetime and carries no
@@ -182,15 +241,18 @@ func (d *Device) Run(ctx context.Context) {
 		// reconnect loop still looks healthy. A stale DHCP lease is enough to
 		// reach that, which is the ordinary way this device moves.
 		dialCtx, cancelDial := context.WithTimeout(ctx, DialTimeout)
-		c, err := client.Dial(dialCtx, d.addr, client.Options{
+		c, err := client.Dial(dialCtx, addr, client.Options{
 			Identity: &d.identity,
 			Logger:   d.logger,
 		})
 		cancelDial()
+		// A failed dial may mean the device has moved; a session that came up
+		// proves the address, so the next reconnect tries it first.
+		search = err != nil
 		if err != nil {
 			d.reportDialFailure(err)
 			d.setDown(err)
-			d.logger.Warn("device unreachable, retrying", "addr", d.addr, "error", err, "in", backoff)
+			d.logger.Warn("device unreachable, retrying", "addr", addr, "error", err, "in", backoff)
 			// Suspending during the backoff has to take effect now, not up to
 			// maxBackoff later: on iOS this runs while the app is being put away.
 			if !sleep(ctx, backoff, suspendC) {
@@ -339,8 +401,12 @@ func (d *Device) Online() bool {
 	return d.client != nil
 }
 
-// Addr returns the configured device address.
-func (d *Device) Addr() string { return d.addr }
+// Addr returns the device address in use.
+func (d *Device) Addr() string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.addr
+}
 
 // Identity returns the client identity this device session presents.
 func (d *Device) Identity() protocol.Identity { return d.identity }

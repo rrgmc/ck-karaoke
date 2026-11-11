@@ -165,10 +165,19 @@ restarts; the port moves every time.
 ## The device can be off
 
 Browsing, searching and favorites need no device. `Config.LastAddrFile`
-remembers where the device was last found. When discovery finds nothing **and** a
-catalogue already exists, the server starts offline on that address and
-`webui.Device` connects by itself when the unit comes back. With no catalogue
-the device is required, because it is the only source of one.
+remembers where the device was last found. When a catalogue already exists and
+an address is remembered, the server does not search before it serves: it
+starts on the remembered address straight away, so the app opens on the song
+list. `webui.Device` then searches in the background before its first dial, and
+again after every failed dial, because the unit's address comes from DHCP and
+can change. A search that finds the unit at a new address moves the session
+there and remembers it. A search that finds nothing keeps the old address,
+because some networks drop broadcasts while a direct dial still works. An
+address given with `Config.Addr` is never searched for.
+
+With no catalogue the server searches first, because the device is the only
+source of one. When that search finds nothing but a catalogue file exists, the
+server starts offline on the remembered address.
 
 With no catalogue, `Config.WaitForDevice` keeps searching instead of failing,
 and `Config.Searching` tells the caller each time a search comes back empty. The
