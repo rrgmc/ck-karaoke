@@ -39,7 +39,8 @@ type pageData struct {
 	// PeerApp names the other app on this phone that favorites can be sent
 	// to, or is empty.
 	PeerApp string
-	// HasSetup offers the Setup tab: the backend has something to set up.
+	// HasSetup marks a backend with a Setup of its own, the queue manager's.
+	// The Settings tab is there either way.
 	HasSetup bool
 	// Caps is what the backend can do, for the tab bar.
 	Caps Capabilities
@@ -52,8 +53,10 @@ type pageData struct {
 	Sync   syncData
 	Backup backupData
 	Setup  setupData
-	Mine   mineData
-	Host   hostData
+	// Settings is the part of the Settings page every build has.
+	Settings settingsData
+	Mine     mineData
+	Host     hostData
 	// SongList is what the Songs tab shows while there is no song list.
 	SongList songListState
 }

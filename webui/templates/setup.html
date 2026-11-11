@@ -1,10 +1,57 @@
 {{define "setup.html"}}
 {{template "head" .}}
 
-<h2 class="h5 my-2">{{t "Setup"}}</h2>
+<h2 class="h5 my-2">{{t "Settings"}}</h2>
+
+{{if .HasSetup}}
 <div id="setup">
   {{template "_setup.html" .Setup}}
 </div>
+{{end}}
+
+{{with .Settings}}
+<section class="setup">
+  {{/* The language of the app, remembered per device. Each language is named
+       in itself, so someone who cannot read the current one can still find
+       theirs. The server answers with a full reload. */}}
+  <h3 class="h6 mt-3">{{t "Language of the app"}}</h3>
+  <select name="lang" class="form-select" aria-label="{{t "Language of the app"}}"
+          hx-post="/language" hx-trigger="change" hx-params="lang">
+    <option value="" {{if eq .LangChoice ""}}selected{{end}}>{{t "System language"}}</option>
+    <option value="en" lang="en" {{if eq .LangChoice "en"}}selected{{end}}>English</option>
+    <option value="pt-BR" lang="pt-BR" {{if eq .LangChoice "pt-BR"}}selected{{end}}>Português</option>
+  </select>
+
+  {{if .HasName}}
+  <div id="settings-name">
+    {{template "_settings_name.html" .}}
+  </div>
+  {{end}}
+
+  <h3 class="h6 mt-3">{{t "Song list"}}</h3>
+  {{if .HasSongs}}
+  <p class="text-secondary small">{{tn .Songs.Songs "%d song" "%d songs"}}</p>
+  {{/* A plain link, not htmx: the response is a file. */}}
+  <a class="btn btn-outline-primary" href="/songlist/song.db">⇩ {{t "Save the song list"}}</a>
+  <p class="text-secondary small mt-2">{{t "Another phone with this app can import the file on its Songs tab, when it cannot reach the karaoke machine to download the list itself."}}</p>
+  {{else}}
+  <p class="text-secondary small">{{t "There is no song list yet."}}</p>
+  <a class="btn btn-outline-primary" href="/songlist/import">{{t "Import a song list"}}</a>
+  {{end}}
+</section>
+{{end}}
 
 {{template "foot" .}}
+{{end}}
+
+{{/* The name the karaoke machine shows beside songs queued from this app.
+     Swapped whole after a save. */}}
+{{define "_settings_name.html"}}
+<h3 class="h6 mt-3">{{t "Name on the karaoke machine"}}</h3>
+<p class="text-secondary small">{{t "Shown beside the songs this app adds to the queue."}}</p>
+<form class="d-flex gap-2" hx-post="/setup/name" hx-target="#settings-name" autocomplete="off">
+  <input class="form-control" name="name" value="{{.Name}}" aria-label="{{t "Name on the karaoke machine"}}">
+  <button class="btn btn-primary" type="submit">{{t "Save"}}</button>
+</form>
+{{with .NameErr}}<p class="text-danger small mt-2">{{.}}</p>{{end}}
 {{end}}

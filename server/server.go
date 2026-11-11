@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -172,6 +173,15 @@ func Run(ctx context.Context, cfg Config) error {
 	if cfg.Name != "" {
 		identity.Name = protocol.CleanName(cfg.Name)
 	}
+	// A name set on the Settings page wins over the default the port passes,
+	// such as the phone's model.
+	nameFile := ""
+	if cfg.SongDB != "" {
+		nameFile = filepath.Join(filepath.Dir(cfg.SongDB), "name.txt")
+		if name := webui.ReadName(nameFile); name != "" {
+			identity.Name = name
+		}
+	}
 
 	// The device is found by searching. Hardcoding an address only ever worked
 	// on the network it was written on.
@@ -213,6 +223,7 @@ func Run(ctx context.Context, cfg Config) error {
 		SaveFile:          cfg.SaveFile,
 		PeerApp:           cfg.PeerApp,
 		SongListPath:      cfg.SongDB,
+		NameFile:          nameFile,
 	})
 	if err != nil {
 		if songs != nil {

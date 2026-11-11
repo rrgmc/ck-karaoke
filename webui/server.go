@@ -34,6 +34,9 @@ type Server struct {
 	// songListPath is where a downloaded or imported song list is written,
 	// or empty when the caller offers neither.
 	songListPath string
+	// nameFile keeps the session name set on the Settings page, or is empty
+	// when the name cannot be changed there.
+	nameFile string
 	// fetchSongList brings a song list from the backend; see FetchSongList.
 	fetchSongList SongListFetcher
 	listMu        sync.Mutex
@@ -102,6 +105,11 @@ type Options struct {
 	// over the device session.
 	FetchSongList SongListFetcher
 
+	// NameFile keeps the name the unit shows beside songs queued from this
+	// app, as set on the Settings page; see ReadName. Empty hides the setting.
+	// Only the unit backend uses it.
+	NameFile string
+
 	// PeerApp names the other app on this phone, CK Karaoke or CK Queue
 	// Remote, when it is installed. The favorites pages then offer to send a
 	// folder or a backup to it through a ckpeer: link, which the phone port
@@ -124,6 +132,7 @@ func New(dev Backend, songs *catalog.DB, favs *favorites.DB, logger *slog.Logger
 		dev: dev, favs: favs, logger: logger,
 		songListPath:  opts.SongListPath,
 		fetchSongList: opts.FetchSongList,
+		nameFile:      opts.NameFile,
 		tmpl:          byLang[i18n.English], byLang: byLang,
 		hub: newHub(), stopping: make(chan struct{}),
 		allowFolderDelete: opts.AllowFolderDelete,
@@ -345,6 +354,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /setup", s.setupPage)
 	mux.HandleFunc("POST /setup/code", s.enterCode)
 	mux.HandleFunc("POST /setup/forget", s.forgetCode)
+	mux.HandleFunc("POST /setup/name", s.setSessionName)
 
 	mux.HandleFunc("POST /language", s.setLanguage)
 	mux.HandleFunc("POST /control/{action}", s.control)
