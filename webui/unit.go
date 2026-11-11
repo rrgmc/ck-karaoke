@@ -81,11 +81,31 @@ func (u unitBackend) SongAction(ctx context.Context, action, songID string) erro
 	}))
 }
 
-// EntryAction is not offered: the unit's queue has no entry ids.
-func (u unitBackend) EntryAction(context.Context, string, string) error { return ErrUnsupported }
+// EntryAction moves or removes a queued song. The unit's queue has no entry
+// ids, but it holds each song at most once, so the song id serves as one.
+func (u unitBackend) EntryAction(ctx context.Context, action, songID string) error {
+	err := u.dev.Do(func(c *client.Client) error {
+		switch action {
+		case "up":
+			return c.MoveInQueue(ctx, songID, -1)
+		case "down":
+			return c.MoveInQueue(ctx, songID, 1)
+		case "remove":
+			return c.RemoveFromQueue(ctx, songID)
+		default:
+			return fmt.Errorf("unknown action %q", action)
+		}
+	})
+	if action == "remove" {
+		return unitAck(err)
+	}
+	// A move waits for the queue between commands, so a deadline means it
+	// stopped partway, not that an echo went missing.
+	return err
+}
 
-// Capabilities are the zero value, which is the unit's.
-func (u unitBackend) Capabilities() Capabilities { return Capabilities{} }
+// Capabilities are the unit's: queued songs are moved and removed by song id.
+func (u unitBackend) Capabilities() Capabilities { return Capabilities{EntryIDs: true} }
 
 func (u unitBackend) OnStatus(fn func(*Status)) {
 	u.dev.OnStatus(func(st *protocol.Status) { fn(unitStatus(st)) })
@@ -141,7 +161,7 @@ func unitQueue(q *protocol.Queue) *Queue {
 	}
 	out := &Queue{Total: q.Total, Start: q.Start, Entries: make([]QueueEntry, len(q.Entries))}
 	for i, e := range q.Entries {
-		out.Entries[i] = QueueEntry{SongID: e.SongID, By: e.QueuedBy()}
+		out.Entries[i] = QueueEntry{EntryID: e.SongID, SongID: e.SongID, By: e.QueuedBy()}
 	}
 	return out
 }

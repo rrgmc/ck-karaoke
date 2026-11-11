@@ -47,7 +47,7 @@ func TestUnitQueueNamesWhoQueuedEachSong(t *testing.T) {
 	}})
 	require.NotNil(t, q)
 	assert.Equal(t, Queue{Total: 7, Start: 5, Entries: []QueueEntry{
-		{SongID: "1001", By: "Pixel 8"},
-		{SongID: "1002"},
+		{EntryID: "1001", SongID: "1001", By: "Pixel 8"},
+		{EntryID: "1002", SongID: "1002"},
 	}}, *q)
 }

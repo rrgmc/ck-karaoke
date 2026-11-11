@@ -109,6 +109,9 @@ The **Now** tab shows the song that is playing and controls the unit:
 ### Queue
 
 The **Queue** tab shows the songs waiting to play. Tap **✕** to remove a song.
+Tap **↑** or **↓** to move a song one place. The unit cannot reorder its queue,
+so the app removes songs and adds them back. This works only while a song
+plays, takes a few seconds, and songs added back show this app's name.
 
 ### Favorites
 

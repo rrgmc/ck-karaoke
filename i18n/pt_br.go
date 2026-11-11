@@ -298,6 +298,7 @@ var portuguese = map[string]string{
 	"control playback and the queue":                         "controlar a música e a fila",
 	"run the evening":                                        "organizar a noite",
 	"This is not available here.":                            "Isto não está disponível aqui.",
+	"The queue can be reordered only while a song plays.":    "A fila só pode ser reordenada enquanto uma música toca.",
 	"A folder needs a name.":                                 "A pasta precisa de um nome.",
 	"A folder with that name already exists.":                "Já existe uma pasta com esse nome.",
 	"This is the only folder left, so it cannot be deleted.": "Esta é a única pasta que sobrou, então não pode ser excluída.",

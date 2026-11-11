@@ -117,7 +117,10 @@ A aba **Tocando** mostra a música que está tocando e controla o aparelho:
 ### Fila
 
 A aba **Fila** mostra as músicas que aguardam para tocar. Toque em **✕** para
-remover uma música.
+remover uma música. Toque em **↑** ou **↓** para mover uma música uma posição.
+O aparelho não reordena a fila, então o app remove músicas e as adiciona de
+novo. Isso só funciona enquanto uma música toca, leva alguns segundos, e as
+músicas adicionadas de novo mostram o nome deste app.
 
 ### Favoritos
 
