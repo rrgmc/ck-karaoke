@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -309,4 +310,16 @@ func (s *Server) folderName(r *http.Request, id int) string {
 		return ""
 	}
 	return f.Name
+}
+
+// isFavorite reports whether a song is filed in any folder, for a star drawn
+// outside the song list. A failed lookup draws the star empty: tapping it
+// opens the picker, which reads the folders again.
+func (s *Server) isFavorite(ctx context.Context, songID int) bool {
+	in, err := s.favs.FoldersForSong(ctx, songID)
+	if err != nil {
+		s.logger.Error("reading folders for song", "song", songID, "error", err)
+		return false
+	}
+	return len(in) > 0
 }

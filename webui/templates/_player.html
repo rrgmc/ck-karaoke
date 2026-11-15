@@ -5,6 +5,11 @@
     <p class="song-meta">
       {{if .Artist}}{{.Artist}}{{else}}&nbsp;{{end}}
       {{if .SongID}}<span class="song-id">#{{.SongID}}</span>{{end}}
+      {{/* Not hx-preserve like the controls below: whether the song is a
+           favorite changes, and each push redraws the star from the database.
+           The star opens the sheet, so losing focus on a redraw costs
+           nothing. */}}
+      {{if .FavID}}{{template "_star" (star .FavID .Fav false)}}{{end}}
     </p>
     <p class="position">{{.Position}}</p>
   {{else}}

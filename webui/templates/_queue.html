@@ -16,6 +16,15 @@
         <div class="song-name">{{if .Title}}{{.Title}}{{else}}{{t "Song %s" .SongID}}{{end}}</div>
         <div class="song-line">
           <div class="song-sub">{{.Artist}} <span class="song-id">#{{.SongID}}</span>{{if .By}} <span class="queued-by">{{.By}}</span>{{end}}</div>
+          {{/* Apart from the queue actions, as on the song list, because the
+               unit-only reply to remove replaces #qsong-… wholesale.
+
+               A song queued twice gives two stars with the same id. htmx
+               swaps every match of an out-of-band id, so the picker updates
+               both. */}}
+          {{if .FavID}}
+          <div class="song-actions">{{template "_star" (star .FavID .Fav false)}}</div>
+          {{end}}
           {{if $.Caps.EntryIDs}}
           {{/* Entries have ids, so each acts on itself even when one song is
                queued twice, and the answer is the whole list. */}}
