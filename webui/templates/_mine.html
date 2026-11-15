@@ -20,6 +20,13 @@
     <div class="song-name">{{if .Title}}{{.Title}}{{else}}{{t "Song %s" .SongID}}{{end}}</div>
     <div class="song-line">
       <div class="song-sub">{{.Artist}} <span class="request-state">{{template "_requeststate" .}}</span></div>
+      {{/* Every request keeps its star, a sung one most of all: liking a
+           song after singing it is the usual reason to file it. A song asked
+           for twice gives two stars with one id, and htmx swaps every match
+           of an out-of-band id, so the picker updates both. */}}
+      {{if .FavID}}
+      <div class="song-actions">{{template "_star" (star .FavID .Fav false)}}</div>
+      {{end}}
       {{if or (eq .State "waiting") (eq .State "queued")}}
       <div class="song-actions">
         <button class="btn btn-outline-danger icon-btn" title="{{t "Withdraw"}}" aria-label="{{t "Withdraw"}}"

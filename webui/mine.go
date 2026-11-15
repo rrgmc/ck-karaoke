@@ -48,6 +48,11 @@ type mineRequest struct {
 	MyRequest
 	Title  string
 	Artist string
+	// FavID is SongID as a number, for the favorites star; zero when the id
+	// is not a number, and then the star is left out.
+	FavID int
+	// Fav reports whether the song is filed in any favorites folder.
+	Fav bool
 }
 
 func (s *Server) singer() (Singer, bool) {
@@ -74,10 +79,18 @@ func (s *Server) mineData(ctx context.Context, lang i18n.Lang) mineData {
 			}
 		}
 	}
+	// A failed lookup leaves the stars empty; the picker reads them again.
+	favorited, err := s.favs.FavoritedIDs(ctx, ids)
+	if err != nil {
+		s.logger.Error("reading favorites for my songs", "error", err)
+	}
 	for _, rq := range d.Me.Requests {
 		mr := mineRequest{MyRequest: rq}
 		if n, err := strconv.Atoi(rq.SongID); err == nil {
 			mr.Title, mr.Artist = titles[n].Title, titles[n].Artist
+			if n > 0 {
+				mr.FavID, mr.Fav = n, favorited[n]
+			}
 		}
 		d.Requests = append(d.Requests, mr)
 	}

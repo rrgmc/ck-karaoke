@@ -77,6 +77,11 @@ type playerData struct {
 	Echo     int
 	Lyrics   []string
 	Caps     Capabilities
+	// FavID is SongID as a number, for the favorites star; zero when the song
+	// has no usable id, and then the star is left out.
+	FavID int
+	// Fav reports whether the song is filed in any favorites folder.
+	Fav bool
 }
 
 // Browse modes.
@@ -353,6 +358,11 @@ type queueEntry struct {
 	Artist string
 	// By names the client that reserved it, which the device records per entry.
 	By string
+	// FavID is SongID as a number, for the favorites star; zero when the id
+	// is not a number, and then the star is left out.
+	FavID int
+	// Fav reports whether the song is filed in any favorites folder.
+	Fav bool
 }
 
 // bannerData drives the connection strip at the top of every page.
@@ -376,6 +386,10 @@ func (s *Server) playerData(st *Status) playerData {
 
 	// The status carries the song name but not the artist, so fill it in from
 	// the catalogue.
+	if id, err := strconv.Atoi(st.SongID); err == nil && id > 0 {
+		d.FavID = id
+		d.Fav = s.isFavorite(context.Background(), id)
+	}
 	if s.cat() != nil && st.SongID != "" {
 		if id, err := strconv.Atoi(st.SongID); err == nil {
 			if song, err := s.cat().Song(context.Background(), id); err == nil {
@@ -954,10 +968,19 @@ func (s *Server) describeQueue(ctx context.Context, q *Queue) queueData {
 	if s.cat() != nil {
 		titles, _ = s.cat().Songs(ctx, ids)
 	}
+	// A failed lookup leaves every star empty, which is no worse than a
+	// queue without stars; tapping one still opens the picker with the truth.
+	favorited, err := s.favs.FavoritedIDs(ctx, ids)
+	if err != nil {
+		s.logger.Error("reading favorites for the queue", "error", err)
+	}
 
 	for i, e := range q.Entries {
 		entry := queueEntry{Position: q.Start + i + 1, EntryID: e.EntryID, SongID: e.SongID, By: e.By}
 		if id, err := strconv.Atoi(e.SongID); err == nil {
+			if id > 0 {
+				entry.FavID, entry.Fav = id, favorited[id]
+			}
 			if song, ok := titles[id]; ok {
 				entry.Title, entry.Artist = song.Title, song.Artist
 			}

@@ -106,6 +106,41 @@ func TestQueueRemoveAsksFirst(t *testing.T) {
 	assert.Contains(t, got, `hx-confirm="Remove “A DAY IN THE LIFE” from the queue?"`)
 }
 
+// A song can be filed from wherever it shows up, not only from the song list:
+// the Now tab, the queue, and a guest's own requests. A song id the catalogue
+// cannot use as a number gets no star, since the picker could not file it.
+func TestStarsOutsideTheSongList(t *testing.T) {
+	tmpl := templates(t)
+	render := func(name string, data any) string {
+		t.Helper()
+		var buf bytes.Buffer
+		require.NoError(t, tmpl.ExecuteTemplate(&buf, name, data))
+		return buf.String()
+	}
+	const filed = `id="fav-2511" class="btn icon-btn star-btn btn-warning"`
+	const empty = `id="fav-77" class="btn icon-btn star-btn btn-outline-secondary"`
+
+	player := render("_player.html", playerData{HasSong: true, Title: "A DAY IN THE LIFE", SongID: "2511", FavID: 2511, Fav: true})
+	assert.Contains(t, player, filed)
+	assert.Contains(t, player, `hx-get="/favorites/sheet/2511"`)
+
+	queue := render("_queue.html", queueData{Total: 3, Entries: []queueEntry{
+		{Position: 1, SongID: "2511", FavID: 2511, Fav: true},
+		{Position: 2, SongID: "77", FavID: 77},
+		{Position: 3, SongID: "abc"},
+	}})
+	assert.Contains(t, queue, filed)
+	assert.Contains(t, queue, empty)
+	assert.Equal(t, 2, strings.Count(queue, "star-btn"), "no star for an id that is not a number")
+
+	mine := render("_mine.html", mineData{Me: Me{Accepting: true}, Requests: []mineRequest{
+		{MyRequest: MyRequest{SongID: "2511", State: "played"}, FavID: 2511, Fav: true},
+		{MyRequest: MyRequest{SongID: "77", State: "waiting"}, FavID: 77},
+	}})
+	assert.Contains(t, mine, filed)
+	assert.Contains(t, mine, empty)
+}
+
 // WKWebView answers confirm() with Cancel unless the app handles it, so every
 // page carries its own dialog for the hx-confirm questions, in its language.
 func TestPagesCarryTheConfirmDialog(t *testing.T) {
@@ -125,16 +160,22 @@ func TestPagesCarryTheConfirmDialog(t *testing.T) {
 // without hx-preserve is destroyed and rebuilt about thirty times a minute —
 // which is what made a tapped button flicker. Preserving needs a unique id on
 // each one, so a duplicate would silently break it.
+//
+// The favorites star is the one exception. A preserved star would keep its old
+// state when another phone files the song, and it only opens the picker, so a
+// redraw under a finger costs nothing.
 func TestPlayerButtonsSurviveSwaps(t *testing.T) {
 	tmpl := templates(t)
 
 	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, "_player.html", playerData{Online: true, HasSong: true}); err != nil {
+	if err := tmpl.ExecuteTemplate(&buf, "_player.html", playerData{Online: true, HasSong: true, FavID: 2511}); err != nil {
 		t.Fatalf("rendering player: %v", err)
 	}
 	html := buf.String()
 
-	buttons := strings.Count(html, "<button")
+	stars := strings.Count(html, "star-btn")
+	require.Equal(t, 1, stars, "the player shows the favorites star")
+	buttons := strings.Count(html, "<button") - stars
 	preserved := strings.Count(html, `hx-preserve="true"`)
 	if buttons != preserved {
 		t.Errorf("%d buttons but %d preserved; the unpreserved ones will flicker", buttons, preserved)
