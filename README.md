@@ -138,8 +138,8 @@ The receiving phone adds the songs it does not have yet. Neither phone ever
 removes a song. To make both folders match, repeat the steps in the other
 direction.
 
-To keep a copy of every folder, tap **Backup** in the folder list. A backup is
-an XML file that you can save and later import on any phone or computer.
+To keep a copy of every folder, open **Settings** and tap **Save or restore all
+favorites**. A backup is an XML file that you can save and later import on any phone or computer.
 
 ## Troubleshooting
 

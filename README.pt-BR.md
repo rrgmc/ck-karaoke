@@ -149,8 +149,8 @@ O celular que recebe adiciona as músicas que ainda não tem. Nenhum dos dois
 celulares remove músicas. Para deixar as duas pastas iguais, repita os passos
 no sentido contrário.
 
-Para guardar uma cópia de todas as pastas, toque em **Backup** na lista de
-pastas. Um backup é um arquivo XML que você pode salvar e importar depois em
+Para guardar uma cópia de todas as pastas, abra **Ajustes** e toque em
+**Salvar ou restaurar todos os favoritos**. Um backup é um arquivo XML que você pode salvar e importar depois em
 qualquer celular ou computador.
 
 ## Solução de problemas
