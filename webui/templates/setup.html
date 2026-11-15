@@ -48,6 +48,12 @@
   <p class="text-secondary small">{{t "There is no song list yet."}}</p>
   <a class="btn btn-outline-primary" href="/songlist/import">{{t "Import a song list"}}</a>
   {{end}}
+
+  {{/* Backup covers the whole favorites database, every folder at once, so
+       it lives here rather than beside any one folder. A plain link: the
+       backup pages are ordinary navigations. */}}
+  <h3 class="h6 mt-3">{{t "Favorites"}}</h3>
+  <a class="btn btn-outline-primary" href="/favorites/backup">⇩ {{t "Save or restore all favorites"}}</a>
 </section>
 {{end}}
 

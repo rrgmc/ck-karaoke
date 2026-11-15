@@ -341,9 +341,9 @@ func TestRestoreRefusesAnOversizedFile(t *testing.T) {
 	assert.Contains(t, body, "larger than 8 MB")
 }
 
-// Backup is reachable from the folder list and nowhere else — the mirror of sync
-// being reachable only from inside a folder.
-func TestBackupIsOfferedOnTheFolderListOnly(t *testing.T) {
+// Backup covers every folder, so it lives on the Settings page, not on the
+// folder list or inside a folder.
+func TestBackupIsOfferedOnTheSettingsPageOnly(t *testing.T) {
 	s := backupServer(t)
 	folders, err := s.favs.Folders(context.Background())
 	require.NoError(t, err)
@@ -351,13 +351,17 @@ func TestBackupIsOfferedOnTheFolderListOnly(t *testing.T) {
 	list := render(t, s, "_browsepage.html", pageData{
 		Browse: browseData{Mode: modeFavorites, Folders: folders},
 	})
-	assert.Contains(t, list, `href="/favorites/backup"`)
+	assert.NotContains(t, list, `href="/favorites/backup"`)
 
 	inside := render(t, s, "_browsepage.html", pageData{
 		Browse: browseData{Mode: modeFavorites, FolderID: folders[0].ID, Folder: folders[0]},
 	})
 	assert.NotContains(t, inside, `href="/favorites/backup"`)
 	assert.Contains(t, inside, "/favorites/sync/", "sync is what belongs inside a folder")
+
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/setup", nil))
+	assert.Contains(t, w.Body.String(), `href="/favorites/backup"`)
 }
 
 // Nothing on these pages is htmx: the export has to be a real navigation the

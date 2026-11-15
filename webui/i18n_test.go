@@ -253,12 +253,12 @@ func TestSetLanguage(t *testing.T) {
 	assert.Empty(t, w.Result().Cookies())
 }
 
-func TestFolderListShowsTheLanguageChoice(t *testing.T) {
+func TestSettingsPageShowsTheLanguageChoice(t *testing.T) {
 	s := &Server{tmpl: templates(t)}
 	render := func(choice i18n.Lang) string {
-		data := pageData{Browse: browseData{Mode: modeFavorites, LangChoice: choice}}
+		data := pageData{Settings: settingsData{LangChoice: choice}}
 		var buf strings.Builder
-		require.NoError(t, s.templates(i18n.English).ExecuteTemplate(&buf, "browse.html", data))
+		require.NoError(t, s.templates(i18n.English).ExecuteTemplate(&buf, "setup.html", data))
 		return buf.String()
 	}
 

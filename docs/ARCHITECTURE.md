@@ -289,8 +289,8 @@ the person next to you. Both meet only at `favorites.DB.EnsureFolder` and
 `AddSongs`. Unknown song ids are kept on export and dropped on import, so a
 folder never claims more songs than it can list.
 
-Sharing is reachable only from inside a folder and backup only from the folder
-list, so neither screen asks a question its own location already answers.
+Sharing is reachable only from inside a folder, so its screen never asks which
+folder. Backup covers every folder and is reachable from the Settings page.
 
 ## Camera, downloads and file pickers
 

@@ -93,7 +93,7 @@ func backupFilename(now time.Time) string {
 // intentions and this never guesses which, the way the sync pages never guess
 // which side of an exchange you are on.
 func (s *Server) backupChoose(w http.ResponseWriter, r *http.Request) {
-	data := backupData{Filename: backupFilename(time.Now()), Back: "/?mode=favorites"}
+	data := backupData{Filename: backupFilename(time.Now()), Back: "/setup"}
 
 	folders, err := s.favs.Folders(r.Context())
 	if err != nil {

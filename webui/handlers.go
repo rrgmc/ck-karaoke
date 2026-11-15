@@ -145,11 +145,6 @@ type browseData struct {
 	// Caps is what the backend can do: whether + requests or queues, and
 	// whether the play-now controls exist.
 	Caps Capabilities
-
-	// LangChoice is the language picked on this device for the app itself, or
-	// "" to follow the system. Not to be confused with Languages, the song
-	// languages of the catalogue.
-	LangChoice i18n.Lang
 }
 
 // ShowingArtists reports whether the paging list holds artists. Drilling into an
@@ -691,7 +686,6 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 		s.rememberShowActions(w, data.ShowExtraActions)
 	}
 	data.Lang = langOf(r)
-	data.LangChoice = recallLang(r)
 	data.Caps = s.caps()
 
 	if s.cat() == nil {
