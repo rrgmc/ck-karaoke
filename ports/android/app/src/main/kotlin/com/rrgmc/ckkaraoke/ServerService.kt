@@ -72,6 +72,18 @@ class ServerService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_REPOST) {
+            // The user dismissed the notification. Show it again while the
+            // server runs. A dismissal that reaches a service with no server
+            // behind it has nothing to keep visible, so that service stops.
+            if (Server.isRunning) {
+                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                manager.notify(NOTIFICATION_ID, notification())
+            } else {
+                stopSelf()
+            }
+            return START_NOT_STICKY
+        }
         Server.start(this, intent?.getStringExtra(EXTRA_ADDRESS))
         cancelGrace()
 
@@ -140,12 +152,23 @@ class ServerService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
+        // From Android 14 the user can dismiss a foreground service's
+        // notification even when it is ongoing. The delete intent posts it
+        // again, so it stays visible while the server is connected. The Stop
+        // action is the way to end the session from the notification.
+        val repost = PendingIntent.getService(
+            this, 2,
+            Intent(this, ServerService::class.java).setAction(ACTION_REPOST),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
         return builder
             .setContentTitle(getString(R.string.notification_title))
             .setContentText(getString(R.string.notification_text))
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(open)
             .setOngoing(true)
+            .setDeleteIntent(repost)
             .addAction(
                 Notification.Action.Builder(
                     Icon.createWithResource(this, android.R.drawable.ic_menu_close_clear_cancel),
@@ -158,6 +181,7 @@ class ServerService : Service() {
     companion object {
         const val EXTRA_ADDRESS = "device_address"
         const val ACTION_STOP = "com.rrgmc.ckkaraoke.STOP"
+        const val ACTION_REPOST = "com.rrgmc.ckkaraoke.REPOST"
         private const val CHANNEL = "ckkaraoke-server"
         private const val NOTIFICATION_ID = 1
 
