@@ -150,6 +150,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.rrgmc.ckqueueremote
+        # Amber to rose, as on Android and the desktop. Both icon sets are in
+        # the shared asset catalog; each app compiles only the one named here.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconQueue
     info:
       # Generated, like CKKaraoke/Info.plist, and beside it so both stay out
       # of the sources.

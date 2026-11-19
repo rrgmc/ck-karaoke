@@ -91,9 +91,11 @@ var targets = []target{
 	{"ports/queue-desktop/appicon.ico", 256, 256, 1.2, false, true},
 }
 
-// queueTargets are CK Queue Remote's desktop icons, on its own background.
-// ports/desktop/package.sh --queue puts them in place of CK Karaoke's.
+// queueTargets are CK Queue Remote's icons, on its own background.
+// ports/desktop/package.sh --queue puts the desktop ones in place of CK
+// Karaoke's; the iOS target names its own icon set in ports/ios/project.yml.
 var queueTargets = []target{
+	{"ports/ios/CKKaraoke/Assets.xcassets/AppIconQueue.appiconset/icon-1024.png", 1024, 1024, 1.2, false, false},
 	{"ports/desktop/build/queue/appicon.png", 1024, 1024, 1.2, false, false},
 	{"ports/desktop/build/queue/icon.ico", 256, 256, 1.2, false, true},
 }
